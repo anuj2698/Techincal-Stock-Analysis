@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Watchlist Scanner</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+
+    .header { text-align: center; padding: 2.5rem 1rem 1.5rem; }
+    .header h1 { font-size: 1.8rem; font-weight: 600; color: #fff; }
+    .header p { color: #8b949e; margin-top: 0.4rem; font-size: 0.95rem; }
+
+    .search-box { max-width: 560px; margin: 0 auto 2rem; padding: 0 1rem; }
+    .search-form { display: flex; gap: 0.5rem; }
+    .search-form input {
+      flex: 1; padding: 0.75rem 1rem; font-size: 1rem; border: 1px solid #30363d;
+      border-radius: 8px; background: #161b22; color: #e1e4e8; outline: none;
+    }
+    .search-form input:focus { border-color: #58a6ff; }
+    .search-form input::placeholder { color: #484f58; }
+    .search-form button {
+      padding: 0.75rem 1.2rem; font-size: 0.95rem; font-weight: 500; border: none;
+      border-radius: 8px; cursor: pointer; transition: background 0.15s;
+    }
+    .btn-short { background: #1f6feb; color: #fff; }
+    .btn-short:hover { background: #388bfd; }
+    .btn-pos { background: #238636; color: #fff; }
+    .btn-pos:hover { background: #2ea043; }
+    .search-form button:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+
+    .position-row {
+      display: flex; align-items: center; gap: 0.75rem; margin-top: 0.6rem;
+      padding: 0.6rem 0.85rem; background: #161b22; border: 1px solid #30363d;
+      border-radius: 8px; transition: border-color 0.2s;
+    }
+    .position-row.active { border-color: #58a6ff; }
+    .toggle-wrap { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; }
+    .toggle-track {
+      width: 36px; height: 20px; background: #30363d; border-radius: 10px;
+      position: relative; transition: background 0.2s; flex-shrink: 0;
+    }
+    .toggle-track.on { background: #238636; }
+    .toggle-knob {
+      width: 16px; height: 16px; background: #fff; border-radius: 50%;
+      position: absolute; top: 2px; left: 2px; transition: transform 0.2s;
+    }
+    .toggle-track.on .toggle-knob { transform: translateX(16px); }
+    .toggle-text { font-size: 0.88rem; color: #8b949e; }
+    .toggle-text.on { color: #e1e4e8; }
+    .entry-wrap {
+      display: flex; align-items: center; gap: 0.4rem;
+      max-width: 0; overflow: hidden; opacity: 0;
+      transition: max-width 0.3s ease, opacity 0.25s ease;
+    }
+    .entry-wrap.show { max-width: 220px; opacity: 1; }
+    .entry-label { font-size: 0.8rem; color: #58a6ff; white-space: nowrap; }
+    .entry-input {
+      padding: 0.45rem 0.65rem; font-size: 0.9rem; border: 1px solid #30363d;
+      border-radius: 6px; background: #0d1117; color: #e1e4e8; outline: none; width: 120px;
+    }
+    .entry-input:focus { border-color: #58a6ff; }
+    .entry-input::placeholder { color: #484f58; }
+
+    .pnl-badge { display: inline-block; padding: 0.3rem 0.75rem; border-radius: 6px; font-size: 0.9rem; font-weight: 600; }
+    .pnl-profit { background: #1a3a2a; color: #3fb950; border: 1px solid #238636; }
+    .pnl-loss { background: #3d1f1f; color: #f85149; border: 1px solid #6e3630; }
+    .pnl-even { background: #2d2a1a; color: #d29922; border: 1px solid #9e6a03; }
+
+    .verdict-box { text-align: center; margin-bottom: 1rem; }
+    .verdict-badge { display: inline-block; padding: 0.5rem 1.25rem; border-radius: 8px; font-size: 1.2rem; font-weight: 700; letter-spacing: 0.04em; }
+    .v-add { background: #1a3a2a; color: #3fb950; border: 2px solid #238636; }
+    .v-hold { background: #1c2333; color: #58a6ff; border: 2px solid #1f6feb; }
+    .v-caution { background: #2d2a1a; color: #d29922; border: 2px solid #9e6a03; }
+    .v-partial { background: #3d2a1a; color: #f0883e; border: 2px solid #bd5800; }
+    .v-exit { background: #3d1f1f; color: #f85149; border: 2px solid #6e3630; }
+    .verdict-note { font-size: 0.9rem; color: #8b949e; margin-top: 0.4rem; }
+    .reason-list { list-style: none; padding: 0; margin-top: 0.5rem; }
+    .reason-list li { font-size: 0.85rem; color: #c9d1d9; padding: 0.2rem 0; }
+
+    .loading { text-align: center; padding: 3rem; color: #8b949e; display: none; }
+    .loading.active { display: block; }
+    .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error { max-width: 700px; margin: 1rem auto; padding: 1rem; background: #3d1f1f; border: 1px solid #6e3630; border-radius: 8px; color: #f5a3a3; text-align: center; display: none; }
+    .error.active { display: block; }
+
+    .results { max-width: 900px; margin: 0 auto; padding: 0 1rem 3rem; display: none; }
+    .results.active { display: block; }
+
+    .stock-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .stock-header h2 { font-size: 1.5rem; color: #fff; }
+    .stock-header .price { font-size: 1.5rem; font-weight: 600; color: #fff; }
+    .stock-header .meta { font-size: 0.85rem; color: #8b949e; width: 100%; }
+    .market-note { font-size: 0.8rem; margin-top: 0.3rem; }
+
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; }
+    .card h3 { font-size: 1.05rem; color: #58a6ff; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #21262d; }
+
+    .status-badge { display: inline-block; padding: 0.4rem 1rem; border-radius: 8px; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em; }
+    .status-NO_TRADE { background: #2d2a1a; color: #d29922; border: 1px solid #9e6a03; }
+    .status-BUY_ZONE { background: #1a3a2a; color: #3fb950; border: 1px solid #238636; }
+    .status-SELL_ZONE { background: #3d1f1f; color: #f85149; border: 1px solid #6e3630; }
+
+    .level-card { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 0.75rem; }
+    .level-buy { background: #1a3a2a; border: 1px solid #238636; }
+    .level-sell { background: #3d1f1f; border: 1px solid #6e3630; }
+    .level-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+    .level-label { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+    .level-price { font-size: 1.3rem; font-weight: 700; }
+    .level-source { font-size: 0.8rem; color: #8b949e; }
+    .level-details { display: flex; gap: 1.5rem; margin-top: 0.4rem; font-size: 0.9rem; }
+    .level-detail-label { color: #8b949e; }
+    .level-detail-value { font-weight: 600; }
+
+    .badge-long { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #1a3a2a; color: #3fb950; border: 1px solid #238636; }
+    .badge-short { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #3d1f1f; color: #f85149; border: 1px solid #6e3630; }
+    .badge-neutral { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #2d2a1a; color: #d29922; border: 1px solid #9e6a03; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem; }
+    @media (max-width: 600px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+    .kv { display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid #21262d; }
+    .kv:last-child { border-bottom: none; }
+    .kv .label { color: #8b949e; font-size: 0.9rem; }
+    .kv .value { color: #e1e4e8; font-weight: 500; font-size: 0.9rem; text-align: right; }
+
+    .signal-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid #21262d; }
+    .signal-row:last-child { border-bottom: none; }
+    .signal-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green { background: #3fb950; } .dot-red { background: #f85149; } .dot-grey { background: #484f58; }
+    .signal-name { font-weight: 500; font-size: 0.9rem; min-width: 90px; }
+    .signal-bar-bg { flex: 1; height: 6px; background: #21262d; border-radius: 3px; overflow: hidden; }
+    .signal-bar-fill { height: 100%; border-radius: 3px; }
+    .signal-score { font-size: 0.85rem; color: #8b949e; min-width: 30px; text-align: right; }
+    .signal-notes { font-size: 0.8rem; color: #8b949e; margin-top: 0.2rem; padding-left: 1.6rem; }
+
+    .pattern-tag { display: inline-block; padding: 0.3rem 0.7rem; margin: 0.2rem; border-radius: 6px; font-size: 0.85rem; border: 1px solid #30363d; }
+    .tag-bullish { background: #1a3a2a; border-color: #238636; color: #3fb950; }
+    .tag-bearish { background: #3d1f1f; border-color: #6e3630; color: #f85149; }
+    .tag-neutral { background: #1c2333; color: #c9d1d9; }
+
+    .sr-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0; font-size: 0.9rem; border-bottom: 1px solid #21262d; }
+    .sr-row:last-child { border-bottom: none; }
+
+    .ob-card { padding: 0.5rem 0.7rem; border-radius: 6px; margin-bottom: 0.4rem; font-size: 0.9rem; }
+    .ob-demand { background: #1a3a2a; border-left: 3px solid #3fb950; }
+    .ob-supply { background: #3d1f1f; border-left: 3px solid #f85149; }
+
+    .no-data { color: #484f58; font-style: italic; padding: 0.5rem 0; }
+
+    .guidance-section { margin-bottom: 0.75rem; }
+    .guidance-section h4 { font-size: 0.9rem; color: #58a6ff; margin-bottom: 0.4rem; }
+
+    .pred-card { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 0.6rem; }
+    .pred-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .pred-date { font-size: 0.9rem; color: #e1e4e8; font-weight: 500; }
+    .pred-tf { font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.4rem; }
+    .pred-tf-st { background: #1f6feb22; color: #1f6feb; border: 1px solid #1f6feb55; }
+    .pred-tf-pos { background: #23863622; color: #238636; border: 1px solid #23863655; }
+    .pred-status { font-size: 0.78rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 4px; }
+    .pred-st-buy { background: #1a3a2a; color: #3fb950; }
+    .pred-st-sell { background: #3d1f1f; color: #f85149; }
+    .pred-st-no { background: #2d2a1a; color: #d29922; }
+    .pred-outcome { font-size: 0.8rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 4px; }
+    .pred-out-pending { background: #2d2a1a; color: #d29922; }
+    .pred-out-win { background: #1a3a2a; color: #3fb950; }
+    .pred-out-loss { background: #3d1f1f; color: #f85149; }
+    .pred-spot { font-size: 0.85rem; color: #8b949e; margin-bottom: 0.4rem; }
+    .pred-level { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; border-radius: 6px; margin-bottom: 0.3rem; font-size: 0.88rem; }
+    .pred-level-buy { background: #1a3a2a55; border-left: 3px solid #3fb950; }
+    .pred-level-sell { background: #3d1f1f55; border-left: 3px solid #f85149; }
+    .pred-level-label { font-weight: 600; min-width: 100px; }
+    .pred-kv { color: #8b949e; font-size: 0.82rem; }
+    .pred-kv span { color: #e1e4e8; font-weight: 500; }
+    .guidance-list { list-style: none; padding: 0; }
+    .guidance-list li { padding: 0.25rem 0 0.25rem 1rem; position: relative; font-size: 0.9rem; color: #c9d1d9; }
+    .guidance-list li::before { content: ''; position: absolute; left: 0; top: 0.55rem; width: 6px; height: 6px; border-radius: 50%; }
+    .gl-green li::before { background: #3fb950; } .gl-red li::before { background: #f85149; }
+    .gl-yellow li::before { background: #d29922; } .gl-blue li::before { background: #58a6ff; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Stock Watchlist Scanner</h1>
+    <p>Enter an NSE/BSE stock symbol for data-driven buy/sell levels, patterns, and analysis</p>
+  </div>
+
+  <div class="search-box">
+    <form class="search-form" id="searchForm">
+      <input type="text" id="symbolInput" placeholder="e.g. RELIANCE, TCS, INFY, TATASTEEL" autocomplete="off" autofocus>
+      <button type="button" id="btnShort" class="btn-short">Short Term</button>
+      <button type="button" id="btnPos" class="btn-pos">Positional</button>
+    </form>
+    <div class="position-row" id="posRow">
+      <div class="toggle-wrap" id="toggleWrap">
+        <div class="toggle-track" id="toggleTrack"><div class="toggle-knob"></div></div>
+        <span class="toggle-text" id="toggleText">Existing Position?</span>
+      </div>
+      <div class="entry-wrap" id="entryWrap">
+        <span class="entry-label">Entry @</span>
+        <input type="number" id="entryPrice" class="entry-input" placeholder="e.g. 1250" step="0.05">
+      </div>
+    </div>
+  </div>
+
+  <div class="loading" id="loading"><span class="spinner"></span> Fetching data &amp; running analysis...</div>
+  <div class="error" id="error"></div>
+  <div class="results" id="results"></div>
+
+  <script>
+    const input = document.getElementById('symbolInput');
+    const btnShort = document.getElementById('btnShort');
+    const btnPos = document.getElementById('btnPos');
+    const loading = document.getElementById('loading');
+    const errorEl = document.getElementById('error');
+    const resultsEl = document.getElementById('results');
+    const toggleWrap = document.getElementById('toggleWrap');
+    const toggleTrack = document.getElementById('toggleTrack');
+    const toggleText = document.getElementById('toggleText');
+    const entryWrap = document.getElementById('entryWrap');
+    const posRow = document.getElementById('posRow');
+    const entryPriceInput = document.getElementById('entryPrice');
+    let hasPosition = false;
+
+    toggleWrap.addEventListener('click', () => {
+      hasPosition = !hasPosition;
+      toggleTrack.classList.toggle('on', hasPosition);
+      toggleText.classList.toggle('on', hasPosition);
+      entryWrap.classList.toggle('show', hasPosition);
+      posRow.classList.toggle('active', hasPosition);
+      if (!hasPosition) entryPriceInput.value = '';
+      if (hasPosition) setTimeout(() => entryPriceInput.focus(), 300);
+    });
+
+    async function analyze(timeframe) {
+      const symbol = input.value.trim();
+      if (!symbol) return;
+      btnShort.disabled = true; btnPos.disabled = true;
+      loading.classList.add('active');
+      errorEl.classList.remove('active');
+      resultsEl.classList.remove('active');
+      let url = `/analyze?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`;
+      if (hasPosition && entryPriceInput.value) {
+        url += `&entry_price=${entryPriceInput.value}`;
+      }
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok) { errorEl.textContent = data.error || 'Something went wrong'; errorEl.classList.add('active'); return; }
+        renderResults(data);
+      } catch (err) { console.error('Analyze error:', err); errorEl.textContent = 'Network error: ' + err.message; errorEl.classList.add('active'); }
+      finally { btnShort.disabled = false; btnPos.disabled = false; loading.classList.remove('active'); }
+    }
+
+    btnShort.addEventListener('click', () => analyze('short_term'));
+    btnPos.addEventListener('click', () => analyze('positional'));
+    document.getElementById('searchForm').addEventListener('submit', (e) => { e.preventDefault(); analyze('positional'); });
+
+    function fmt(n, d = 2) {
+      if (n == null) return '—';
+      return Number(n).toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d });
+    }
+    function signalColor(s) { return s >= 55 ? '#3fb950' : s >= 45 ? '#d29922' : '#f85149'; }
+    function signalDot(s) { return s >= 55 ? 'dot-green' : s >= 45 ? 'dot-grey' : 'dot-red'; }
+    function pctFrom(level, base) {
+      if (level == null || base == null || base === 0) return '';
+      const p = ((level - base) / base * 100).toFixed(1);
+      return `(${p > 0 ? '+' : ''}${p}%)`;
+    }
+
+    function renderResults(data) {
+      const rec = data.recommendation;
+      const ap = rec.action_plan;
+      const ind = rec.indicators;
+      const pg = rec.position_guidance;
+      const swing = data.swing;
+      const cmp = data.last_price;
+      const mkt = data.market || {};
+      let html = '';
+
+      const tf = data.timeframe || 'positional';
+      const tfLabel = data.timeframe_label || 'Positional (1-2 Months)';
+      const tfColor = tf === 'short_term' ? '#1f6feb' : '#238636';
+
+      /* Header */
+      html += `<div class="stock-header">
+        <h2>${data.symbol}</h2>
+        <span class="price">${fmt(cmp)}</span>
+        <span style="padding:0.25rem 0.6rem;border-radius:6px;font-size:0.8rem;font-weight:600;background:${tfColor}22;color:${tfColor};border:1px solid ${tfColor};">${tfLabel}</span>
+        <div class="meta">
+          ${mkt.price_label || 'Price'} as of ${data.last_date || ''} &middot; ${data.candle_count} trading days &middot; ${data.yahoo_ticker}
+        </div>
+        ${mkt.note ? `<div class="market-note" style="color:${mkt.is_open ? '#3fb950' : '#d29922'};">${mkt.note}</div>` : ''}
+      </div>`;
+
+      /* Action Plan */
+      html += `<div class="card"><h3>Action Plan</h3>`;
+      html += `<div style="text-align:center;margin-bottom:1rem;">
+        <div class="status-badge status-${ap.status.replace(/ /g,'_')}">${ap.status}</div>
+        <div style="font-size:0.9rem;color:#8b949e;margin-top:0.5rem;">${ap.status_note}</div>
+      </div>`;
+
+      if (ap.buy && ap.buy.level) {
+        html += `<div class="level-card level-buy">
+          <div class="level-header">
+            <span class="level-label" style="color:#3fb950;">Buy Level</span>
+            <span class="level-price" style="color:#3fb950;">${fmt(ap.buy.level)} <span style="font-size:0.8rem;font-weight:500;">${pctFrom(ap.buy.level, cmp)}</span></span>
+          </div>
+          <div class="level-source">${ap.buy.source}</div>
+          <div class="level-details">
+            <span><span class="level-detail-label">SL: </span><span class="level-detail-value" style="color:#f85149;">${fmt(ap.buy.sl)} <span style="font-size:0.75rem;font-weight:400;color:#8b949e;">${pctFrom(ap.buy.sl, ap.buy.level)}</span></span></span>
+            ${ap.buy.targets.map((t, i) => `<span><span class="level-detail-label">Target ${i+1}: </span><span class="level-detail-value">${fmt(t)} <span style="font-size:0.75rem;font-weight:400;color:#8b949e;">${pctFrom(t, ap.buy.level)}</span></span></span>`).join('')}
+          </div>
+        </div>`;
+      }
+
+      if (ap.sell && ap.sell.level) {
+        html += `<div class="level-card level-sell">
+          <div class="level-header">
+            <span class="level-label" style="color:#f85149;">Sell Level</span>
+            <span class="level-price" style="color:#f85149;">${fmt(ap.sell.level)} <span style="font-size:0.8rem;font-weight:500;">${pctFrom(ap.sell.level, cmp)}</span></span>
+          </div>
+          <div class="level-source">${ap.sell.source}</div>
+          <div class="level-details">
+            <span><span class="level-detail-label">SL: </span><span class="level-detail-value" style="color:#f85149;">${fmt(ap.sell.sl)} <span style="font-size:0.75rem;font-weight:400;color:#8b949e;">${pctFrom(ap.sell.sl, ap.sell.level)}</span></span></span>
+            ${ap.sell.targets.map((t, i) => `<span><span class="level-detail-label">Target ${i+1}: </span><span class="level-detail-value">${fmt(t)} <span style="font-size:0.75rem;font-weight:400;color:#8b949e;">${pctFrom(t, ap.sell.level)}</span></span></span>`).join('')}
+          </div>
+        </div>`;
+      }
+      html += `</div>`;
+
+      /* Signals Dashboard */
+      html += `<div class="card"><h3>Signals Dashboard</h3>`;
+      html += `<div style="display:flex;flex-wrap:wrap;gap:0.6rem;">`;
+      for (const [key, sig] of Object.entries(rec.signals)) {
+        if (key === 'volume') continue;
+        const label = key === 'oi' ? 'Open Interest' : key.charAt(0).toUpperCase() + key.slice(1);
+        const c = signalColor(sig.score);
+        const bg = sig.score >= 55 ? '#1a3a2a' : sig.score >= 45 ? '#2d2a1a' : '#3d1f1f';
+        const border = sig.score >= 55 ? '#238636' : sig.score >= 45 ? '#9e6a03' : '#6e3630';
+        const verdict = sig.score >= 65 ? 'Strong' : sig.score >= 55 ? 'Bullish' : sig.score >= 45 ? 'Neutral' : sig.score >= 35 ? 'Bearish' : 'Weak';
+        const note = (sig.notes && sig.notes.length) ? sig.notes[0] : '';
+
+        let extra = '';
+        if (key === 'oi' && data.oi) {
+          const buLabel = data.oi.oi_buildup.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          const buColor = data.oi.oi_buildup === 'long_buildup' ? '#3fb950' : data.oi.oi_buildup === 'short_buildup' ? '#f85149' : '#d29922';
+          extra = `<div style="margin-top:0.3rem;padding:0.2rem 0.5rem;background:#0d1117;border-radius:4px;display:inline-block;font-size:0.78rem;font-weight:600;color:${buColor};">${buLabel}</div>`;
+        }
+
+        html += `<div style="flex:1;min-width:160px;padding:0.65rem 0.85rem;background:${bg};border:1px solid ${border};border-radius:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem;">
+            <span style="font-size:0.9rem;font-weight:600;color:#e1e4e8;">${label}</span>
+            <span style="font-size:1.1rem;font-weight:700;color:${c};">${sig.score}</span>
+          </div>
+          <div style="font-size:0.82rem;font-weight:600;color:${c};margin-bottom:0.2rem;">${verdict}</div>
+          ${note ? `<div style="font-size:0.75rem;color:#8b949e;line-height:1.3;">${note}</div>` : ''}
+          ${extra}
+        </div>`;
+      }
+
+      // PCR placard (separate from OI signal)
+      if (data.oi && data.oi.pcr) {
+        const pcr = data.oi.pcr;
+        const pcrColor = pcr > 1.0 ? '#3fb950' : pcr < 0.7 ? '#f85149' : '#d29922';
+        const pcrBg = pcr > 1.0 ? '#1a3a2a' : pcr < 0.7 ? '#3d1f1f' : '#2d2a1a';
+        const pcrBorder = pcr > 1.0 ? '#238636' : pcr < 0.7 ? '#6e3630' : '#9e6a03';
+        const pcrVerdict = pcr > 1.0 ? 'Bullish' : pcr < 0.7 ? 'Bearish' : 'Neutral';
+        html += `<div style="flex:1;min-width:160px;padding:0.65rem 0.85rem;background:${pcrBg};border:1px solid ${pcrBorder};border-radius:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem;">
+            <span style="font-size:0.9rem;font-weight:600;color:#e1e4e8;">PCR</span>
+            <span style="font-size:1.1rem;font-weight:700;color:${pcrColor};">${pcr}</span>
+          </div>
+          <div style="font-size:0.82rem;font-weight:600;color:${pcrColor};margin-bottom:0.2rem;">${pcrVerdict}</div>
+          <div style="font-size:0.75rem;color:#8b949e;">Put-Call Ratio (${data.oi.pcr_all ? 'All: ' + data.oi.pcr_all : 'nearest expiry'})</div>
+        </div>`;
+      }
+
+      // R1 & S1 placard
+      const sr = data.support_resistance || [];
+      const resistances = sr.filter(z => z.type === 'resistance').sort((a, b) => b.level - a.level);
+      const supports = sr.filter(z => z.type === 'support').sort((a, b) => b.level - a.level);
+      if (resistances.length || supports.length) {
+        const r1 = resistances.length ? resistances[0] : null;
+        const s1 = supports.length ? supports[0] : null;
+        html += `<div style="flex:1;min-width:160px;padding:0.65rem 0.85rem;background:#1c2333;border:1px solid #30363d;border-radius:8px;">
+          <div style="font-size:0.9rem;font-weight:600;color:#e1e4e8;margin-bottom:0.3rem;">Key Levels</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.15rem;">
+            <span style="font-size:0.78rem;color:#f85149;">R1</span>
+            <span style="font-size:1rem;font-weight:700;color:#f85149;">${r1 ? fmt(r1.level) : '—'}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.78rem;color:#3fb950;">S1</span>
+            <span style="font-size:1rem;font-weight:700;color:#3fb950;">${s1 ? fmt(s1.level) : '—'}</span>
+          </div>
+        </div>`;
+      }
+
+      // VWAP placard
+      if (data.vwap) {
+        const vw = data.vwap;
+        const vwColor = vw.price_position === 'above' ? '#3fb950' : vw.price_position === 'below' ? '#f85149' : '#d29922';
+        const vwBg = vw.price_position === 'above' ? '#1a3a2a' : vw.price_position === 'below' ? '#3d1f1f' : '#2d2a1a';
+        const vwBorder = vw.price_position === 'above' ? '#238636' : vw.price_position === 'below' ? '#6e3630' : '#9e6a03';
+        html += `<div style="flex:1;min-width:160px;padding:0.65rem 0.85rem;background:${vwBg};border:1px solid ${vwBorder};border-radius:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem;">
+            <span style="font-size:0.9rem;font-weight:600;color:#e1e4e8;">VWAP</span>
+            <span style="font-size:1.1rem;font-weight:700;color:${vwColor};">${fmt(vw.vwap)}</span>
+          </div>
+          <div style="font-size:0.82rem;font-weight:600;color:${vwColor};margin-bottom:0.2rem;">${vw.price_position === 'above' ? 'Bullish' : vw.price_position === 'below' ? 'Bearish' : 'Neutral'}</div>
+          <div style="font-size:0.75rem;color:#8b949e;">Bands: ${fmt(vw.lower_1)} – ${fmt(vw.upper_1)}</div>
+        </div>`;
+      }
+
+      html += `</div></div>`;
+
+      /* Technical Indicators */
+      html += `<div class="card"><h3>Technical Indicators</h3><div class="grid-2"><div>
+        ${ind.ema8 != null ? `<div class="kv"><span class="label">EMA 8</span><span class="value">${fmt(ind.ema8)}</span></div>` : ''}
+        <div class="kv"><span class="label">SMA 20</span><span class="value">${fmt(ind.sma20)}</span></div>
+        ${ind.sma50 != null ? `<div class="kv"><span class="label">SMA 50</span><span class="value">${fmt(ind.sma50)}</span></div>` : ''}
+        ${ind.sma200 != null ? `<div class="kv"><span class="label">SMA 200</span><span class="value">${fmt(ind.sma200)}</span></div>` : ''}
+        <div class="kv"><span class="label">ATR (14)</span><span class="value">${fmt(ind.atr14)}</span></div>
+      </div><div>
+        <div class="kv"><span class="label">RSI (14)</span><span class="value">${fmt(ind.rsi)}</span></div>
+        <div class="kv"><span class="label">RVOL (20d)</span><span class="value">${ind.rvol != null ? fmt(ind.rvol) + 'x' : '—'}</span></div>`;
+      if (ind.macd) {
+        html += `<div class="kv"><span class="label">MACD / Signal</span><span class="value">${fmt(ind.macd.macd_line, 3)} / ${fmt(ind.macd.signal_line, 3)}</span></div>
+        <div class="kv"><span class="label">MACD Crossover</span><span class="value">${ind.macd.crossover !== 'none' ? `<span class="badge-${ind.macd.crossover === 'bullish' ? 'long' : 'short'}">${ind.macd.crossover}</span>` : '—'}</span></div>`;
+      }
+      html += `</div></div>`;
+      if (ind.bollinger) {
+        const bb = ind.bollinger;
+        html += `<div style="margin-top:0.5rem"><div class="grid-2">
+          <div class="kv"><span class="label">BB Upper</span><span class="value">${fmt(bb.upper)}</span></div>
+          <div class="kv"><span class="label">BB Lower</span><span class="value">${fmt(bb.lower)}</span></div>
+        </div>
+        ${bb.squeeze ? '<div style="margin-top:0.3rem;font-size:0.85rem;color:#d29922;">Bollinger Squeeze — expansion expected</div>' : ''}
+        </div>`;
+      }
+      if (ind.divergence && (ind.divergence.bullish || ind.divergence.bearish)) {
+        html += `<div style="margin-top:0.5rem;">`;
+        if (ind.divergence.bullish) html += `<div class="ob-card ob-demand"><strong>Bullish RSI Divergence</strong> — ${ind.divergence.bullish_note}</div>`;
+        if (ind.divergence.bearish) html += `<div class="ob-card ob-supply"><strong>Bearish RSI Divergence</strong> — ${ind.divergence.bearish_note}</div>`;
+        html += `</div>`;
+      }
+      if (ind.vwap) {
+        const v = ind.vwap;
+        const posColor = v.price_position === 'above' ? '#3fb950' : v.price_position === 'below' ? '#f85149' : '#d29922';
+        html += `<div style="margin-top:0.5rem"><div class="grid-2">
+          <div class="kv"><span class="label">VWAP</span><span class="value" style="color:${posColor};">${fmt(v.vwap)} (${v.price_position})</span></div>
+          <div class="kv"><span class="label">VWAP Bands</span><span class="value">${fmt(v.lower_1)} – ${fmt(v.upper_1)}</span></div>
+        </div></div>`;
+      }
+      html += `</div>`;
+
+      /* S/R Zones */
+      html += `<div class="card"><h3>Support &amp; Resistance Zones</h3>`;
+      html += `<div class="grid-2">`;
+
+      html += `<div><div style="font-size:0.85rem;font-weight:600;color:#f85149;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.03em;">Resistance</div>`;
+      if (resistances.length) {
+        resistances.forEach((z, i) => {
+          html += `<div class="sr-row">
+            <span style="color:#8b949e;font-size:0.8rem;min-width:20px;">R${i+1}</span>
+            <span style="font-weight:600;color:#f85149;">${fmt(z.level)}</span>
+            <span style="flex:1"></span>
+            <span style="font-size:0.75rem;color:#8b949e;">${z.touches} touch${z.touches > 1 ? 'es' : ''}</span>
+            <span style="font-size:0.75rem;color:#f85149;">${fmt(z.distance_pct)}%</span>
+          </div>`;
+        });
+      } else html += `<div class="no-data">None identified</div>`;
+      html += `</div>`;
+
+      html += `<div><div style="font-size:0.85rem;font-weight:600;color:#3fb950;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.03em;">Support</div>`;
+      if (supports.length) {
+        supports.forEach((z, i) => {
+          html += `<div class="sr-row">
+            <span style="color:#8b949e;font-size:0.8rem;min-width:20px;">S${i+1}</span>
+            <span style="font-weight:600;color:#3fb950;">${fmt(z.level)}</span>
+            <span style="flex:1"></span>
+            <span style="font-size:0.75rem;color:#8b949e;">${z.touches} touch${z.touches > 1 ? 'es' : ''}</span>
+            <span style="font-size:0.75rem;color:#3fb950;">+${fmt(z.distance_pct)}%</span>
+          </div>`;
+        });
+      } else html += `<div class="no-data">None identified</div>`;
+      html += `</div>`;
+
+      html += `</div></div>`;
+
+      /* Pivot Points */
+      const pivots = data.pivot_points;
+      if (pivots) {
+        html += `<div class="card"><h3>Pivot Points (${pivots.period === 'daily' ? 'Daily' : 'Weekly'} ${pivots.method === 'fibonacci' ? 'Fibonacci' : 'Standard'})</h3>`;
+        html += `<div class="grid-2">`;
+        html += `<div><div style="font-size:0.85rem;font-weight:600;color:#f85149;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.03em;">Resistance</div>`;
+        ['r3','r2','r1'].forEach(key => {
+          if (pivots[key]) {
+            html += `<div class="sr-row">
+              <span style="color:#8b949e;font-size:0.8rem;min-width:20px;">${key.toUpperCase()}</span>
+              <span style="font-weight:600;color:#f85149;">${fmt(pivots[key])}</span>
+              <span style="flex:1"></span>
+              <span style="font-size:0.75rem;color:#f85149;">${pctFrom(pivots[key], cmp)}</span>
+            </div>`;
+          }
+        });
+        html += `</div>`;
+        html += `<div><div style="font-size:0.85rem;font-weight:600;color:#3fb950;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.03em;">Support</div>`;
+        ['s1','s2','s3'].forEach(key => {
+          if (pivots[key]) {
+            html += `<div class="sr-row">
+              <span style="color:#8b949e;font-size:0.8rem;min-width:20px;">${key.toUpperCase()}</span>
+              <span style="font-weight:600;color:#3fb950;">${fmt(pivots[key])}</span>
+              <span style="flex:1"></span>
+              <span style="font-size:0.75rem;color:#3fb950;">${pctFrom(pivots[key], cmp)}</span>
+            </div>`;
+          }
+        });
+        html += `</div></div>`;
+        html += `<div style="text-align:center;margin-top:0.5rem;padding:0.4rem;background:#1c2333;border-radius:6px;">
+          <span style="font-size:0.85rem;color:#8b949e;">PP: </span>
+          <span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">${fmt(pivots.pp)}</span>
+          <span style="font-size:0.8rem;color:#8b949e;"> ${pctFrom(pivots.pp, cmp)}</span>
+        </div>`;
+        html += `</div>`;
+      }
+
+      /* Fibonacci Retracement */
+      const fibs = data.fibonacci;
+      if (fibs) {
+        html += `<div class="card"><h3>Fibonacci Retracement</h3>`;
+        html += `<div style="display:flex;gap:1rem;margin-bottom:0.75rem;font-size:0.85rem;flex-wrap:wrap;">
+          <span style="color:#8b949e;">Swing High: <span style="color:#f85149;font-weight:600;">${fmt(fibs.swing_high)}</span></span>
+          <span style="color:#8b949e;">Swing Low: <span style="color:#3fb950;font-weight:600;">${fmt(fibs.swing_low)}</span></span>
+          <span style="color:#8b949e;">Trend: <span style="color:#e1e4e8;font-weight:500;">${fibs.trend === 'up' ? 'Uptrend Retracement' : 'Downtrend Retracement'}</span></span>
+        </div>`;
+        fibs.levels.forEach(fl => {
+          const isGolden = fl.ratio >= 0.382 && fl.ratio <= 0.618;
+          const isNear = fibs.current_near && fibs.current_near.label === fl.label;
+          const bg = isNear ? '#1c2333' : 'transparent';
+          const border = isNear ? '1px solid #58a6ff' : '1px solid #21262d';
+          const labelColor = isGolden ? '#d29922' : '#8b949e';
+          html += `<div style="display:flex;align-items:center;padding:0.3rem 0.6rem;border-bottom:${border};background:${bg};border-radius:${isNear ? '4px' : '0'};">
+            <span style="min-width:50px;font-size:0.8rem;font-weight:600;color:${labelColor};">${fl.label}</span>
+            <span style="flex:1;font-size:0.9rem;font-weight:500;color:#e1e4e8;">${fmt(fl.price)}</span>
+            <span style="font-size:0.75rem;color:#8b949e;">${pctFrom(fl.price, cmp)}</span>
+            ${isNear ? '<span style="font-size:0.7rem;color:#58a6ff;margin-left:0.5rem;">CURRENT</span>' : ''}
+          </div>`;
+        });
+        if (fibs.in_golden_zone) {
+          html += `<div style="margin-top:0.5rem;padding:0.4rem 0.6rem;background:#2d2a1a;border:1px solid #9e6a03;border-radius:6px;font-size:0.85rem;color:#d29922;">
+            Price in Golden Zone (38.2% – 61.8%) — key reversal area
+          </div>`;
+        }
+        html += `</div>`;
+      }
+
+      /* Order Blocks */
+      const obs = data.order_blocks || [];
+      html += `<div class="card"><h3>Order Blocks</h3>`;
+      if (obs.length) {
+        html += `<div style="display:flex;flex-wrap:wrap;gap:0.6rem;">`;
+        obs.forEach(b => {
+          const isDemand = b.type === 'demand';
+          const bg = isDemand ? '#1a3a2a' : '#3d1f1f';
+          const border = isDemand ? '#238636' : '#6e3630';
+          const color = isDemand ? '#3fb950' : '#f85149';
+          const label = isDemand ? 'Demand Zone' : 'Supply Zone';
+          const statusColor = b.status === 'fresh' ? '#3fb950' : '#d29922';
+          html += `<div style="flex:1;min-width:180px;padding:0.65rem 0.85rem;background:${bg};border:1px solid ${border};border-radius:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.2rem;">
+              <span style="font-size:0.78rem;font-weight:600;color:${color};text-transform:uppercase;letter-spacing:0.03em;">${label}</span>
+              <span style="font-size:0.7rem;color:${statusColor};font-weight:500;">${b.status}</span>
+            </div>
+            <div style="font-size:1.1rem;font-weight:700;color:#e1e4e8;">${fmt(b.zone_low)} – ${fmt(b.zone_high)}</div>
+            <div style="font-size:0.75rem;color:#8b949e;margin-top:0.15rem;">${b.volume_confirmed ? 'Volume Confirmed' : 'Price Action Only'}</div>
+          </div>`;
+        });
+        html += `</div>`;
+      } else html += `<div class="no-data">No active order blocks</div>`;
+      const fvgs = data.fair_value_gaps || [];
+      if (fvgs.length) {
+        html += `<div style="display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:0.75rem;">`;
+        fvgs.forEach(g => {
+          const isBull = g.type.includes('bullish');
+          const bg = isBull ? '#1a3a2a' : '#3d1f1f';
+          const border = isBull ? '#238636' : '#6e3630';
+          const color = isBull ? '#3fb950' : '#f85149';
+          html += `<div style="flex:1;min-width:160px;padding:0.5rem 0.75rem;background:${bg};border:1px solid ${border};border-radius:8px;">
+            <div style="font-size:0.75rem;font-weight:600;color:${color};text-transform:uppercase;">FVG ${isBull ? 'Bullish' : 'Bearish'}</div>
+            <div style="font-size:1rem;font-weight:600;color:#e1e4e8;margin-top:0.1rem;">${fmt(g.gap_low)} – ${fmt(g.gap_high)}</div>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+      html += `</div>`;
+
+      /* Market Structure (SMC) */
+      const ms = data.market_structure;
+      if (ms && (ms.bos_events.length || ms.choch_events.length || ms.swing_points.length)) {
+        const structColor = ms.structure === 'bullish' ? '#3fb950' : ms.structure === 'bearish' ? '#f85149' : '#d29922';
+        const structBg = ms.structure === 'bullish' ? '#1a3a2a' : ms.structure === 'bearish' ? '#3d1f1f' : '#2d2a1a';
+        const structBorder = ms.structure === 'bullish' ? '#238636' : ms.structure === 'bearish' ? '#6e3630' : '#9e6a03';
+        html += `<div class="card"><h3>Market Structure (SMC)</h3>`;
+        html += `<div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+          <span style="padding:0.3rem 0.75rem;border-radius:6px;font-size:0.9rem;font-weight:700;background:${structBg};color:${structColor};border:1px solid ${structBorder};">${ms.structure.toUpperCase()}</span>
+        </div>`;
+        if (ms.choch_events && ms.choch_events.length) {
+          html += `<div style="font-size:0.85rem;font-weight:600;color:#d29922;margin-bottom:0.3rem;">Change of Character (CHoCH)</div>`;
+          ms.choch_events.forEach(c => {
+            html += `<div style="padding:0.4rem 0.6rem;margin-bottom:0.3rem;border-radius:6px;background:#2d2a1a;border:1px solid #9e6a03;font-size:0.85rem;">
+              <span style="color:#d29922;font-weight:600;">${c.direction.toUpperCase()} CHoCH</span>
+              <span style="color:#8b949e;"> — ${c.note || 'Structure shift detected'}</span>
+            </div>`;
+          });
+        }
+        if (ms.bos_events && ms.bos_events.length) {
+          html += `<div style="font-size:0.85rem;font-weight:600;color:#8b949e;margin-top:0.5rem;margin-bottom:0.3rem;">Break of Structure (BOS)</div>`;
+          ms.bos_events.slice(-3).forEach(b => {
+            const bColor = b.direction === 'bullish' ? '#3fb950' : '#f85149';
+            html += `<div style="padding:0.3rem 0.6rem;margin-bottom:0.3rem;border-radius:6px;background:#0d1117;border-left:3px solid ${bColor};font-size:0.85rem;">
+              <span style="color:${bColor};font-weight:600;">${b.direction.toUpperCase()} BOS</span>
+              <span style="color:#8b949e;"> — broke ${fmt(b.break_level)}</span>
+            </div>`;
+          });
+        }
+        if (ms.swing_points && ms.swing_points.length) {
+          html += `<div style="font-size:0.85rem;font-weight:600;color:#8b949e;margin-top:0.5rem;margin-bottom:0.3rem;">Swing Sequence</div>`;
+          html += `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;">`;
+          ms.swing_points.slice(-6).forEach(sp => {
+            const spColor = sp.label === 'HH' || sp.label === 'HL' ? '#3fb950' : sp.label === 'LH' || sp.label === 'LL' ? '#f85149' : '#8b949e';
+            html += `<span style="padding:0.2rem 0.5rem;border-radius:4px;font-size:0.8rem;font-weight:600;background:#161b22;border:1px solid #30363d;color:${spColor};">${sp.label} ${fmt(sp.price)}</span>`;
+          });
+          html += `</div>`;
+        }
+        html += `</div>`;
+      }
+
+      /* Open Interest */
+      const oi = data.oi;
+      if (oi) {
+        html += `<div class="card"><h3>Open Interest</h3>`;
+        const pcrVal = oi.pcr || 0;
+        const pcrColor = pcrVal > 1.0 ? '#3fb950' : pcrVal < 0.7 ? '#f85149' : '#d29922';
+        const pcrLabel = pcrVal > 1.0 ? 'Bullish' : pcrVal < 0.7 ? 'Bearish' : 'Neutral';
+        const buCls = oi.oi_buildup === 'long_buildup' ? 'badge-long' : oi.oi_buildup === 'short_buildup' ? 'badge-short' : oi.oi_buildup === 'short_covering' ? 'badge-long' : 'badge-neutral';
+        const buLabel = oi.oi_buildup.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+        // Top summary: PCR + Buildup + Max Pain
+        html += `<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+          <div style="text-align:center;padding:0.5rem 1rem;background:#0d1117;border-radius:8px;border:1px solid #21262d;">
+            <div style="font-size:0.75rem;color:#8b949e;margin-bottom:0.2rem;">PCR</div>
+            <div style="font-size:1.3rem;font-weight:700;color:${pcrColor};">${pcrVal}</div>
+            <div style="font-size:0.7rem;color:${pcrColor};">${pcrLabel}</div>
+          </div>
+          <div style="text-align:center;padding:0.5rem 1rem;background:#0d1117;border-radius:8px;border:1px solid #21262d;">
+            <div style="font-size:0.75rem;color:#8b949e;margin-bottom:0.2rem;">Max Pain</div>
+            <div style="font-size:1.3rem;font-weight:700;color:#58a6ff;">${fmt(oi.max_pain, 0)}</div>
+            <div style="font-size:0.7rem;color:#8b949e;">Spot: ${fmt(oi.spot, 0)}</div>
+          </div>
+          <div style="text-align:center;padding:0.5rem 1rem;background:#0d1117;border-radius:8px;border:1px solid #21262d;">
+            <div style="font-size:0.75rem;color:#8b949e;margin-bottom:0.2rem;">Buildup</div>
+            <div style="margin-top:0.15rem;"><span class="${buCls}" style="font-size:0.85rem;">${buLabel}</span></div>
+          </div>
+        </div>`;
+
+        // Call Wall / Put Wall as visual levels
+        html += `<div class="grid-2" style="margin-bottom:1rem;">
+          <div style="padding:0.6rem 0.8rem;background:#3d1f1f55;border:1px solid #6e3630;border-radius:8px;">
+            <div style="font-size:0.75rem;color:#f85149;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;">Call Wall (Resistance)</div>
+            <div style="font-size:1.2rem;font-weight:700;color:#f85149;margin-top:0.2rem;">${fmt(oi.call_wall, 0)}</div>
+            <div style="font-size:0.8rem;color:#8b949e;">OI: ${(oi.call_wall_oi/100000).toFixed(1)} Lakh</div>
+          </div>
+          <div style="padding:0.6rem 0.8rem;background:#1a3a2a55;border:1px solid #238636;border-radius:8px;">
+            <div style="font-size:0.75rem;color:#3fb950;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;">Put Wall (Support)</div>
+            <div style="font-size:1.2rem;font-weight:700;color:#3fb950;margin-top:0.2rem;">${fmt(oi.put_wall, 0)}</div>
+            <div style="font-size:0.8rem;color:#8b949e;">OI: ${(oi.put_wall_oi/100000).toFixed(1)} Lakh</div>
+          </div>
+        </div>`;
+
+        // OI Bar Chart — visual representation
+        if (oi.strikes_near_atm && oi.strikes_near_atm.length) {
+          const maxOI = Math.max(...oi.strikes_near_atm.map(s => Math.max(s.call_oi, s.put_oi)));
+          html += `<div style="font-size:0.82rem;color:#8b949e;margin-bottom:0.4rem;font-weight:500;">OI Distribution (Near ATM)</div>`;
+
+          oi.strikes_near_atm.forEach(s => {
+            const isATM = Math.abs(s.strike - oi.spot) <= (oi.strikes_near_atm[1].strike - oi.strikes_near_atm[0].strike) / 2;
+            const callPct = (s.call_oi / maxOI * 100).toFixed(0);
+            const putPct = (s.put_oi / maxOI * 100).toFixed(0);
+            const strikeBg = isATM ? 'background:#1c2333;border:1px solid #30363d;' : '';
+
+            html += `<div style="display:flex;align-items:center;gap:0.4rem;padding:0.25rem 0.3rem;margin-bottom:2px;border-radius:4px;${strikeBg}">
+              <div style="width:50px;text-align:right;font-size:0.82rem;font-weight:${isATM?'700':'400'};color:${isATM?'#58a6ff':'#c9d1d9'};">${s.strike}</div>
+              <div style="flex:1;display:flex;gap:2px;">
+                <div style="flex:1;display:flex;justify-content:flex-end;">
+                  <div style="width:${callPct}%;height:16px;background:#f8514944;border-right:2px solid #f85149;border-radius:2px 0 0 2px;min-width:${s.call_oi > 0 ? '2px' : '0'};" title="Call OI: ${(s.call_oi/1000).toFixed(0)}K"></div>
+                </div>
+                <div style="flex:1;">
+                  <div style="width:${putPct}%;height:16px;background:#3fb95044;border-left:2px solid #3fb950;border-radius:0 2px 2px 0;min-width:${s.put_oi > 0 ? '2px' : '0'};" title="Put OI: ${(s.put_oi/1000).toFixed(0)}K"></div>
+                </div>
+              </div>
+              <div style="display:flex;gap:0.5rem;min-width:120px;justify-content:flex-end;font-size:0.75rem;">
+                <span style="color:#f85149;">${(s.call_oi/1000).toFixed(0)}K</span>
+                <span style="color:#3fb950;">${(s.put_oi/1000).toFixed(0)}K</span>
+                <span style="color:${s.call_chg + s.put_chg >= 0 ? '#3fb950' : '#f85149'};font-size:0.7rem;">${s.call_chg + s.put_chg >= 0 ? '+' : ''}${((s.call_chg + s.put_chg)/1000).toFixed(0)}K</span>
+              </div>
+            </div>`;
+          });
+
+          html += `<div style="display:flex;justify-content:center;gap:1.5rem;margin-top:0.4rem;font-size:0.72rem;color:#8b949e;">
+            <span><span style="display:inline-block;width:10px;height:10px;background:#f8514944;border-right:2px solid #f85149;border-radius:2px;vertical-align:middle;margin-right:0.25rem;"></span>Call OI</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#3fb95044;border-left:2px solid #3fb950;border-radius:2px;vertical-align:middle;margin-right:0.25rem;"></span>Put OI</span>
+            <span>Chg (net)</span>
+          </div>`;
+        }
+        html += `</div>`;
+      }
+
+      /* Chart Patterns */
+      const cpats = data.chart_patterns || [];
+      html += `<div class="card"><h3>Chart Patterns</h3>`;
+      if (cpats.length) {
+        cpats.forEach(p => {
+          const cls = p.bias === 'bullish' ? 'tag-bullish' : p.bias === 'bearish' ? 'tag-bearish' : 'tag-neutral';
+          html += `<div style="margin-bottom:0.5rem;">
+            <span class="pattern-tag ${cls}">${p.name}</span>
+            <span style="font-size:0.85rem;color:#8b949e;margin-left:0.3rem;">${p.note || ''}</span>`;
+          if (p.breakout_target_up) html += `<span style="font-size:0.8rem;color:#3fb950;margin-left:0.5rem;">Target up: ${fmt(p.breakout_target_up)}</span>`;
+          if (p.breakout_target_down) html += `<span style="font-size:0.8rem;color:#f85149;margin-left:0.5rem;">Target down: ${fmt(p.breakout_target_down)}</span>`;
+          html += `</div>`;
+        });
+      } else html += `<div class="no-data">No significant chart patterns detected</div>`;
+      html += `</div>`;
+
+      /* Candlestick Patterns */
+      const candles = data.candlestick_patterns || [];
+      if (candles.length) {
+        html += `<div class="card"><h3>Candlestick Patterns (Last 5 Bars)</h3>`;
+        candles.forEach(p => {
+          const cls = p.type === 'bullish' ? 'tag-bullish' : p.type === 'bearish' ? 'tag-bearish' : 'tag-neutral';
+          let note = p.bars_ago === 0 ? 'Today' : p.bars_ago === 1 ? 'Yesterday' : `${p.bars_ago}d ago`;
+          if (p.near_level) note += ` at ${p.near_level.type} ${fmt(p.near_level.level)}`;
+          html += `<span class="pattern-tag ${cls}">${p.name}</span>
+            <span style="font-size:0.8rem;color:#8b949e;margin-left:0.2rem;margin-right:0.75rem;">${note}</span>`;
+        });
+        html += `</div>`;
+      }
+
+      /* Swing Setup */
+      html += `<div class="card"><h3>Swing Setup (Multi-Timeframe)</h3>`;
+      if (swing) {
+        const convColor = swing.conviction === 'High' ? '#3fb950' : swing.conviction === 'Medium' ? '#d29922' : '#8b949e';
+        const convBg = swing.conviction === 'High' ? '#1a3a2a' : swing.conviction === 'Medium' ? '#2d2a1a' : '#21262d';
+        const convBorder = swing.conviction === 'High' ? '#238636' : swing.conviction === 'Medium' ? '#9e6a03' : '#30363d';
+        html += `<div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+          <div style="padding:0.3rem 0.75rem;border-radius:6px;font-size:0.9rem;font-weight:700;background:${convBg};color:${convColor};border:1px solid ${convBorder};">${swing.conviction} Conviction</div>
+          <span class="badge-${swing.bias === 'long' ? 'long' : swing.bias === 'short' ? 'short' : 'neutral'}">${(swing.bias || 'neutral').toUpperCase()}</span>
+          <span style="font-size:0.85rem;color:#8b949e;">R:R ${swing.rr_approx != null ? '1 : ' + fmt(swing.rr_approx) : '—'}</span>
+        </div>`;
+        if (swing.ideas && swing.ideas.length) html += `<div style="font-size:0.9rem;color:#c9d1d9;margin-bottom:0.75rem;">${swing.ideas.join(' &middot; ')}</div>`;
+        html += `<div class="grid-2">
+          <div class="kv"><span class="label">Weekly RSI</span><span class="value">${fmt(swing.weekly_rsi)}</span></div>
+          <div class="kv"><span class="label">Daily RSI</span><span class="value">${fmt(swing.daily_rsi)}</span></div>
+        </div>`;
+      } else html += `<div class="no-data">No qualifying swing setup — insufficient score or data</div>`;
+      html += `</div>`;
+
+      /* Position Guidance */
+      html += `<div class="card"><h3>${pg.has_position ? 'Your Position' : 'Position Guidance'}</h3>`;
+      if (pg.has_position) {
+        const vCls = pg.verdict === 'ADD MORE' ? 'v-add' : pg.verdict === 'HOLD' ? 'v-hold' : pg.verdict === 'HOLD WITH CAUTION' ? 'v-caution' : pg.verdict === 'EXIT PARTIAL' ? 'v-partial' : 'v-exit';
+        const pnlCls = pg.pnl_status === 'In Profit' ? 'pnl-profit' : pg.pnl_status === 'In Loss' ? 'pnl-loss' : 'pnl-even';
+        const pnlSign = pg.pnl_pct >= 0 ? '+' : '';
+
+        html += `<div class="verdict-box">
+          <div class="verdict-badge ${vCls}">${pg.verdict}</div>
+          <div class="verdict-note">${pg.verdict_note}</div>
+          <div style="margin-top:0.5rem;">
+            <span class="pnl-badge ${pnlCls}">${pg.pnl_status} &middot; ${pnlSign}${fmt(pg.pnl_pct)}% &middot; Entry: ${fmt(pg.entry_price)} &middot; P&L: ${pnlSign}${fmt(pg.pnl)}</span>
+          </div>
+        </div>`;
+
+        if (pg.reasons && pg.reasons.length) {
+          html += `<div style="margin-bottom:0.75rem;"><div style="font-size:0.85rem;color:#58a6ff;font-weight:600;margin-bottom:0.3rem;">Why ${pg.verdict}?</div><ul class="reason-list">`;
+          pg.reasons.forEach(r => html += `<li>&middot; ${r}</li>`);
+          html += `</ul></div>`;
+        }
+      }
+      html += `<div style="display:flex;flex-wrap:wrap;gap:0.6rem;">`;
+      if (pg.hold_conditions && pg.hold_conditions.length) {
+        html += `<div style="flex:1;min-width:200px;padding:0.65rem 0.85rem;background:#1a3a2a;border:1px solid #238636;border-radius:8px;">
+          <div style="font-size:0.9rem;font-weight:600;color:#3fb950;margin-bottom:0.3rem;">Hold</div>`;
+        pg.hold_conditions.forEach(c => html += `<div style="font-size:0.78rem;color:#c9d1d9;margin-bottom:0.15rem;">${c}</div>`);
+        html += `</div>`;
+      }
+      if (pg.profit_booking && pg.profit_booking.length) {
+        html += `<div style="flex:1;min-width:200px;padding:0.65rem 0.85rem;background:#1c2333;border:1px solid #1f6feb;border-radius:8px;">
+          <div style="font-size:0.9rem;font-weight:600;color:#58a6ff;margin-bottom:0.3rem;">Book Profits</div>`;
+        pg.profit_booking.forEach(b => html += `<div style="font-size:0.78rem;color:#c9d1d9;margin-bottom:0.15rem;"><strong style="color:#e1e4e8;">${fmt(b.level)}</strong> — ${b.action}</div>`);
+        html += `</div>`;
+      }
+      if (pg.tighten_triggers && pg.tighten_triggers.length) {
+        html += `<div style="flex:1;min-width:200px;padding:0.65rem 0.85rem;background:#2d2a1a;border:1px solid #9e6a03;border-radius:8px;">
+          <div style="font-size:0.9rem;font-weight:600;color:#d29922;margin-bottom:0.3rem;">Caution</div>`;
+        pg.tighten_triggers.forEach(t => html += `<div style="font-size:0.78rem;color:#c9d1d9;margin-bottom:0.15rem;">${t}</div>`);
+        html += `</div>`;
+      }
+      if (pg.exit_signals && pg.exit_signals.length) {
+        html += `<div style="flex:1;min-width:200px;padding:0.65rem 0.85rem;background:#3d1f1f;border:1px solid #6e3630;border-radius:8px;">
+          <div style="font-size:0.9rem;font-weight:600;color:#f85149;margin-bottom:0.3rem;">Exit</div>`;
+        pg.exit_signals.forEach(s => html += `<div style="font-size:0.78rem;color:#c9d1d9;margin-bottom:0.15rem;">${s}</div>`);
+        html += `</div>`;
+      }
+      html += `</div></div>`;
+
+      /* Prediction History */
+      const preds = data.prediction_history || [];
+      html += `<div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;padding-bottom:0.5rem;border-bottom:1px solid #21262d;">
+          <h3 style="margin:0;border:none;padding:0;">Prediction History</h3>
+          <button id="backtestBtn" onclick="runBacktest('${data.symbol}','${tf}')" style="padding:0.4rem 0.8rem;font-size:0.82rem;font-weight:500;border:none;border-radius:6px;background:#1f6feb;color:#fff;cursor:pointer;">Run Backtest</button>
+        </div>
+        <div id="backtestResults"></div>`;
+      if (preds.length) {
+        html += `<div style="overflow-x:auto;"><table style="width:100%;font-size:0.85rem;border-collapse:collapse;">`;
+        preds.forEach(p => {
+          const tfLabel = p.timeframe === 'short_term' ? 'Short Term' : 'Positional';
+          const tfCls = p.timeframe === 'short_term' ? 'pred-tf-st' : 'pred-tf-pos';
+          const hasBuy = p.buy && p.buy.level;
+          const hasSell = p.sell && p.sell.level;
+          const outcome = p.outcome ? p.outcome.result : 'Pending';
+          const outCls = outcome === 'Pending' ? 'pred-out-pending' : outcome === 'target_hit' ? 'pred-out-win' : 'pred-out-loss';
+          const outLabel = outcome === 'target_hit' ? 'Target Hit' : outcome === 'sl_hit' ? 'SL Hit' : 'Pending';
+          const status = p.status || 'NO TRADE';
+          const stCls = status === 'BUY ZONE' ? 'pred-st-buy' : status === 'SELL ZONE' ? 'pred-st-sell' : 'pred-st-no';
+          const showBuy = status === 'BUY ZONE' || status === 'NO TRADE';
+          const showSell = status === 'SELL ZONE' || status === 'NO TRADE';
+
+          html += `<div class="pred-card">`;
+          html += `<div class="pred-header">
+            <div>
+              <span class="pred-date">${p.date}</span>
+              <span class="pred-tf ${tfCls}">${tfLabel}</span>
+              <span class="pred-status ${stCls}">${status}</span>
+            </div>
+            <span class="pred-outcome ${outCls}">${outLabel}</span>
+          </div>`;
+          html += `<div class="pred-spot">Spot: ${fmt(p.spot_price)}</div>`;
+
+          if (showBuy && hasBuy) {
+            const tgts = (p.buy.targets || []).map(t => fmt(t)).join('  /  ');
+            const label = status === 'BUY ZONE' ? 'BUY (Active)' : 'BUY Level';
+            html += `<div class="pred-level pred-level-buy">
+              <span class="pred-level-label" style="color:#3fb950;">${label} ${fmt(p.buy.level)}</span>
+              <span class="pred-kv">SL <span style="color:#f85149;">${fmt(p.buy.sl)}</span></span>
+              <span class="pred-kv">Tgt <span>${tgts || '—'}</span></span>
+            </div>`;
+          }
+
+          if (showSell && hasSell) {
+            const tgts = (p.sell.targets || []).map(t => fmt(t)).join('  /  ');
+            const label = status === 'SELL ZONE' ? 'SELL (Active)' : 'SELL Level';
+            html += `<div class="pred-level pred-level-sell">
+              <span class="pred-level-label" style="color:#f85149;">${label} ${fmt(p.sell.level)}</span>
+              <span class="pred-kv">SL <span style="color:#f85149;">${fmt(p.sell.sl)}</span></span>
+              <span class="pred-kv">Tgt <span>${tgts || '—'}</span></span>
+            </div>`;
+          }
+
+          if (!hasBuy && !hasSell) {
+            html += `<div class="no-data">No actionable levels identified</div>`;
+          }
+
+          html += `</div>`;
+        });
+      } else {
+        html += `<div class="no-data">No predictions logged yet. Run an analysis to start logging.</div>`;
+      }
+      html += `</div>`;
+
+      resultsEl.innerHTML = html;
+      resultsEl.classList.add('active');
+    }
+
+    async function runBacktest(symbol, timeframe) {
+      const btn = document.getElementById('backtestBtn');
+      const div = document.getElementById('backtestResults');
+      if (!btn || !div) return;
+      btn.disabled = true;
+      btn.textContent = 'Running...';
+      div.innerHTML = '<div style="text-align:center;padding:1rem;color:#8b949e;"><span class="spinner"></span> Running backtest — this may take a minute...</div>';
+
+      try {
+        const r = await fetch(`/backtest?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`);
+        const d = await r.json();
+        if (!r.ok) { div.innerHTML = `<div style="color:#f85149;padding:0.5rem;">${d.error||'Backtest failed'}</div>`; return; }
+        renderBacktest(d, div);
+      } catch(e) { div.innerHTML = '<div style="color:#f85149;padding:0.5rem;">Network error</div>'; }
+      finally { btn.disabled = false; btn.textContent = 'Run Backtest'; }
+    }
+
+    function renderBacktest(d, container) {
+      const s = d.summary;
+      if (!s) { container.innerHTML = '<div class="no-data">No results</div>'; return; }
+
+      const wrColor = s.win_rate >= 55 ? '#3fb950' : s.win_rate >= 45 ? '#d29922' : '#f85149';
+      const pfColor = s.profit_factor >= 1.5 ? '#3fb950' : s.profit_factor >= 1.0 ? '#d29922' : '#f85149';
+
+      let h = `<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:1rem;margin-bottom:0.75rem;">`;
+      h += `<div style="font-size:0.85rem;color:#58a6ff;font-weight:600;margin-bottom:0.6rem;">BACKTEST RESULTS — ${d.symbol} (${d.timeframe === 'short_term' ? 'Short Term' : 'Positional'})</div>`;
+
+      h += `<div class="grid-2" style="gap:0.4rem;">
+        <div class="kv"><span class="label">Total Predictions</span><span class="value">${s.total_predictions}</span></div>
+        <div class="kv"><span class="label">Triggered</span><span class="value">${s.triggered}</span></div>
+        <div class="kv"><span class="label">Win Rate</span><span class="value" style="color:${wrColor};font-size:1rem;font-weight:700;">${s.win_rate}%</span></div>
+        <div class="kv"><span class="label">Profit Factor</span><span class="value" style="color:${pfColor};font-weight:600;">${s.profit_factor}</span></div>
+        <div class="kv"><span class="label">Wins / Losses</span><span class="value"><span style="color:#3fb950">${s.wins}</span> / <span style="color:#f85149">${s.losses}</span></span></div>
+        <div class="kv"><span class="label">Total P&L</span><span class="value" style="color:${s.total_pnl_pct >= 0 ? '#3fb950' : '#f85149'};font-weight:600;">${s.total_pnl_pct >= 0 ? '+' : ''}${s.total_pnl_pct}%</span></div>
+        <div class="kv"><span class="label">Avg Win</span><span class="value" style="color:#3fb950;">+${s.avg_win_pct}%</span></div>
+        <div class="kv"><span class="label">Avg Loss</span><span class="value" style="color:#f85149;">${s.avg_loss_pct}%</span></div>
+        <div class="kv"><span class="label">Expectancy</span><span class="value">${s.expectancy_pct >= 0 ? '+' : ''}${s.expectancy_pct}%</span></div>
+        <div class="kv"><span class="label">Avg Days Held</span><span class="value">${s.avg_days_held}d <span style="font-size:0.75rem;color:#8b949e;">(W: ${s.avg_days_win || 0}d / L: ${s.avg_days_loss || 0}d)</span></span></div>
+        <div class="kv"><span class="label">Not Triggered</span><span class="value" style="color:#8b949e;">${s.not_triggered}</span></div>
+        <div class="kv"><span class="label">Expired</span><span class="value" style="color:#8b949e;">${s.expired}</span></div>
+      </div>`;
+      h += `</div>`;
+
+      // Recent trades
+      const trades = (d.predictions || []).filter(p => p.outcome && p.outcome.result !== 'not_triggered').slice(-10);
+      if (trades.length) {
+        h += `<div style="font-size:0.82rem;color:#8b949e;margin-bottom:0.3rem;">Recent Trades (last 10)</div>`;
+        trades.forEach(t => {
+          const o = t.outcome;
+          const resCls = o.result === 'target_hit' ? 'pred-out-win' : o.result === 'sl_hit' ? 'pred-out-loss' : 'pred-out-pending';
+          const resLabel = o.result === 'target_hit' ? `T${o.target_hit} Hit` : o.result === 'sl_hit' ? 'SL Hit' : 'Expired';
+          const pnlColor = o.pnl_pct >= 0 ? '#3fb950' : '#f85149';
+          const daysHeld = o.days_to_exit - o.days_to_entry;
+          const side = t[o.side] || {};
+          const sl = side.sl;
+          const t1 = (side.targets || [])[0];
+          const entryDate = o.entry_triggered_on || '—';
+          const daysToEntry = o.days_to_entry || 0;
+          h += `<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #21262d;font-size:0.85rem;">
+            <div>
+              <div><span style="font-weight:600;color:${o.side==='buy'?'#3fb950':'#f85149'}">${o.side.toUpperCase()}</span> <span style="color:#e1e4e8;">@ ${fmt(o.entry_price)}</span></div>
+              <div style="font-size:0.78rem;color:#8b949e;margin-top:0.2rem;">${t.date} (Spot: ${fmt(t.spot)}) &middot; Entry: ${entryDate}${daysToEntry > 0 ? ' ('+daysToEntry+'d later)' : ''}</div>
+            </div>
+            <div style="text-align:right;">
+              <div><span style="color:#c9d1d9;font-size:0.8rem;">${daysHeld}d</span> <span class="pred-outcome ${resCls}" style="font-size:0.78rem;">${resLabel}</span> <span style="color:${pnlColor};font-weight:700;margin-left:0.3rem;">${o.pnl_pct >= 0 ? '+' : ''}${fmt(o.pnl_pct)}%</span></div>
+              <div style="font-size:0.78rem;color:#8b949e;margin-top:0.2rem;">SL: <span style="color:#c9d1d9;">${fmt(sl)}</span> &middot; T1: <span style="color:#c9d1d9;">${fmt(t1)}</span></div>
+            </div>
+          </div>`;
+        });
+      }
+
+      // Performance metrics
+      const perf = d.performance;
+      if (perf && !perf.error) {
+        h += `<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:1rem;margin-bottom:0.75rem;">`;
+        h += `<div style="font-size:0.85rem;color:#58a6ff;font-weight:600;margin-bottom:0.6rem;">PERFORMANCE METRICS</div>`;
+        h += `<div class="grid-2" style="gap:0.4rem;">
+          <div class="kv"><span class="label">Sharpe Ratio</span><span class="value" style="color:${perf.sharpe_ratio >= 1 ? '#3fb950' : perf.sharpe_ratio >= 0 ? '#d29922' : '#f85149'};font-weight:600;">${perf.sharpe_ratio}</span></div>
+          <div class="kv"><span class="label">Max Drawdown</span><span class="value" style="color:#f85149;">${perf.max_drawdown_pct}%</span></div>
+          <div class="kv"><span class="label">Max Consec. Wins</span><span class="value" style="color:#3fb950;">${perf.max_consec_wins}</span></div>
+          <div class="kv"><span class="label">Max Consec. Losses</span><span class="value" style="color:#f85149;">${perf.max_consec_losses}</span></div>
+          <div class="kv"><span class="label">Best Trade</span><span class="value" style="color:#3fb950;">${perf.best_trade.date} ${perf.best_trade.side} +${perf.best_trade.pnl_pct}%</span></div>
+          <div class="kv"><span class="label">Worst Trade</span><span class="value" style="color:#f85149;">${perf.worst_trade.date} ${perf.worst_trade.side} ${perf.worst_trade.pnl_pct}%</span></div>
+        </div>`;
+
+        // Equity curve
+        if (perf.equity_curve && perf.equity_curve.length > 1) {
+          const ec = perf.equity_curve;
+          const maxC = Math.max(...ec.map(e => e.cumulative));
+          const minC = Math.min(...ec.map(e => e.cumulative));
+          const range = maxC - minC || 1;
+          const w = 100 / ec.length;
+          h += `<div style="margin-top:0.75rem;"><div style="font-size:0.78rem;color:#8b949e;margin-bottom:0.3rem;">Equity Curve (Cumulative P&L %)</div>`;
+          h += `<div style="display:flex;align-items:flex-end;height:60px;gap:1px;background:#161b22;border-radius:4px;padding:2px;overflow:hidden;">`;
+          ec.forEach(e => {
+            const pct = ((e.cumulative - minC) / range * 100).toFixed(1);
+            const color = e.pnl >= 0 ? '#3fb950' : '#f85149';
+            h += `<div style="flex:1;height:${Math.max(2, pct)}%;background:${color};border-radius:1px;" title="${e.date}: ${e.cumulative}%"></div>`;
+          });
+          h += `</div>`;
+          h += `<div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#484f58;margin-top:0.2rem;"><span>${ec[0].date}</span><span>${ec[ec.length-1].date}</span></div>`;
+          h += `</div>`;
+        }
+        h += `</div>`;
+      }
+
+      // Indicator Attribution
+      const attr = d.attribution;
+      if (attr && attr.signal_attribution && Object.keys(attr.signal_attribution).length) {
+        h += `<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:1rem;margin-bottom:0.75rem;">`;
+        h += `<div style="font-size:0.85rem;color:#58a6ff;font-weight:600;margin-bottom:0.6rem;">INDICATOR ATTRIBUTION</div>`;
+
+        // Signal-level table
+        h += `<table style="width:100%;font-size:0.82rem;border-collapse:collapse;">`;
+        h += `<tr style="color:#8b949e;border-bottom:1px solid #21262d;">
+          <th style="text-align:left;padding:0.3rem;">Signal</th>
+          <th style="text-align:center;padding:0.3rem;color:#3fb950;">Bullish (>55)</th>
+          <th style="text-align:center;padding:0.3rem;color:#d29922;">Neutral</th>
+          <th style="text-align:center;padding:0.3rem;color:#f85149;">Bearish (<45)</th>
+          <th style="text-align:right;padding:0.3rem;">Impact</th>
+        </tr>`;
+        for (const [key, val] of Object.entries(attr.signal_attribution)) {
+          const impColor = val.contribution > 15 ? '#3fb950' : val.contribution < -15 ? '#f85149' : '#8b949e';
+          const impLabel = val.contribution > 15 ? 'Helpful' : val.contribution < -15 ? 'Harmful' : 'Neutral';
+          h += `<tr style="border-bottom:1px solid #21262d;">
+            <td style="padding:0.3rem;font-weight:500;color:#e1e4e8;">${key.charAt(0).toUpperCase() + key.slice(1)}</td>
+            <td style="text-align:center;padding:0.3rem;"><span style="color:#e1e4e8;">${val.bullish.count > 0 ? val.bullish.win_rate + '%' : '—'}</span> <span style="color:#484f58;font-size:0.75rem;">(${val.bullish.count})</span></td>
+            <td style="text-align:center;padding:0.3rem;"><span style="color:#e1e4e8;">${val.neutral.count > 0 ? val.neutral.win_rate + '%' : '—'}</span> <span style="color:#484f58;font-size:0.75rem;">(${val.neutral.count})</span></td>
+            <td style="text-align:center;padding:0.3rem;"><span style="color:#e1e4e8;">${val.bearish.count > 0 ? val.bearish.win_rate + '%' : '—'}</span> <span style="color:#484f58;font-size:0.75rem;">(${val.bearish.count})</span></td>
+            <td style="text-align:right;padding:0.3rem;color:${impColor};font-weight:600;">${val.contribution > 0 ? '+' : ''}${val.contribution} <span style="font-size:0.75rem;font-weight:400;">${impLabel}</span></td>
+          </tr>`;
+        }
+        h += `</table>`;
+
+        // Indicator-level breakdown
+        if (attr.indicator_attribution && Object.keys(attr.indicator_attribution).length) {
+          h += `<div style="margin-top:0.75rem;border-top:1px solid #21262d;padding-top:0.75rem;">`;
+          h += `<div style="font-size:0.82rem;color:#8b949e;margin-bottom:0.4rem;">Indicator-Level Breakdown</div>`;
+          for (const [name, buckets] of Object.entries(attr.indicator_attribution)) {
+            h += `<div style="margin-bottom:0.5rem;"><span style="font-size:0.82rem;color:#c9d1d9;font-weight:500;">${name}</span>`;
+            h += `<div style="display:flex;gap:0.75rem;margin-top:0.2rem;">`;
+            buckets.forEach(b => {
+              if (b.count === 0) return;
+              const wrColor = b.win_rate >= 55 ? '#3fb950' : b.win_rate >= 45 ? '#d29922' : '#f85149';
+              h += `<span style="font-size:0.78rem;"><span style="color:#8b949e;">${b.label}</span> <span style="color:${wrColor};font-weight:600;">${b.win_rate}%</span> <span style="color:#484f58;">(${b.count})</span></span>`;
+            });
+            h += `</div></div>`;
+          }
+          h += `</div>`;
+        }
+
+        h += `</div>`;
+      }
+
+      container.innerHTML = h;
+    }
+  </script>
+</body>
+</html>
