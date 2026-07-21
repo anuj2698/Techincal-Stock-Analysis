@@ -61,8 +61,33 @@ def market_status(last_candle_date: str) -> dict:
     }
 
 
+INDEX_MAP = {
+    "NIFTY": ("NIFTY 50", "^NSEI"),
+    "NIFTY 50": ("NIFTY 50", "^NSEI"),
+    "NIFTY50": ("NIFTY 50", "^NSEI"),
+    "SENSEX": ("SENSEX", "^BSESN"),
+    "BANKNIFTY": ("BANK NIFTY", "^NSEBANK"),
+    "BANK NIFTY": ("BANK NIFTY", "^NSEBANK"),
+    "NIFTYBANK": ("BANK NIFTY", "^NSEBANK"),
+    "CRUDE": ("Crude Oil", "CL=F"),
+    "CRUDE OIL": ("Crude Oil", "CL=F"),
+    "CRUDEOIL": ("Crude Oil", "CL=F"),
+    "GOLD": ("Gold", "GC=F"),
+    "SILVER": ("Silver", "SI=F"),
+    "NIFTYIT": ("NIFTY IT", "^CNXIT"),
+    "NIFTY IT": ("NIFTY IT", "^CNXIT"),
+}
+
+
 def resolve_yahoo_ticker(symbol: str) -> tuple[str, str]:
     sym = symbol.strip().upper()
+
+    idx = INDEX_MAP.get(sym)
+    if idx:
+        return idx[0], idx[1]
+
+    if sym.startswith("^") or sym.endswith("=F"):
+        return sym, sym
 
     if sym.endswith(".NS") or sym.endswith(".BO"):
         return sym, sym
@@ -160,6 +185,58 @@ def index():
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"})
+
+
+_stock_list_cache: list[dict] | None = None
+
+
+@app.route("/stocks")
+def stocks():
+    global _stock_list_cache
+    if _stock_list_cache is not None:
+        return jsonify(_stock_list_cache)
+    try:
+        from nselib import capital_market
+        df = capital_market.equity_list()
+        nse_syms = set()
+        result = []
+        for _, row in df.iterrows():
+            sym = str(row["SYMBOL"]).strip()
+            name = str(row["NAME OF COMPANY"]).strip()
+            if sym and name:
+                result.append({"s": sym, "n": name})
+                nse_syms.add(sym.upper())
+
+        try:
+            import requests as _req
+            bse_url = "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w?Group=&Atea=&segment=Equity&status=Active"
+            bse_headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://www.bseindia.com/"}
+            bse_resp = _req.get(bse_url, headers=bse_headers, timeout=10)
+            if bse_resp.status_code == 200:
+                for s in bse_resp.json():
+                    sym = str(s.get("scrip_id", "")).strip().upper()
+                    mktcap = float(s.get("Mktcap", 0) or 0)
+                    if sym and sym not in nse_syms and mktcap > 500:
+                        result.append({"s": f"BSE:{sym}", "n": s.get("Scrip_Name", sym)})
+        except Exception:
+            pass
+
+        indices = [
+            {"s": "NIFTY 50", "n": "Nifty 50 Index"},
+            {"s": "SENSEX", "n": "BSE Sensex Index"},
+            {"s": "BANKNIFTY", "n": "Bank Nifty Index"},
+            {"s": "NIFTY IT", "n": "Nifty IT Index"},
+            {"s": "CRUDE OIL", "n": "Crude Oil (WTI Futures)"},
+            {"s": "GOLD", "n": "Gold (COMEX Futures)"},
+            {"s": "SILVER", "n": "Silver (COMEX Futures)"},
+        ]
+        result.extend(indices)
+
+        result.sort(key=lambda x: x["s"])
+        _stock_list_cache = result
+        return jsonify(result)
+    except Exception:
+        return jsonify([])
 
 
 @app.route("/analyze")

@@ -13,22 +13,38 @@
     .header p { color: #8b949e; margin-top: 0.4rem; font-size: 0.95rem; }
 
     .search-box { max-width: 560px; margin: 0 auto 2rem; padding: 0 1rem; }
-    .search-form { display: flex; gap: 0.5rem; }
+    .search-form { display: flex; flex-direction: column; gap: 0.6rem; position: relative; }
     .search-form input {
-      flex: 1; padding: 0.75rem 1rem; font-size: 1rem; border: 1px solid #30363d;
-      border-radius: 8px; background: #161b22; color: #e1e4e8; outline: none;
+      width: 100%; padding: 0.75rem 1rem; font-size: 1rem; border: 1px solid #30363d;
+      border-radius: 8px; background: #161b22; color: #e1e4e8; outline: none; box-sizing: border-box;
     }
     .search-form input:focus { border-color: #58a6ff; }
     .search-form input::placeholder { color: #484f58; }
-    .search-form button {
-      padding: 0.75rem 1.2rem; font-size: 0.95rem; font-weight: 500; border: none;
+    .btn-row { display: flex; gap: 0.5rem; }
+    .btn-row button {
+      flex: 1; padding: 0.75rem 1.2rem; font-size: 0.95rem; font-weight: 500; border: none;
       border-radius: 8px; cursor: pointer; transition: background 0.15s;
     }
     .btn-short { background: #1f6feb; color: #fff; }
     .btn-short:hover { background: #388bfd; }
     .btn-pos { background: #238636; color: #fff; }
     .btn-pos:hover { background: #2ea043; }
-    .search-form button:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+    .btn-row button:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+    .ac-wrap { position: relative; }
+    .ac-list {
+      position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+      max-height: 260px; overflow-y: auto; background: #161b22;
+      border: 1px solid #30363d; border-top: none; border-radius: 0 0 8px 8px;
+      display: none;
+    }
+    .ac-list.show { display: block; }
+    .ac-item {
+      padding: 0.5rem 0.75rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #21262d; font-size: 0.9rem;
+    }
+    .ac-item:hover, .ac-item.active { background: #1c2333; }
+    .ac-item .ac-sym { color: #58a6ff; font-weight: 600; min-width: 90px; }
+    .ac-item .ac-name { color: #8b949e; font-size: 0.82rem; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .position-row {
       display: flex; align-items: center; gap: 0.75rem; margin-top: 0.6rem;
@@ -191,9 +207,14 @@
 
   <div class="search-box">
     <form class="search-form" id="searchForm">
-      <input type="text" id="symbolInput" placeholder="e.g. RELIANCE, TCS, INFY, TATASTEEL" autocomplete="off" autofocus>
-      <button type="button" id="btnShort" class="btn-short">Short Term</button>
-      <button type="button" id="btnPos" class="btn-pos">Positional</button>
+      <div class="ac-wrap">
+        <input type="text" id="symbolInput" placeholder="e.g. RELIANCE, TCS, INFY, TATASTEEL" autocomplete="off" autofocus>
+        <div class="ac-list" id="acList"></div>
+      </div>
+      <div class="btn-row">
+        <button type="button" id="btnShort" class="btn-short">Short Term</button>
+        <button type="button" id="btnPos" class="btn-pos">Positional</button>
+      </div>
     </form>
     <div class="position-row" id="posRow">
       <div class="toggle-wrap" id="toggleWrap">
@@ -224,7 +245,41 @@
     const entryWrap = document.getElementById('entryWrap');
     const posRow = document.getElementById('posRow');
     const entryPriceInput = document.getElementById('entryPrice');
+    const acList = document.getElementById('acList');
     let hasPosition = false;
+    let stockList = [];
+    let acIdx = -1;
+
+    fetch('/stocks').then(r => r.json()).then(data => { stockList = data; }).catch(() => {});
+
+    function showAc(query) {
+      if (!query || query.length < 1 || !stockList.length) { acList.classList.remove('show'); return; }
+      const q = query.toUpperCase();
+      const matches = stockList.filter(s =>
+        s.s.startsWith(q) || s.n.toUpperCase().includes(q)
+      ).slice(0, 8);
+      if (!matches.length) { acList.classList.remove('show'); return; }
+      acList.innerHTML = matches.map((m, i) =>
+        `<div class="ac-item" data-sym="${m.s}"><span class="ac-sym">${m.s}</span><span class="ac-name">${m.n}</span></div>`
+      ).join('');
+      acIdx = -1;
+      acList.classList.add('show');
+    }
+
+    input.addEventListener('input', () => showAc(input.value.trim()));
+    input.addEventListener('keydown', (e) => {
+      const items = acList.querySelectorAll('.ac-item');
+      if (!items.length || !acList.classList.contains('show')) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); acIdx = Math.min(acIdx + 1, items.length - 1); items.forEach((it, i) => it.classList.toggle('active', i === acIdx)); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); acIdx = Math.max(acIdx - 1, 0); items.forEach((it, i) => it.classList.toggle('active', i === acIdx)); }
+      else if (e.key === 'Enter' && acIdx >= 0) { e.preventDefault(); input.value = items[acIdx].dataset.sym; acList.classList.remove('show'); }
+      else if (e.key === 'Escape') { acList.classList.remove('show'); }
+    });
+    acList.addEventListener('click', (e) => {
+      const item = e.target.closest('.ac-item');
+      if (item) { input.value = item.dataset.sym; acList.classList.remove('show'); input.focus(); }
+    });
+    document.addEventListener('click', (e) => { if (!e.target.closest('.ac-wrap')) acList.classList.remove('show'); });
 
     toggleWrap.addEventListener('click', () => {
       hasPosition = !hasPosition;
