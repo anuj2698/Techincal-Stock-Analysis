@@ -8,7 +8,7 @@ from analyzer import full_analysis, TIMEFRAME_CONFIG
 from prediction_logger import get_predictions, update_outcome
 
 IST = timezone(timedelta(hours=5, minutes=30))
-HORIZON = {"short_term": 10, "positional": 40}
+HORIZON = {"intraday": 40, "short_term": 10, "positional": 40}
 WARMUP = 65
 
 

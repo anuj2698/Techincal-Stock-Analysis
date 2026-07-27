@@ -25,6 +25,8 @@
       flex: 1; padding: 0.75rem 1.2rem; font-size: 0.95rem; font-weight: 500; border: none;
       border-radius: 8px; cursor: pointer; transition: background 0.15s;
     }
+    .btn-intra { background: #8b5cf6; color: #fff; }
+    .btn-intra:hover { background: #a78bfa; }
     .btn-short { background: #1f6feb; color: #fff; }
     .btn-short:hover { background: #388bfd; }
     .btn-pos { background: #238636; color: #fff; }
@@ -175,6 +177,7 @@
     .pred-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
     .pred-date { font-size: 0.9rem; color: #e1e4e8; font-weight: 500; }
     .pred-tf { font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.4rem; }
+    .pred-tf-intra { background: #8b5cf622; color: #8b5cf6; border: 1px solid #8b5cf655; }
     .pred-tf-st { background: #1f6feb22; color: #1f6feb; border: 1px solid #1f6feb55; }
     .pred-tf-pos { background: #23863622; color: #238636; border: 1px solid #23863655; }
     .pred-status { font-size: 0.78rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 4px; }
@@ -212,6 +215,7 @@
         <div class="ac-list" id="acList"></div>
       </div>
       <div class="btn-row">
+        <button type="button" id="btnIntra" class="btn-intra">Intraday</button>
         <button type="button" id="btnShort" class="btn-short">Short Term</button>
         <button type="button" id="btnPos" class="btn-pos">Positional</button>
       </div>
@@ -234,6 +238,7 @@
 
   <script>
     const input = document.getElementById('symbolInput');
+    const btnIntra = document.getElementById('btnIntra');
     const btnShort = document.getElementById('btnShort');
     const btnPos = document.getElementById('btnPos');
     const loading = document.getElementById('loading');
@@ -294,7 +299,7 @@
     async function analyze(timeframe) {
       const symbol = input.value.trim();
       if (!symbol) return;
-      btnShort.disabled = true; btnPos.disabled = true;
+      btnIntra.disabled = true; btnShort.disabled = true; btnPos.disabled = true;
       loading.classList.add('active');
       errorEl.classList.remove('active');
       resultsEl.classList.remove('active');
@@ -308,9 +313,10 @@
         if (!res.ok) { errorEl.textContent = data.error || 'Something went wrong'; errorEl.classList.add('active'); return; }
         renderResults(data);
       } catch (err) { console.error('Analyze error:', err); errorEl.textContent = 'Network error: ' + err.message; errorEl.classList.add('active'); }
-      finally { btnShort.disabled = false; btnPos.disabled = false; loading.classList.remove('active'); }
+      finally { btnIntra.disabled = false; btnShort.disabled = false; btnPos.disabled = false; loading.classList.remove('active'); }
     }
 
+    btnIntra.addEventListener('click', () => analyze('intraday'));
     btnShort.addEventListener('click', () => analyze('short_term'));
     btnPos.addEventListener('click', () => analyze('positional'));
     document.getElementById('searchForm').addEventListener('submit', (e) => { e.preventDefault(); analyze('positional'); });
@@ -339,7 +345,7 @@
 
       const tf = data.timeframe || 'positional';
       const tfLabel = data.timeframe_label || 'Positional (1-2 Months)';
-      const tfColor = tf === 'short_term' ? '#1f6feb' : '#238636';
+      const tfColor = tf === 'intraday' ? '#8b5cf6' : tf === 'short_term' ? '#1f6feb' : '#238636';
 
       /* Header */
       html += `<div class="stock-header">
@@ -355,35 +361,54 @@
       /* Action Plan */
       html += `<div class="card"><h3>Action Plan</h3>`;
       html += `<div style="text-align:center;margin-bottom:1rem;">
-        <div class="status-badge status-${ap.status.replace(/ /g,'_')}">${ap.status}</div>
+        <div class="status-badge status-${ap.status.replace(/ /g,'_')}">${ap.status}${ap.volume_environment === 'confirmed' ? ' <span style="font-size:0.7rem;background:#238636;padding:0.1rem 0.4rem;border-radius:4px;margin-left:0.3rem;">Vol Confirmed</span>' : ap.volume_environment === 'low' ? ' <span style="font-size:0.7rem;background:#9e6a03;padding:0.1rem 0.4rem;border-radius:4px;margin-left:0.3rem;">Low Vol</span>' : ''}</div>
         <div style="font-size:0.9rem;color:#8b949e;margin-top:0.5rem;">${ap.status_note}</div>
       </div>`;
 
       if (ap.buy && ap.buy.level) {
+        const buyConf = ap.buy.confluence_count > 1 ? `<span style="font-size:0.72rem;padding:0.15rem 0.45rem;border-radius:4px;background:#d4940022;color:#d49400;border:1px solid #d4940055;margin-left:0.4rem;font-weight:700;">${ap.buy.confluence_count}-way confluence</span>` : '';
+        const bcv = ap.buy.conviction || {};
+        const bcvColor = (bcv.score||0) >= 70 ? '#3fb950' : (bcv.score||0) >= 55 ? '#a3d977' : (bcv.score||0) >= 45 ? '#8b949e' : (bcv.score||0) >= 30 ? '#f0883e' : '#f85149';
         html += `<div class="level-card level-buy">
           <div class="level-header">
-            <span class="level-label" style="color:#3fb950;">Buy Level</span>
+            <span class="level-label" style="color:#3fb950;">Buy Level${buyConf}</span>
             <span class="level-price" style="color:#3fb950;">${fmt(ap.buy.level)} <span style="font-size:0.8rem;font-weight:500;">${pctFrom(ap.buy.level, cmp)}</span></span>
           </div>
           <div class="level-source">${ap.buy.source}</div>
+          ${ap.buy.confluence_count > 1 ? `<div style="font-size:0.78rem;color:#8b949e;margin-top:0.2rem;">${ap.buy.sources.join(' · ')}</div>` : ''}
+          ${bcv.score != null ? `<div style="display:inline-flex;align-items:center;gap:0.4rem;margin-top:0.3rem;padding:0.2rem 0.6rem;border-radius:5px;background:${bcvColor}15;border:1px solid ${bcvColor}40;font-size:0.78rem;font-weight:600;color:${bcvColor};">${bcv.score} — ${bcv.label}</div>` : ''}
           <div class="level-details">
             <span><span class="level-detail-label">SL: </span><span class="level-detail-value" style="color:#f85149;">${fmt(ap.buy.sl)} <span style="font-size:0.75rem;font-weight:400;color:#8b949e;">${pctFrom(ap.buy.sl, ap.buy.level)}</span></span></span>
             ${ap.buy.targets.map((t, i) => `<span><span class="level-detail-label">Target ${i+1}: </span><span class="level-detail-value">${fmt(t)} <span style="font-size:0.75rem;font-weight:400;color:#8b949e;">${pctFrom(t, ap.buy.level)}</span></span></span>`).join('')}
+            ${ap.buy.rr != null ? `<span><span class="level-detail-label">R:R </span><span class="level-detail-value" style="color:${ap.buy.rr >= 1.2 ? '#3fb950' : '#d29922'};">1 : ${ap.buy.rr.toFixed(1)}</span></span>` : ''}
           </div>
+          ${ap.buy.trend_warning ? `<div style="margin-top:0.5rem;padding:0.4rem 0.7rem;background:#3d2a1a;border:1px solid #9e6a03;border-radius:6px;font-size:0.8rem;color:#d29922;">&#9888; ${ap.buy.trend_warning}</div>` : ''}
         </div>`;
       }
 
       if (ap.sell && ap.sell.level) {
+        const sellConf = ap.sell.confluence_count > 1 ? `<span style="font-size:0.72rem;padding:0.15rem 0.45rem;border-radius:4px;background:#d4940022;color:#d49400;border:1px solid #d4940055;margin-left:0.4rem;font-weight:700;">${ap.sell.confluence_count}-way confluence</span>` : '';
+        const scv = ap.sell.conviction || {};
+        const scvColor = (scv.score||0) >= 70 ? '#3fb950' : (scv.score||0) >= 55 ? '#a3d977' : (scv.score||0) >= 45 ? '#8b949e' : (scv.score||0) >= 30 ? '#f0883e' : '#f85149';
         html += `<div class="level-card level-sell">
           <div class="level-header">
-            <span class="level-label" style="color:#f85149;">Sell Level</span>
+            <span class="level-label" style="color:#f85149;">Sell Level${sellConf}</span>
             <span class="level-price" style="color:#f85149;">${fmt(ap.sell.level)} <span style="font-size:0.8rem;font-weight:500;">${pctFrom(ap.sell.level, cmp)}</span></span>
           </div>
           <div class="level-source">${ap.sell.source}</div>
+          ${ap.sell.confluence_count > 1 ? `<div style="font-size:0.78rem;color:#8b949e;margin-top:0.2rem;">${ap.sell.sources.join(' · ')}</div>` : ''}
+          ${scv.score != null ? `<div style="display:inline-flex;align-items:center;gap:0.4rem;margin-top:0.3rem;padding:0.2rem 0.6rem;border-radius:5px;background:${scvColor}15;border:1px solid ${scvColor}40;font-size:0.78rem;font-weight:600;color:${scvColor};">${scv.score} — ${scv.label}</div>` : ''}
           <div class="level-details">
             <span><span class="level-detail-label">SL: </span><span class="level-detail-value" style="color:#f85149;">${fmt(ap.sell.sl)} <span style="font-size:0.75rem;font-weight:400;color:#8b949e;">${pctFrom(ap.sell.sl, ap.sell.level)}</span></span></span>
             ${ap.sell.targets.map((t, i) => `<span><span class="level-detail-label">Target ${i+1}: </span><span class="level-detail-value">${fmt(t)} <span style="font-size:0.75rem;font-weight:400;color:#8b949e;">${pctFrom(t, ap.sell.level)}</span></span></span>`).join('')}
+            ${ap.sell.rr != null ? `<span><span class="level-detail-label">R:R </span><span class="level-detail-value" style="color:${ap.sell.rr >= 1.2 ? '#3fb950' : '#d29922'};">1 : ${ap.sell.rr.toFixed(1)}</span></span>` : ''}
           </div>
+          ${ap.sell.trend_warning ? `<div style="margin-top:0.5rem;padding:0.4rem 0.7rem;background:#3d2a1a;border:1px solid #9e6a03;border-radius:6px;font-size:0.8rem;color:#d29922;">&#9888; ${ap.sell.trend_warning}</div>` : ''}
+        </div>`;
+      }
+      if (ap.rr_warning) {
+        html += `<div style="margin-top:0.75rem;padding:0.5rem 0.85rem;background:#3d2a1a;border:1px solid #9e6a03;border-radius:8px;font-size:0.85rem;color:#d29922;">
+          <span style="font-weight:700;">&#9888; R:R Warning:</span> ${ap.rr_warning}
         </div>`;
       }
       html += `</div>`;
@@ -821,6 +846,27 @@
           <div class="kv"><span class="label">Weekly RSI</span><span class="value">${fmt(swing.weekly_rsi)}</span></div>
           <div class="kv"><span class="label">Daily RSI</span><span class="value">${fmt(swing.daily_rsi)}</span></div>
         </div>`;
+        html += `<div style="margin-top:0.75rem;display:flex;flex-wrap:wrap;gap:0.5rem;">`;
+        if (swing.stop != null) {
+          html += `<div class="kv" style="flex:1;min-width:100px;padding:0.4rem 0.6rem;background:#3d1f1f;border:1px solid #6e3630;border-radius:6px;">
+            <span class="label">Stop</span><span class="value" style="color:#f85149;">${fmt(swing.stop)}</span>
+          </div>`;
+        }
+        if (swing.target1 != null) {
+          html += `<div class="kv" style="flex:1;min-width:100px;padding:0.4rem 0.6rem;background:#1a3a2a;border:1px solid #238636;border-radius:6px;">
+            <span class="label">Target 1</span><span class="value" style="color:#3fb950;">${fmt(swing.target1)}</span>
+          </div>`;
+        }
+        if (swing.target2 != null) {
+          html += `<div class="kv" style="flex:1;min-width:100px;padding:0.4rem 0.6rem;background:#1a3a2a;border:1px solid #238636;border-radius:6px;">
+            <span class="label">Target 2</span><span class="value" style="color:#3fb950;">${fmt(swing.target2)}</span>
+          </div>`;
+        }
+        html += `</div>`;
+        html += `<div class="grid-2" style="margin-top:0.5rem;">
+          <div class="kv"><span class="label">8W Range</span><span class="value">${fmt(swing.range8w_pct)}%</span></div>
+          <div class="kv"><span class="label">Monthly vs SMA6</span><span class="value">${swing.monthly_vs_sma6 != null ? fmt(swing.monthly_vs_sma6) + '%' : '—'}</span></div>
+        </div>`;
       } else html += `<div class="no-data">No qualifying swing setup — insufficient score or data</div>`;
       html += `</div>`;
 
@@ -883,8 +929,8 @@
       if (preds.length) {
         html += `<div style="overflow-x:auto;"><table style="width:100%;font-size:0.85rem;border-collapse:collapse;">`;
         preds.forEach(p => {
-          const tfLabel = p.timeframe === 'short_term' ? 'Short Term' : 'Positional';
-          const tfCls = p.timeframe === 'short_term' ? 'pred-tf-st' : 'pred-tf-pos';
+          const tfLabel = p.timeframe === 'intraday' ? 'Intraday' : p.timeframe === 'short_term' ? 'Short Term' : 'Positional';
+          const tfCls = p.timeframe === 'intraday' ? 'pred-tf-intra' : p.timeframe === 'short_term' ? 'pred-tf-st' : 'pred-tf-pos';
           const hasBuy = p.buy && p.buy.level;
           const hasSell = p.sell && p.sell.level;
           const outcome = p.outcome ? p.outcome.result : 'Pending';

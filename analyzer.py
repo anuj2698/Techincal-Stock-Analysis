@@ -209,6 +209,25 @@ def resample_weekly(candles: list[list[float]]) -> list[list[float]]:
     return out
 
 
+def resample_daily(candles: list[list[float]]) -> list[list[float]]:
+    """Resample intraday candles to daily OHLCV."""
+    buckets: dict[str, list] = defaultdict(list)
+    for row in candles:
+        dt = datetime.fromtimestamp(int(row[0]), tz=UTC)
+        buckets[dt.strftime("%Y-%m-%d")].append(row)
+    out: list[list[float]] = []
+    for key in sorted(buckets):
+        rows = sorted(buckets[key], key=lambda r: r[0])
+        ts0 = int(rows[0][0])
+        o = float(rows[0][1])
+        h = max(float(r[2]) for r in rows)
+        l_val = min(float(r[3]) for r in rows)
+        c = float(rows[-1][4])
+        v = sum(float(r[5]) for r in rows if len(r) > 5)
+        out.append([ts0, o, h, l_val, c, v])
+    return out
+
+
 def resample_monthly(candles: list[list[float]]) -> list[list[float]]:
     buckets: dict[tuple[int, int], list] = defaultdict(list)
     for row in candles:
@@ -759,7 +778,14 @@ def detect_market_structure(candles: list[list[float]], window: int = 5) -> dict
     }
 
 
-def compute_vwap(candles: list[list[float]]) -> dict | None:
+def compute_vwap(candles: list[list[float]], reset_daily: bool = False) -> dict | None:
+    if reset_daily and len(candles) >= 5:
+        daily_groups: dict[str, list] = defaultdict(list)
+        for c in candles:
+            dt = datetime.fromtimestamp(int(c[0]), tz=UTC)
+            daily_groups[dt.strftime("%Y-%m-%d")].append(c)
+        last_day = sorted(daily_groups.keys())[-1]
+        candles = daily_groups[last_day]
     if len(candles) < 5:
         return None
     cum_tp_vol = 0.0
@@ -832,7 +858,14 @@ def pivot_points(candles: list[list[float]], method: str = "standard", timeframe
     if len(candles) < 5:
         return None
 
-    if timeframe == "short_term":
+    if timeframe == "intraday":
+        daily = resample_daily(candles)
+        if len(daily) < 2:
+            return None
+        d = daily[-2]
+        h, l_val, cl = float(d[2]), float(d[3]), float(d[4])
+        period = "daily"
+    elif timeframe == "short_term":
         c = candles[-1]
         h, l_val, cl = float(c[2]), float(c[3]), float(c[4])
         period = "daily"
@@ -1077,8 +1110,9 @@ def _gather_levels(
     vwap_data: dict | None = None,
     pivot_data: dict | None = None,
     fib_data: dict | None = None,
+    cluster_pct: float = 0.01,
 ) -> tuple[list[dict], list[dict]]:
-    """Collect all actionable levels, split into above/below CMP, ranked by strength."""
+    """Collect all actionable levels, cluster co-located ones for confluence, split into above/below CMP."""
     levels: list[dict] = []
 
     for z in sr_zones:
@@ -1137,29 +1171,72 @@ def _gather_levels(
             elif fl["ratio"] in (0.236, 0.786):
                 levels.append({"price": fl["price"], "source": f"Fib {fl['label']}", "strength": 3})
 
-    above = sorted([l for l in levels if l["price"] > last * 1.003], key=lambda l: l["price"])
-    below = sorted([l for l in levels if l["price"] < last * 0.997], key=lambda l: l["price"], reverse=True)
+    # --- Cluster co-located levels for confluence ---
+    levels.sort(key=lambda l: l["price"])
+    clusters: list[list[dict]] = []
+    for lv in levels:
+        if clusters and abs(lv["price"] - clusters[-1][0]["price"]) / clusters[-1][0]["price"] <= cluster_pct:
+            clusters[-1].append(lv)
+        else:
+            clusters.append([lv])
 
-    for group in [above, below]:
-        seen = set()
-        deduped = []
-        for l in group:
-            key = round(l["price"], 0)
-            if key not in seen:
-                seen.add(key)
-                deduped.append(l)
-        group.clear()
-        group.extend(deduped)
+    merged: list[dict] = []
+    for cluster in clusters:
+        if len(cluster) == 1:
+            c = cluster[0]
+            c["confluence_count"] = 1
+            c["sources"] = [c["source"]]
+            merged.append(c)
+        else:
+            total_str = sum(l["strength"] for l in cluster)
+            w_price = sum(l["price"] * l["strength"] for l in cluster) / total_str
+            sources = [l["source"] for l in cluster]
+            zone_lo = min(l.get("zone_low", l["price"]) for l in cluster)
+            zone_hi = max(l.get("zone_high", l["price"]) for l in cluster)
+            merged.append({
+                "price": w_price,
+                "strength": total_str,
+                "confluence_count": len(cluster),
+                "sources": sources,
+                "source": " + ".join(sources[:3]) + (f" ({len(cluster)}-way confluence)" if len(cluster) > 1 else ""),
+                "zone_low": zone_lo,
+                "zone_high": zone_hi,
+            })
 
-    above.sort(key=lambda l: l["strength"], reverse=True)
-    below.sort(key=lambda l: l["strength"], reverse=True)
+    above = sorted([l for l in merged if l["price"] > last * 1.003], key=lambda l: l["strength"], reverse=True)
+    below = sorted([l for l in merged if l["price"] < last * 0.997], key=lambda l: l["strength"], reverse=True)
 
     return above, below
 
 
 TIMEFRAME_CONFIG = {
-    "short_term": {"sr_window": 3, "ob_lookback": 20, "fvg_lookback": 10, "max_dist_pct": 0.03, "sl_atr_mult": 1.0, "use_ema8": True, "label": "Short Term (1-2 Weeks)", "structure_window": 3, "pivot_method": "standard", "fib_lookback": 30},
-    "positional": {"sr_window": 5, "ob_lookback": 60, "fvg_lookback": 30, "max_dist_pct": 0.12, "sl_atr_mult": 1.5, "use_ema8": False, "label": "Positional (1-2 Months)", "structure_window": 5, "pivot_method": "fibonacci", "fib_lookback": 50},
+    "short_term": {
+        "sr_window": 3, "ob_lookback": 20, "fvg_lookback": 10, "max_dist_pct": 0.03,
+        "sl_atr_mult": 1.0, "use_ema8": True, "label": "Short Term (1-2 Weeks)",
+        "structure_window": 3, "pivot_method": "standard", "fib_lookback": 30,
+        "min_target_atr_mult": 0, "min_target_pct": 0, "min_t2_gap_pct": 0,
+        "target_min_strength": 0, "level_spacing_pct": 0.005, "min_rr": 1.0,
+        "sl_atr_full": False, "cluster_pct": 0.01,
+        "candle_interval": "1d", "candle_period": "3mo",
+    },
+    "positional": {
+        "sr_window": 5, "ob_lookback": 60, "fvg_lookback": 30, "max_dist_pct": 0.12,
+        "sl_atr_mult": 1.5, "use_ema8": False, "label": "Positional (1-2 Months)",
+        "structure_window": 5, "pivot_method": "fibonacci", "fib_lookback": 50,
+        "min_target_atr_mult": 1.5, "min_target_pct": 0.03, "min_t2_gap_pct": 0.015,
+        "target_min_strength": 4, "level_spacing_pct": 0.015, "min_rr": 1.2,
+        "sl_atr_full": True, "cluster_pct": 0.012,
+        "candle_interval": "1d", "candle_period": "1y",
+    },
+    "intraday": {
+        "sr_window": 2, "ob_lookback": 15, "fvg_lookback": 8, "max_dist_pct": 0.015,
+        "sl_atr_mult": 0.75, "use_ema8": True, "label": "Intraday (1-5 Days)",
+        "structure_window": 2, "pivot_method": "standard", "fib_lookback": 20,
+        "min_target_atr_mult": 0.8, "min_target_pct": 0.01, "min_t2_gap_pct": 0.008,
+        "target_min_strength": 0, "level_spacing_pct": 0.003, "min_rr": 1.0,
+        "sl_atr_full": False, "cluster_pct": 0.005,
+        "candle_interval": "1h", "candle_period": "1mo",
+    },
 }
 
 
@@ -1204,11 +1281,34 @@ def generate_recommendation(
     # --- Gather all price levels, filtered by max distance ---
     max_dist = cfg["max_dist_pct"]
     sl_mult = cfg["sl_atr_mult"]
-    above_raw, below_raw = _gather_levels(last, sr_zones, order_blocks, sma20, sma50, sma200, ema8=ema8, oi_data=oi_data, vwap_data=vwap_data, pivot_data=pivot_data, fib_data=fib_data)
+    level_spacing = cfg.get("level_spacing_pct", 0.005)
+    sl_atr_factor = 1.0 if cfg.get("sl_atr_full", False) else 0.5
+    min_tgt_dist = max(cfg.get("min_target_atr_mult", 0) * atr14,
+                       cfg.get("min_target_pct", 0) * last)
+    min_t2_gap = cfg.get("min_t2_gap_pct", 0)
+    tgt_min_str = cfg.get("target_min_strength", 0)
+
+    above_raw, below_raw = _gather_levels(last, sr_zones, order_blocks, sma20, sma50, sma200, ema8=ema8, oi_data=oi_data, vwap_data=vwap_data, pivot_data=pivot_data, fib_data=fib_data, cluster_pct=cfg.get("cluster_pct", 0.01))
     above = [l for l in above_raw if (l["price"] - last) / last <= max_dist]
     below = [l for l in below_raw if (last - l["price"]) / last <= max_dist]
 
-    # Combine all levels into one sorted list for relative lookups
+    # --- Volume confirmation boost ---
+    if rvol and rvol >= 1.3:
+        volume_env = "confirmed"
+        for lv in above + below:
+            src = lv.get("source", "")
+            if any(tag in src for tag in ["S/R", "demand", "supply", "zone"]):
+                lv["strength"] += 2
+                lv["volume_boosted"] = True
+        above.sort(key=lambda l: l["strength"], reverse=True)
+        below.sort(key=lambda l: l["strength"], reverse=True)
+    elif rvol and rvol < 0.7:
+        volume_env = "low"
+    elif rvol is None:
+        volume_env = "unavailable"
+    else:
+        volume_env = "normal"
+
     all_levels = above_raw + below_raw
     all_by_price = sorted(all_levels, key=lambda l: l["price"])
 
@@ -1218,45 +1318,85 @@ def generate_recommendation(
     sell_price = sell_level["price"] if sell_level else None
 
     def _levels_above(ref, exclude=None):
-        """All technical levels above ref, excluding a specific price."""
         return [l for l in all_by_price
-                if l["price"] > ref * 1.005
-                and (not exclude or abs(l["price"] - exclude) / exclude > 0.005)]
+                if l["price"] > ref * (1 + level_spacing)
+                and (not exclude or abs(l["price"] - exclude) / exclude > level_spacing)]
 
     def _levels_below(ref, exclude=None):
-        """All technical levels below ref, excluding a specific price."""
         return [l for l in reversed(all_by_price)
-                if l["price"] < ref * 0.995
-                and (not exclude or abs(l["price"] - exclude) / exclude > 0.005)]
+                if l["price"] < ref * (1 - level_spacing)
+                and (not exclude or abs(l["price"] - exclude) / exclude > level_spacing)]
 
     if buy_level:
-        # SL: strongest level below buy level, buffered by ATR
         sl_candidates = _levels_below(buy_price)
         if sl_candidates:
-            buy_sl = sl_candidates[0]["price"] - sl_mult * atr14 * 0.5
+            buy_sl = sl_candidates[0]["price"] - sl_mult * atr14 * sl_atr_factor
         else:
             buy_sl = buy_price - sl_mult * atr14
-        # Targets: levels above buy level (not CMP), excluding sell entry
+
         tgt_candidates = _levels_above(buy_price, exclude=sell_price)
-        buy_targets = [l["price"] for l in tgt_candidates[:2]]
-        if not buy_targets:
-            buy_targets = [buy_price + 2 * atr14, buy_price + 3.5 * atr14]
+        if tgt_min_str > 0 or min_tgt_dist > 0:
+            tgt_candidates = [l for l in tgt_candidates
+                              if l["strength"] >= tgt_min_str
+                              and l["price"] - buy_price >= min_tgt_dist]
+
+        buy_targets = []
+        if tgt_candidates:
+            buy_targets.append(tgt_candidates[0]["price"])
+            for l in tgt_candidates[1:]:
+                gap = (l["price"] - buy_targets[0]) / buy_targets[0]
+                if gap >= min_t2_gap:
+                    buy_targets.append(l["price"])
+                    break
+
+        if len(buy_targets) < 2 and swing and swing.get("bias") == "long" and timeframe == "positional":
+            if len(buy_targets) == 0 and swing.get("target1"):
+                buy_targets.append(swing["target1"])
+            if len(buy_targets) < 2 and swing.get("target2"):
+                buy_targets.append(swing["target2"])
+
+        if len(buy_targets) < 2:
+            if len(buy_targets) == 0:
+                buy_targets.append(buy_price + 2 * atr14)
+            if len(buy_targets) < 2:
+                buy_targets.append(buy_price + 3.5 * atr14)
     else:
         buy_sl = last - sl_mult * atr14
         buy_targets = []
 
     if sell_level:
-        # SL: strongest level above sell level, buffered by ATR
         sl_candidates = _levels_above(sell_price)
         if sl_candidates:
-            sell_sl = sl_candidates[0]["price"] + sl_mult * atr14 * 0.5
+            sell_sl = sl_candidates[0]["price"] + sl_mult * atr14 * sl_atr_factor
         else:
             sell_sl = sell_price + sl_mult * atr14
-        # Targets: levels below sell level (not CMP), excluding buy entry
+
         tgt_candidates = _levels_below(sell_price, exclude=buy_price)
-        sell_targets = [l["price"] for l in tgt_candidates[:2]]
-        if not sell_targets:
-            sell_targets = [sell_price - 2 * atr14, sell_price - 3.5 * atr14]
+        if tgt_min_str > 0 or min_tgt_dist > 0:
+            tgt_candidates = [l for l in tgt_candidates
+                              if l["strength"] >= tgt_min_str
+                              and sell_price - l["price"] >= min_tgt_dist]
+
+        sell_targets = []
+        if tgt_candidates:
+            sell_targets.append(tgt_candidates[0]["price"])
+            for l in tgt_candidates[1:]:
+                gap = (sell_targets[0] - l["price"]) / sell_targets[0]
+                if gap >= min_t2_gap:
+                    sell_targets.append(l["price"])
+                    break
+
+        if len(sell_targets) < 2 and swing and swing.get("bias") == "short" and timeframe == "positional":
+            if len(sell_targets) == 0 and swing.get("target1"):
+                sell_targets.append(swing["target1"])
+            if len(sell_targets) < 2 and swing.get("target2"):
+                sell_targets.append(swing["target2"])
+
+        if len(sell_targets) < 2:
+            if len(sell_targets) == 0:
+                sell_targets.append(sell_price - 2 * atr14)
+            if len(sell_targets) < 2:
+                sell_targets.append(sell_price - 3.5 * atr14)
     else:
         sell_sl = last + sl_mult * atr14
         sell_targets = []
@@ -1266,29 +1406,60 @@ def generate_recommendation(
     status = "NO TRADE"
     status_note = "Price is between key levels — wait for it to reach a buy or sell level"
 
+    vol_tag = ""
+    if volume_env == "confirmed":
+        vol_tag = " (Volume Confirmed)"
+    elif volume_env == "low":
+        vol_tag = " (Low Volume — Caution)"
+
     if buy_level and abs(last - buy_level["price"]) / last <= near_threshold:
         status = "BUY ZONE"
-        status_note = f"Price is near buy level at {buy_level['price']:.2f} ({buy_level['source']})"
+        status_note = f"Price is near buy level at {buy_level['price']:.2f} ({buy_level['source']}){vol_tag}"
     elif sell_level and abs(last - sell_level["price"]) / last <= near_threshold:
         status = "SELL ZONE"
-        status_note = f"Price is near sell level at {sell_level['price']:.2f} ({sell_level['source']})"
+        status_note = f"Price is near sell level at {sell_level['price']:.2f} ({sell_level['source']}){vol_tag}"
 
     action_plan = {
         "status": status,
         "status_note": status_note,
+        "volume_environment": volume_env,
         "buy": {
             "level": round(buy_level["price"], 2) if buy_level else None,
             "source": buy_level["source"] if buy_level else None,
+            "confluence_count": buy_level.get("confluence_count", 1) if buy_level else 0,
+            "sources": buy_level.get("sources", []) if buy_level else [],
             "sl": round(buy_sl, 2),
             "targets": [round(t, 2) for t in buy_targets],
         },
         "sell": {
             "level": round(sell_level["price"], 2) if sell_level else None,
             "source": sell_level["source"] if sell_level else None,
+            "confluence_count": sell_level.get("confluence_count", 1) if sell_level else 0,
+            "sources": sell_level.get("sources", []) if sell_level else [],
             "sl": round(sell_sl, 2),
             "targets": [round(t, 2) for t in sell_targets],
         },
     }
+
+    min_rr = cfg.get("min_rr", 0)
+    if min_rr > 0:
+        rr_notes = []
+        if buy_level and buy_targets:
+            buy_risk = abs(buy_price - buy_sl)
+            buy_reward = abs(buy_targets[0] - buy_price)
+            buy_rr = buy_reward / buy_risk if buy_risk > 0 else 0
+            action_plan["buy"]["rr"] = round(buy_rr, 2)
+            if buy_rr < min_rr:
+                rr_notes.append(f"Buy R:R is {buy_rr:.1f} (below {min_rr}) — risk outweighs reward at T1")
+        if sell_level and sell_targets:
+            sell_risk = abs(sell_sl - sell_price)
+            sell_reward = abs(sell_price - sell_targets[0])
+            sell_rr = sell_reward / sell_risk if sell_risk > 0 else 0
+            action_plan["sell"]["rr"] = round(sell_rr, 2)
+            if sell_rr < min_rr:
+                rr_notes.append(f"Sell R:R is {sell_rr:.1f} (below {min_rr}) — risk outweighs reward at T1")
+        if rr_notes:
+            action_plan["rr_warning"] = " | ".join(rr_notes)
 
     # --- Signals (kept for context) ---
     signals = _compute_signals(
@@ -1299,11 +1470,53 @@ def generate_recommendation(
         pivot_data=pivot_data, fib_data=fib_data,
     )
 
+    # --- Directional Conviction ---
+    weights = {"trend": 0.30, "momentum": 0.20, "structure": 0.20, "volume": 0.15, "patterns": 0.15}
+    if "oi" in signals:
+        weights = {"trend": 0.30, "momentum": 0.20, "structure": 0.15, "volume": 0.10, "patterns": 0.15, "oi": 0.10}
+
+    def _conviction(scores_raw, bullish=True):
+        scores = {k: s for k, s in scores_raw.items()}
+        if not bullish:
+            scores = {k: 100 - s for k, s in scores.items()}
+        raw = sum(scores.get(k, 50) * w for k, w in weights.items())
+        sc = round(max(0, min(100, raw)), 1)
+        if sc >= 70: label = "Strong"
+        elif sc >= 55: label = "Moderate"
+        elif sc >= 45: label = "Neutral"
+        elif sc >= 30: label = "Weak"
+        else: label = "Avoid"
+        return {"score": sc, "label": label}
+
+    sig_scores = {k: v.get("score", 50) for k, v in signals.items()}
+    if buy_level:
+        action_plan["buy"]["conviction"] = _conviction(sig_scores, bullish=True)
+    if sell_level:
+        action_plan["sell"]["conviction"] = _conviction(sig_scores, bullish=False)
+
+    # --- Trend Alignment Filter ---
+    trend_s = signals.get("trend", {}).get("score", 50)
+    momentum_s = signals.get("momentum", {}).get("score", 50)
+    structure_s = signals.get("structure", {}).get("score", 50)
+    composite_trend = trend_s * 0.5 + momentum_s * 0.25 + structure_s * 0.25
+    action_plan["composite_trend"] = round(composite_trend, 1)
+    if composite_trend > 65:
+        action_plan["trend_alignment"] = "bullish"
+        if sell_level:
+            action_plan["sell"]["trend_warning"] = "Counter-trend trade — lower probability in current uptrend"
+    elif composite_trend < 35:
+        action_plan["trend_alignment"] = "bearish"
+        if buy_level:
+            action_plan["buy"]["trend_warning"] = "Counter-trend trade — lower probability in current downtrend"
+    else:
+        action_plan["trend_alignment"] = "neutral"
+
     # --- Position Guidance ---
     position_guidance = _position_guidance(
         last, buy_level, sell_level, buy_sl, sell_sl,
         buy_targets, sell_targets, sma20, d_rsi, macd_data, chart_patterns,
         entry_price=entry_price, sr_zones=sr_zones, atr14=atr14, sl_mult=sl_mult,
+        sl_atr_factor=sl_atr_factor,
     )
 
     return {
@@ -1351,6 +1564,14 @@ def _compute_signals(
     if sma200:
         if last > sma200: trend_score += 10; trend_notes.append("Above 200 SMA — long-term bullish")
         else: trend_score -= 10; trend_notes.append("Below 200 SMA — long-term bearish")
+    if sma50 and sma200 and len(closes) >= 201:
+        prev_sma50 = sma(closes[:-1], 50)
+        prev_sma200 = sma(closes[:-1], 200)
+        if prev_sma50 and prev_sma200:
+            if prev_sma50 <= prev_sma200 and sma50 > sma200:
+                trend_score += 10; trend_notes.append("Golden Cross (SMA50 crossed above SMA200) — long-term bullish")
+            elif prev_sma50 >= prev_sma200 and sma50 < sma200:
+                trend_score -= 10; trend_notes.append("Death Cross (SMA50 crossed below SMA200) — long-term bearish")
     if macd_data:
         if macd_data["crossover"] == "bullish": trend_score += 15; trend_notes.append("MACD bullish crossover")
         elif macd_data["crossover"] == "bearish": trend_score -= 15; trend_notes.append("MACD bearish crossover")
@@ -1506,12 +1727,14 @@ def _position_guidance(
     sr_zones: list[dict] | None = None,
     atr14: float = 0,
     sl_mult: float = 1.5,
+    sl_atr_factor: float = 0.5,
 ) -> dict:
 
     if entry_price and entry_price > 0:
         return _personalized_guidance(
             last, entry_price, buy_level, sell_level, buy_sl, sell_sl,
             sma20, d_rsi, macd_data, chart_patterns, sr_zones or [], atr14, sl_mult,
+            sl_atr_factor=sl_atr_factor,
         )
 
     hold_conditions = []
@@ -1561,6 +1784,7 @@ def _personalized_guidance(
     sr_zones: list[dict],
     atr14: float,
     sl_mult: float,
+    sl_atr_factor: float = 0.5,
 ) -> dict:
     pnl = last - entry_price
     pnl_pct = (pnl / entry_price) * 100 if entry_price else 0
@@ -1695,14 +1919,14 @@ def _personalized_guidance(
 
     # SL: below nearest support with ATR buffer
     if supports_down:
-        sl_level = supports_down[0]["price"] - sl_mult * atr14 * 0.5
+        sl_level = supports_down[0]["price"] - sl_mult * atr14 * sl_atr_factor
         sl_source = supports_down[0]["source"]
     else:
         sl_level = last - sl_mult * atr14
         sl_source = "ATR-based"
 
     if pnl_status == "In Profit":
-        trail_stop = max(entry_price, sl_level + sl_mult * atr14 * 0.5)
+        trail_stop = max(entry_price, sl_level + sl_mult * atr14 * sl_atr_factor)
         hold_conditions.append(f"Trail stop: {trail_stop:.2f} — below {supports_down[0]['source'] if supports_down else 'entry'}")
         for t in targets_up[:2]:
             book_levels.append({"level": round(t["price"], 2), "action": f"Book at {t['price']:.2f} ({t['source']})"})
@@ -1713,7 +1937,7 @@ def _personalized_guidance(
     elif pnl_status == "In Loss":
         if supports_down and score >= 1:
             hold_conditions.append(f"Support at {supports_down[0]['price']:.2f} ({supports_down[0]['source']}) — averaging zone if thesis intact")
-        hold_conditions.append(f"Hold if stays above {sl_level + sl_mult * atr14 * 0.5:.2f} ({sl_source})")
+        hold_conditions.append(f"Hold if stays above {sl_level + sl_mult * atr14 * sl_atr_factor:.2f} ({sl_source})")
         # Targets: first the entry (breakeven), then levels above
         for t in targets_up[:2]:
             book_levels.append({"level": round(t["price"], 2), "action": f"Target: {t['price']:.2f} ({t['source']})"})
@@ -1745,7 +1969,7 @@ def _personalized_guidance(
 # Main Entry Point
 # ---------------------------------------------------------------------------
 
-def full_analysis(sym: str, candles: list[list[float]], timeframe: str = "positional", entry_price: float | None = None, oi_data: dict | None = None) -> dict:
+def full_analysis(sym: str, candles: list[list[float]], timeframe: str = "positional", entry_price: float | None = None, oi_data: dict | None = None, daily_candles: list[list[float]] | None = None) -> dict:
     cfg = TIMEFRAME_CONFIG.get(timeframe, TIMEFRAME_CONFIG["positional"])
 
     sr_zones = find_support_resistance(candles, window=cfg["sr_window"])
@@ -1753,10 +1977,13 @@ def full_analysis(sym: str, candles: list[list[float]], timeframe: str = "positi
     fvgs = find_fair_value_gaps(candles, lookback=cfg["fvg_lookback"])
     chart_pats = detect_chart_patterns(candles)
     candle_pats = detect_candlestick_patterns(candles, sr_zones)
-    swing = swing_analysis(sym, candles)
+
+    swing_candles = daily_candles if daily_candles else candles
+    swing = swing_analysis(sym, swing_candles)
 
     market_struct = detect_market_structure(candles, window=cfg["structure_window"])
-    vwap_data = compute_vwap(candles)
+    is_intraday = timeframe == "intraday"
+    vwap_data = compute_vwap(candles, reset_daily=is_intraday)
     pivots = pivot_points(candles, method=cfg["pivot_method"], timeframe=timeframe)
     fibs = fibonacci_retracement(candles, lookback=cfg["fib_lookback"])
 

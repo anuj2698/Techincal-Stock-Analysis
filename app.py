@@ -114,19 +114,20 @@ def resolve_yahoo_ticker(symbol: str) -> tuple[str, str]:
     return sym, name + ".NS"
 
 
-def _cache_path(yahoo_sym: str) -> Path:
+def _cache_path(yahoo_sym: str, interval: str = "1d") -> Path:
     safe = yahoo_sym.replace(".", "_").replace("^", "_")
-    return CACHE_DIR / f"{safe}.json"
+    suffix = f"_{interval}" if interval != "1d" else ""
+    return CACHE_DIR / f"{safe}{suffix}.json"
 
 
-def _save_cache(yahoo_sym: str, candles: list[list[float]]) -> None:
+def _save_cache(yahoo_sym: str, candles: list[list[float]], interval: str = "1d") -> None:
     CACHE_DIR.mkdir(exist_ok=True)
-    path = _cache_path(yahoo_sym)
+    path = _cache_path(yahoo_sym, interval)
     path.write_text(json.dumps({"ts": datetime.now(IST).isoformat(), "candles": candles}))
 
 
-def _load_cache(yahoo_sym: str) -> list[list[float]] | None:
-    path = _cache_path(yahoo_sym)
+def _load_cache(yahoo_sym: str, interval: str = "1d") -> list[list[float]] | None:
+    path = _cache_path(yahoo_sym, interval)
     if not path.exists():
         return None
     try:
@@ -136,11 +137,11 @@ def _load_cache(yahoo_sym: str) -> list[list[float]] | None:
         return None
 
 
-def fetch_candles(yahoo_sym: str, period: str = "1y") -> list[list[float]]:
+def fetch_candles(yahoo_sym: str, period: str = "1y", interval: str = "1d") -> list[list[float]]:
     tkr = yf.Ticker(yahoo_sym)
-    df = tkr.history(period=period, interval="1d", auto_adjust=False)
+    df = tkr.history(period=period, interval=interval, auto_adjust=False)
     if df is None or df.empty:
-        cached = _load_cache(yahoo_sym)
+        cached = _load_cache(yahoo_sym, interval)
         return cached if cached else []
     df = df.dropna(subset=["Open", "High", "Low", "Close"])
     rows: list[list[float]] = []
@@ -155,17 +156,14 @@ def fetch_candles(yahoo_sym: str, period: str = "1y") -> list[list[float]]:
     rows.sort(key=lambda r: r[0])
 
     if not rows:
-        cached = _load_cache(yahoo_sym)
+        cached = _load_cache(yahoo_sym, interval)
         return cached if cached else []
 
-    # If Yahoo returned fewer recent candles than cache, merge the latest from cache
-    cached = _load_cache(yahoo_sym)
+    cached = _load_cache(yahoo_sym, interval)
     if cached and len(cached) > 0:
         cached_last_ts = cached[-1][0]
         fresh_last_ts = rows[-1][0]
         if cached_last_ts > fresh_last_ts:
-            # Cache has more recent data (Yahoo returned stale/NaN data that got dropped)
-            # Merge: use fresh rows up to their last timestamp, then append cached rows after
             merged_map: dict[int, list[float]] = {}
             for r in cached:
                 merged_map[int(r[0])] = r
@@ -173,7 +171,7 @@ def fetch_candles(yahoo_sym: str, period: str = "1y") -> list[list[float]]:
                 merged_map[int(r[0])] = r
             rows = sorted(merged_map.values(), key=lambda r: r[0])
 
-    _save_cache(yahoo_sym, rows)
+    _save_cache(yahoo_sym, rows, interval)
     return rows
 
 
@@ -246,23 +244,31 @@ def analyze():
         return jsonify({"error": "Please enter a stock symbol"}), 400
 
     timeframe = request.args.get("timeframe", "positional").strip()
-    if timeframe not in ("short_term", "positional"):
+    if timeframe not in ("short_term", "positional", "intraday"):
         timeframe = "positional"
-    period = "3mo" if timeframe == "short_term" else "1y"
     entry_price_str = request.args.get("entry_price", "").strip()
     entry_price = float(entry_price_str) if entry_price_str else None
 
+    from analyzer import TIMEFRAME_CONFIG
+    cfg = TIMEFRAME_CONFIG.get(timeframe, TIMEFRAME_CONFIG["positional"])
+    interval = cfg.get("candle_interval", "1d")
+    period = cfg.get("candle_period", "1y")
+
     try:
         canonical, yahoo_sym = resolve_yahoo_ticker(symbol)
-        candles = fetch_candles(yahoo_sym, period=period)
+        candles = fetch_candles(yahoo_sym, period=period, interval=interval)
         if not candles:
             return jsonify({"error": f"No data found for '{symbol}'. Try formats like: RELIANCE, TCS, INFY"}), 404
+
+        daily_candles = None
+        if timeframe == "intraday":
+            daily_candles = fetch_candles(yahoo_sym, period="1y", interval="1d")
 
         last_ts = candles[-1][0]
         last_date = datetime.fromtimestamp(last_ts, tz=IST).strftime("%d %b %Y")
 
         oi_data = fetch_oi(canonical)
-        result = full_analysis(canonical, candles, timeframe=timeframe, entry_price=entry_price, oi_data=oi_data)
+        result = full_analysis(canonical, candles, timeframe=timeframe, entry_price=entry_price, oi_data=oi_data, daily_candles=daily_candles)
         result["symbol"] = canonical
         result["yahoo_ticker"] = yahoo_sym
         result["candle_count"] = len(candles)
