@@ -4,3 +4,5 @@ yfinance==1.5.1
 beautifulsoup4==4.15.0
 requests==2.34.2
 nselib==2.5.1
+python-dotenv==1.2.2
+fyers-apiv3==3.1.14
