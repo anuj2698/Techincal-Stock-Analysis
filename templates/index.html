@@ -206,6 +206,10 @@
   <div class="header">
     <h1>Stock Technical Analysis</h1>
     <p>Enter an NSE/BSE stock symbol for data-driven buy/sell levels, patterns, and analysis</p>
+    <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+      <a href="/scanner" style="display:inline-block;padding:0.5rem 1rem;background:#1f6feb;color:#fff;border-radius:8px;font-size:0.85rem;font-weight:500;text-decoration:none;">Top Picks Scanner &rarr;</a>
+      <a href="/patterns" style="display:inline-block;padding:0.5rem 1rem;background:#8b5cf6;color:#fff;border-radius:8px;font-size:0.85rem;font-weight:500;text-decoration:none;">Chart Patterns &rarr;</a>
+    </div>
   </div>
 
   <div class="search-box">
@@ -238,6 +242,9 @@
 
   <script>
     const input = document.getElementById('symbolInput');
+    const _urlParams = new URLSearchParams(window.location.search);
+    const _prefill = _urlParams.get('symbol') || _urlParams.get('prefill');
+    if (_prefill) input.value = _prefill;
     const btnIntra = document.getElementById('btnIntra');
     const btnShort = document.getElementById('btnShort');
     const btnPos = document.getElementById('btnPos');
@@ -360,6 +367,22 @@
 
       /* Action Plan */
       html += `<div class="card"><h3>Action Plan</h3>`;
+
+      if (ap.action_summary) {
+        const as = ap.action_summary;
+        const vColor = as.verdict === 'BUY' ? '#3fb950' : as.verdict === 'SELL' ? '#f85149' : '#8b949e';
+        const vBg = as.verdict === 'BUY' ? '#1a3a2a' : as.verdict === 'SELL' ? '#3d1f1f' : '#21262d';
+        const vBorder = as.verdict === 'BUY' ? '#238636' : as.verdict === 'SELL' ? '#6e3630' : '#30363d';
+        const confColor = as.confidence === 'High' ? '#3fb950' : as.confidence === 'Medium' ? '#d29922' : '#8b949e';
+        html += `<div style="text-align:center;padding:1rem;margin-bottom:1rem;background:${vBg};border:2px solid ${vBorder};border-radius:10px;">
+          <div style="font-size:2rem;font-weight:800;color:${vColor};letter-spacing:0.05em;">${as.verdict}</div>
+          <div style="font-size:0.85rem;color:${confColor};font-weight:600;margin-top:0.25rem;">${as.confidence} Confidence</div>
+          <div style="text-align:left;margin-top:0.75rem;">
+            ${as.reasons.map(r => `<div style="font-size:0.85rem;color:#c9d1d9;padding:0.2rem 0;"><span style="color:${vColor};margin-right:0.4rem;">${as.verdict === 'WAIT' ? '&#9679;' : '&#10003;'}</span>${r}</div>`).join('')}
+          </div>
+        </div>`;
+      }
+
       html += `<div style="text-align:center;margin-bottom:1rem;">
         <div class="status-badge status-${ap.status.replace(/ /g,'_')}">${ap.status}${ap.volume_environment === 'confirmed' ? ' <span style="font-size:0.7rem;background:#238636;padding:0.1rem 0.4rem;border-radius:4px;margin-left:0.3rem;">Vol Confirmed</span>' : ap.volume_environment === 'low' ? ' <span style="font-size:0.7rem;background:#9e6a03;padding:0.1rem 0.4rem;border-radius:4px;margin-left:0.3rem;">Low Vol</span>' : ''}</div>
         <div style="font-size:0.9rem;color:#8b949e;margin-top:0.5rem;">${ap.status_note}</div>

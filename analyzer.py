@@ -28,6 +28,75 @@ def ema(xs: list[float], n: int) -> float | None:
     return e
 
 
+def ema_series(xs: list[float], n: int) -> list[float]:
+    if len(xs) < n:
+        return []
+    k = 2 / (n + 1)
+    e = xs[0]
+    out = [e]
+    for x in xs[1:]:
+        e = x * k + e * (1 - k)
+        out.append(e)
+    return out
+
+
+def detect_ema_crossovers(closes: list[float]) -> dict:
+    """Detect EMA 9/21 and 21/50 crossovers on recent bars."""
+    result = {"ema9": None, "ema21": None, "ema50": None, "crossovers": [], "alignment": "neutral"}
+    if len(closes) < 50:
+        e9 = ema_series(closes, 9)
+        e21 = ema_series(closes, 21)
+        if len(e9) >= 2 and len(e21) >= 2:
+            result["ema9"] = round(e9[-1], 2)
+            result["ema21"] = round(e21[-1], 2)
+            if e9[-2] <= e21[-2] and e9[-1] > e21[-1]:
+                result["crossovers"].append({"type": "EMA 9/21 Bullish Cross", "bias": "bullish", "bars_ago": 0})
+            elif e9[-2] >= e21[-2] and e9[-1] < e21[-1]:
+                result["crossovers"].append({"type": "EMA 9/21 Bearish Cross", "bias": "bearish", "bars_ago": 0})
+        return result
+
+    e9 = ema_series(closes, 9)
+    e21 = ema_series(closes, 21)
+    e50 = ema_series(closes, 50)
+    result["ema9"] = round(e9[-1], 2)
+    result["ema21"] = round(e21[-1], 2)
+    result["ema50"] = round(e50[-1], 2)
+
+    # Check last 3 bars for recent crossovers
+    for bars_ago in range(3):
+        i = -(1 + bars_ago)
+        ip = i - 1
+        if abs(ip) >= len(e9) or abs(ip) >= len(e21):
+            break
+        if e9[ip] <= e21[ip] and e9[i] > e21[i]:
+            result["crossovers"].append({"type": "EMA 9/21 Bullish Cross", "bias": "bullish", "bars_ago": bars_ago})
+        elif e9[ip] >= e21[ip] and e9[i] < e21[i]:
+            result["crossovers"].append({"type": "EMA 9/21 Bearish Cross", "bias": "bearish", "bars_ago": bars_ago})
+
+    if len(e50) >= 2 and len(e21) >= 2:
+        for bars_ago in range(3):
+            i = -(1 + bars_ago)
+            ip = i - 1
+            if abs(ip) >= len(e21) or abs(ip) >= len(e50):
+                break
+            if e21[ip] <= e50[ip] and e21[i] > e50[i]:
+                result["crossovers"].append({"type": "EMA 21/50 Bullish Cross", "bias": "bullish", "bars_ago": bars_ago})
+            elif e21[ip] >= e50[ip] and e21[i] < e50[i]:
+                result["crossovers"].append({"type": "EMA 21/50 Bearish Cross", "bias": "bearish", "bars_ago": bars_ago})
+
+    last = closes[-1]
+    if last > e9[-1] > e21[-1] and (not e50 or e21[-1] > e50[-1]):
+        result["alignment"] = "strong_bullish"
+    elif last > e21[-1]:
+        result["alignment"] = "bullish"
+    elif last < e9[-1] < e21[-1] and (not e50 or e21[-1] < e50[-1]):
+        result["alignment"] = "strong_bearish"
+    elif last < e21[-1]:
+        result["alignment"] = "bearish"
+
+    return result
+
+
 def atr(candles: list[list[float]], n: int = 14) -> float:
     if len(candles) < n + 1:
         return 0.0
@@ -526,8 +595,12 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
             "name": "Volatility Compression",
             "note": f"30-day range {band_pct:.1f}% — tight consolidation, breakout likely",
             "bias": "neutral",
+            "breakout_level_up": round(hh, 2),
+            "breakout_level_down": round(ll, 2),
             "breakout_target_up": round(hh + (hh - ll), 2),
             "breakout_target_down": round(ll - (hh - ll), 2),
+            "sl_up": round(ll, 2),
+            "sl_down": round(hh, 2),
         })
 
     m = len(candles)
@@ -543,8 +616,12 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
                 "name": "Symmetrical Triangle",
                 "note": "Converging trendlines — breakout direction will set trend",
                 "bias": "neutral",
+                "breakout_level_up": round(hh, 2),
+                "breakout_level_down": round(ll, 2),
                 "breakout_target_up": round(apex + height, 2),
                 "breakout_target_down": round(apex - height, 2),
+                "sl_up": round(ll, 2),
+                "sl_down": round(hh, 2),
             })
 
         highs_tail = [a for a, _ in hl_seg]
@@ -552,22 +629,28 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
             resistance = max(highs_tail)
             height = resistance - min([b for _, b in hl_seg])
             vol_rising = volumes and sma(volumes[-5:], 5) and vol20 and sma(volumes[-5:], 5) > vol20
+            recent_low = min([b for _, b in hl_seg[-10:]])
             patterns.append({
                 "name": "Ascending Triangle",
                 "note": f"Flat resistance near {resistance:.2f} with rising lows" + (" — volume rising" if vol_rising else ""),
                 "bias": "bullish",
+                "breakout_level_up": round(resistance, 2),
                 "breakout_target_up": round(resistance + height, 2),
+                "sl_up": round(recent_low - atr_val * 0.5, 2),
                 "volume_confirmed": bool(vol_rising),
             })
 
         if h_slope < 0 and l_slope > atr_val / last * -0.2:
             support = min([b for _, b in hl_seg])
             height = max(highs_tail) - support
+            recent_high = max(highs_tail[-10:])
             patterns.append({
                 "name": "Descending Triangle",
                 "note": f"Declining highs into support near {support:.2f}",
                 "bias": "bearish",
+                "breakout_level_down": round(support, 2),
                 "breakout_target_down": round(support - height, 2),
+                "sl_down": round(recent_high + atr_val * 0.5, 2),
             })
 
     pk, _ = _local_extrema(highs[-80:], win=4)
@@ -580,7 +663,9 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
                     "name": "Double Top",
                     "note": f"Resistance cluster near {last_peaks[-1]:.2f} — broke below neckline",
                     "bias": "bearish",
+                    "breakout_level_down": round(neckline, 2),
                     "breakout_target_down": round(neckline - (last_peaks[-1] - neckline), 2),
+                    "sl_down": round(last_peaks[-1] + atr_val * 0.5, 2),
                 })
 
     peaks, troughs = _local_extrema(highs[-100:], win=5)
@@ -593,7 +678,9 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
                     "name": "Head & Shoulders",
                     "note": "Central peak higher than shoulders — bearish reversal pattern",
                     "bias": "bearish",
+                    "breakout_level_down": round(neckline, 2),
                     "breakout_target_down": round(neckline - (p3[1] - neckline), 2),
+                    "sl_down": round(p3[2] + atr_val * 0.5, 2),
                 })
 
     if len(closes) >= 60:
@@ -603,11 +690,14 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
         rhs = statistics.fmean(seg[-30:-10])
         handle = statistics.fmean(seg[-8:])
         if lhs > mid * 0.97 and rhs > mid * 1.06 and handle < rhs * 0.988 and handle > mid * 1.03:
+            cup_high = max(highs[-30:])
             patterns.append({
                 "name": "Cup & Handle",
                 "note": "Rounded base with handle pullback — bullish continuation",
                 "bias": "bullish",
-                "breakout_target_up": round(max(highs[-30:]) + (max(highs[-30:]) - mid), 2),
+                "breakout_level_up": round(cup_high, 2),
+                "breakout_target_up": round(cup_high + (cup_high - mid), 2),
+                "sl_up": round(handle - atr_val, 2),
             })
 
     if len(closes) >= 30:
@@ -615,11 +705,26 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
         ret_prior = _pct(closes[-20], closes[-30])
         if abs(ret_prior) >= 12 and abs(ret_10) <= 9:
             direction = "bullish" if closes[-30] < closes[-20] else "bearish"
-            patterns.append({
-                "name": "Flag / Pennant",
-                "note": f"Impulse then orderly drift — {'bullish' if direction == 'bullish' else 'bearish'} continuation expected",
-                "bias": direction,
-            })
+            flag_high = max(highs[-10:])
+            flag_low = min(lows[-10:])
+            if direction == "bullish":
+                patterns.append({
+                    "name": "Flag / Pennant",
+                    "note": f"Impulse then orderly drift — bullish continuation expected",
+                    "bias": direction,
+                    "breakout_level_up": round(flag_high, 2),
+                    "breakout_target_up": round(flag_high + abs(closes[-20] - closes[-30]), 2),
+                    "sl_up": round(flag_low - atr_val * 0.5, 2),
+                })
+            else:
+                patterns.append({
+                    "name": "Flag / Pennant",
+                    "note": f"Impulse then orderly drift — bearish continuation expected",
+                    "bias": direction,
+                    "breakout_level_down": round(flag_low, 2),
+                    "breakout_target_down": round(flag_low - abs(closes[-30] - closes[-20]), 2),
+                    "sl_down": round(flag_high + atr_val * 0.5, 2),
+                })
 
     return patterns
 
@@ -1111,6 +1216,7 @@ def _gather_levels(
     pivot_data: dict | None = None,
     fib_data: dict | None = None,
     cluster_pct: float = 0.01,
+    ema_cross: dict | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """Collect all actionable levels, cluster co-located ones for confluence, split into above/below CMP."""
     levels: list[dict] = []
@@ -1137,6 +1243,11 @@ def _gather_levels(
     for label, val in [("SMA 20", sma20), ("SMA 50", sma50), ("SMA 200", sma200)]:
         if val:
             levels.append({"price": val, "source": label, "strength": 3})
+    if ema_cross:
+        if ema_cross.get("ema21"):
+            levels.append({"price": ema_cross["ema21"], "source": "EMA 21", "strength": 4})
+        if ema_cross.get("ema50"):
+            levels.append({"price": ema_cross["ema50"], "source": "EMA 50", "strength": 4})
 
     if oi_data:
         avg_oi = (oi_data.get("call_wall_oi", 0) + oi_data.get("put_wall_oi", 0)) / 2
@@ -1277,6 +1388,7 @@ def generate_recommendation(
     vol20 = sma(volumes, 20)
     vol5 = sma(volumes, 5)
     rvol = volumes[-1] / vol20 if vol20 and vol20 > 0 else None
+    ema_cross = detect_ema_crossovers(closes)
 
     # --- Gather all price levels, filtered by max distance ---
     max_dist = cfg["max_dist_pct"]
@@ -1288,7 +1400,7 @@ def generate_recommendation(
     min_t2_gap = cfg.get("min_t2_gap_pct", 0)
     tgt_min_str = cfg.get("target_min_strength", 0)
 
-    above_raw, below_raw = _gather_levels(last, sr_zones, order_blocks, sma20, sma50, sma200, ema8=ema8, oi_data=oi_data, vwap_data=vwap_data, pivot_data=pivot_data, fib_data=fib_data, cluster_pct=cfg.get("cluster_pct", 0.01))
+    above_raw, below_raw = _gather_levels(last, sr_zones, order_blocks, sma20, sma50, sma200, ema8=ema8, oi_data=oi_data, vwap_data=vwap_data, pivot_data=pivot_data, fib_data=fib_data, cluster_pct=cfg.get("cluster_pct", 0.01), ema_cross=ema_cross)
     above = [l for l in above_raw if (l["price"] - last) / last <= max_dist]
     below = [l for l in below_raw if (last - l["price"]) / last <= max_dist]
 
@@ -1401,6 +1513,91 @@ def generate_recommendation(
         sell_sl = last + sl_mult * atr14
         sell_targets = []
 
+    # --- Entry confirmation ---
+    def _check_buy_confirmation():
+        """Check if recent price action confirms a buy entry."""
+        signals_list = []
+        score = 0
+        c_last = candles[-1]
+        o, h, l_val, cl = float(c_last[1]), float(c_last[2]), float(c_last[3]), float(c_last[4])
+        body = abs(cl - o)
+        wick_lower = min(o, cl) - l_val
+        rng = h - l_val if h != l_val else 0.01
+        # Bullish candle close
+        if cl > o:
+            score += 1
+            signals_list.append("Bullish candle")
+        # Hammer/pin bar at support
+        if wick_lower > body * 2 and cl > o:
+            score += 2
+            signals_list.append("Hammer pattern")
+        # Bullish engulfing (last candle body covers previous candle body)
+        if len(candles) >= 2:
+            prev = candles[-2]
+            p_o, p_cl = float(prev[1]), float(prev[4])
+            if p_cl < p_o and cl > o and cl > p_o and o < p_cl:
+                score += 2
+                signals_list.append("Bullish engulfing")
+        # Volume spike
+        if rvol and rvol >= 1.3:
+            score += 2
+            signals_list.append("Volume spike")
+        elif rvol and rvol >= 1.0:
+            score += 1
+        # EMA alignment
+        if ema_cross.get("alignment") in ("bullish", "strong_bullish"):
+            score += 2
+            signals_list.append("EMA aligned bullish")
+        # Recent bullish EMA crossover
+        bull_crosses = [c for c in ema_cross.get("crossovers", []) if c["bias"] == "bullish"]
+        if bull_crosses:
+            score += 2
+            signals_list.append(bull_crosses[0]["type"])
+        # RSI not overbought
+        if d_rsi and d_rsi < 65:
+            score += 1
+        confirmed = score >= 4
+        return {"confirmed": confirmed, "score": score, "signals": signals_list}
+
+    def _check_sell_confirmation():
+        signals_list = []
+        score = 0
+        c_last = candles[-1]
+        o, h, l_val, cl = float(c_last[1]), float(c_last[2]), float(c_last[3]), float(c_last[4])
+        body = abs(cl - o)
+        wick_upper = h - max(o, cl)
+        if cl < o:
+            score += 1
+            signals_list.append("Bearish candle")
+        if wick_upper > body * 2 and cl < o:
+            score += 2
+            signals_list.append("Shooting star")
+        if len(candles) >= 2:
+            prev = candles[-2]
+            p_o, p_cl = float(prev[1]), float(prev[4])
+            if p_cl > p_o and cl < o and cl < p_o and o > p_cl:
+                score += 2
+                signals_list.append("Bearish engulfing")
+        if rvol and rvol >= 1.3:
+            score += 2
+            signals_list.append("Volume spike")
+        elif rvol and rvol >= 1.0:
+            score += 1
+        if ema_cross.get("alignment") in ("bearish", "strong_bearish"):
+            score += 2
+            signals_list.append("EMA aligned bearish")
+        bear_crosses = [c for c in ema_cross.get("crossovers", []) if c["bias"] == "bearish"]
+        if bear_crosses:
+            score += 2
+            signals_list.append(bear_crosses[0]["type"])
+        if d_rsi and d_rsi > 35:
+            score += 1
+        confirmed = score >= 4
+        return {"confirmed": confirmed, "score": score, "signals": signals_list}
+
+    buy_confirmation = _check_buy_confirmation() if buy_level else {"confirmed": False, "score": 0, "signals": []}
+    sell_confirmation = _check_sell_confirmation() if sell_level else {"confirmed": False, "score": 0, "signals": []}
+
     # Determine current status
     near_threshold = 0.01
     status = "NO TRADE"
@@ -1413,16 +1610,25 @@ def generate_recommendation(
         vol_tag = " (Low Volume — Caution)"
 
     if buy_level and abs(last - buy_level["price"]) / last <= near_threshold:
-        status = "BUY ZONE"
-        status_note = f"Price is near buy level at {buy_level['price']:.2f} ({buy_level['source']}){vol_tag}"
+        if buy_confirmation["confirmed"]:
+            status = "BUY ZONE"
+            status_note = f"CONFIRMED — {', '.join(buy_confirmation['signals'])} at {buy_level['price']:.2f}{vol_tag}"
+        else:
+            status = "BUY ZONE"
+            status_note = f"Price near buy level at {buy_level['price']:.2f} — awaiting confirmation{vol_tag}"
     elif sell_level and abs(last - sell_level["price"]) / last <= near_threshold:
-        status = "SELL ZONE"
-        status_note = f"Price is near sell level at {sell_level['price']:.2f} ({sell_level['source']}){vol_tag}"
+        if sell_confirmation["confirmed"]:
+            status = "SELL ZONE"
+            status_note = f"CONFIRMED — {', '.join(sell_confirmation['signals'])} at {sell_level['price']:.2f}{vol_tag}"
+        else:
+            status = "SELL ZONE"
+            status_note = f"Price near sell level at {sell_level['price']:.2f} — awaiting confirmation{vol_tag}"
 
     action_plan = {
         "status": status,
         "status_note": status_note,
         "volume_environment": volume_env,
+        "ema_crossovers": ema_cross,
         "buy": {
             "level": round(buy_level["price"], 2) if buy_level else None,
             "source": buy_level["source"] if buy_level else None,
@@ -1430,6 +1636,7 @@ def generate_recommendation(
             "sources": buy_level.get("sources", []) if buy_level else [],
             "sl": round(buy_sl, 2),
             "targets": [round(t, 2) for t in buy_targets],
+            "entry_confirmation": buy_confirmation,
         },
         "sell": {
             "level": round(sell_level["price"], 2) if sell_level else None,
@@ -1438,6 +1645,7 @@ def generate_recommendation(
             "sources": sell_level.get("sources", []) if sell_level else [],
             "sl": round(sell_sl, 2),
             "targets": [round(t, 2) for t in sell_targets],
+            "entry_confirmation": sell_confirmation,
         },
     }
 
@@ -1519,12 +1727,129 @@ def generate_recommendation(
         sl_atr_factor=sl_atr_factor,
     )
 
+    # --- Action Summary (plain-language verdict) ---
+    buy_conv = action_plan["buy"].get("conviction", {}).get("score", 0) if buy_level else 0
+    sell_conv = action_plan["sell"].get("conviction", {}).get("score", 0) if sell_level else 0
+    buy_conf = buy_confirmation.get("confirmed", False) if buy_level else False
+    sell_conf = sell_confirmation.get("confirmed", False) if sell_level else False
+    trend_align = action_plan.get("trend_alignment", "neutral")
+    buy_rr = action_plan["buy"].get("rr", 0) if buy_level else 0
+    sell_rr = action_plan["sell"].get("rr", 0) if sell_level else 0
+
+    bullish_pats = [p for p in chart_patterns if p.get("bias") == "bullish"]
+    bearish_pats = [p for p in chart_patterns if p.get("bias") == "bearish"]
+
+    buy_score = 0
+    buy_reasons = []
+    sell_score = 0
+    sell_reasons = []
+
+    if buy_conv >= 70:
+        buy_score += 3; buy_reasons.append(f"Strong buy conviction ({buy_conv})")
+    elif buy_conv >= 55:
+        buy_score += 2; buy_reasons.append(f"Moderate buy conviction ({buy_conv})")
+
+    if sell_conv >= 70:
+        sell_score += 3; sell_reasons.append(f"Strong sell conviction ({sell_conv})")
+    elif sell_conv >= 55:
+        sell_score += 2; sell_reasons.append(f"Moderate sell conviction ({sell_conv})")
+
+    if buy_conf:
+        buy_score += 3; buy_reasons.append("Entry confirmed — " + ", ".join(buy_confirmation.get("signals", [])))
+    if sell_conf:
+        sell_score += 3; sell_reasons.append("Entry confirmed — " + ", ".join(sell_confirmation.get("signals", [])))
+
+    if trend_align == "bullish":
+        buy_score += 2; buy_reasons.append("Trend is bullish — buying with the trend")
+        sell_score -= 1; sell_reasons.append("Selling against the trend")
+    elif trend_align == "bearish":
+        sell_score += 2; sell_reasons.append("Trend is bearish — selling with the trend")
+        buy_score -= 1; buy_reasons.append("Buying against the trend")
+
+    ema_align = ema_cross.get("alignment", "neutral")
+    if ema_align in ("bullish", "strong_bullish"):
+        buy_score += 1; buy_reasons.append(f"EMAs aligned bullish (Price > EMA9 > EMA21)")
+    elif ema_align in ("bearish", "strong_bearish"):
+        sell_score += 1; sell_reasons.append(f"EMAs aligned bearish (Price < EMA9 < EMA21)")
+
+    bull_crosses = [c for c in ema_cross.get("crossovers", []) if c["bias"] == "bullish"]
+    bear_crosses = [c for c in ema_cross.get("crossovers", []) if c["bias"] == "bearish"]
+    if bull_crosses:
+        buy_score += 2; buy_reasons.append(bull_crosses[0]["type"])
+    if bear_crosses:
+        sell_score += 2; sell_reasons.append(bear_crosses[0]["type"])
+
+    if bullish_pats:
+        buy_score += 2; buy_reasons.append("Bullish pattern: " + ", ".join(p["name"] for p in bullish_pats))
+    if bearish_pats:
+        sell_score += 2; sell_reasons.append("Bearish pattern: " + ", ".join(p["name"] for p in bearish_pats))
+
+    if buy_rr and buy_rr >= 2.0:
+        buy_score += 1; buy_reasons.append(f"Good risk-reward (1:{buy_rr:.1f})")
+    if sell_rr and sell_rr >= 2.0:
+        sell_score += 1; sell_reasons.append(f"Good risk-reward (1:{sell_rr:.1f})")
+
+    if d_rsi and d_rsi < 35:
+        buy_score += 1; buy_reasons.append(f"RSI oversold ({d_rsi:.0f})")
+    elif d_rsi and d_rsi > 65:
+        sell_score += 1; sell_reasons.append(f"RSI overbought ({d_rsi:.0f})")
+
+    if volume_env == "confirmed":
+        if buy_score > sell_score:
+            buy_reasons.append("Volume confirms buying activity")
+        elif sell_score > buy_score:
+            sell_reasons.append("Volume confirms selling activity")
+    elif volume_env == "low":
+        buy_reasons.append("Low volume — levels may not hold") if buy_score > 0 else None
+        sell_reasons.append("Low volume — levels may not hold") if sell_score > 0 else None
+
+    buy_reasons = [r for r in buy_reasons if r]
+    sell_reasons = [r for r in sell_reasons if r]
+
+    if buy_score >= 6 and buy_score > sell_score + 2:
+        verdict = "BUY"
+        verdict_reasons = buy_reasons
+        confidence = "High" if buy_score >= 9 else "Medium"
+    elif sell_score >= 6 and sell_score > buy_score + 2:
+        verdict = "SELL"
+        verdict_reasons = sell_reasons
+        confidence = "High" if sell_score >= 9 else "Medium"
+    elif buy_score > sell_score and buy_score >= 4:
+        verdict = "BUY"
+        verdict_reasons = buy_reasons
+        confidence = "Medium" if buy_score >= 6 else "Low"
+    elif sell_score > buy_score and sell_score >= 4:
+        verdict = "SELL"
+        verdict_reasons = sell_reasons
+        confidence = "Medium" if sell_score >= 6 else "Low"
+    else:
+        verdict = "WAIT"
+        verdict_reasons = ["No clear directional signal", "Wait for price to reach a key level with confirmation"]
+        if buy_level:
+            verdict_reasons.append(f"Watch buy level at {buy_level['price']:.2f}")
+        if sell_level:
+            verdict_reasons.append(f"Watch sell level at {sell_level['price']:.2f}")
+        confidence = "—"
+
+    action_plan["action_summary"] = {
+        "verdict": verdict,
+        "confidence": confidence,
+        "reasons": verdict_reasons[:5],
+        "buy_score": buy_score,
+        "sell_score": sell_score,
+    }
+
     return {
         "action_plan": action_plan,
         "signals": signals,
         "position_guidance": position_guidance,
         "indicators": {
             "ema8": round(ema8, 2) if ema8 else None,
+            "ema9": ema_cross.get("ema9"),
+            "ema21": ema_cross.get("ema21"),
+            "ema50_hourly": ema_cross.get("ema50"),
+            "ema_alignment": ema_cross.get("alignment"),
+            "ema_crossovers": ema_cross.get("crossovers", []),
             "sma20": round(sma20, 2) if sma20 else None,
             "sma50": round(sma50, 2) if sma50 else None,
             "sma200": round(sma200, 2) if sma200 else None,

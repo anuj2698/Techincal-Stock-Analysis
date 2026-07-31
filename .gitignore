@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .cache/
 predictions/
+scanner_cache/
 .env
 *.log
 .DS_Store
