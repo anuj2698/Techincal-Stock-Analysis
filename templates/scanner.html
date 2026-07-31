@@ -106,7 +106,7 @@
     <span id="metaCount"></span>
   </div>
 
-  <div class="spinner" id="spinner">Loading picks&hellip;</div>
+  <div class="spinner" id="spinner"><span id="spinnerText">Loading picks&hellip;</span></div>
   <div class="error-msg" id="errorMsg"></div>
   <div class="picks-grid" id="picksGrid"></div>
   <div class="empty-state" id="emptyState" style="display:none;">
@@ -120,6 +120,26 @@ const cache = {};
 let currentTf = 'positional';
 
 function fmt(v) { return v != null ? Number(v).toLocaleString('en-IN', {maximumFractionDigits: 2}) : '—'; }
+
+function pollScanStatus(tf) {
+  const spinnerText = document.getElementById('spinnerText');
+  const interval = setInterval(async () => {
+    try {
+      const res = await fetch('/scanner/status');
+      const st = await res.json();
+      if (st.progress && st.progress.total > 0) {
+        const pct = Math.round(st.progress.done / st.progress.total * 100);
+        spinnerText.textContent = `Scanning stocks... ${st.progress.done}/${st.progress.total} (${pct}%)`;
+      }
+      if (!st.scanning && st.has_cache) {
+        clearInterval(interval);
+        spinnerText.textContent = 'Scan complete — loading picks...';
+        cache = {};
+        await loadPicks(tf);
+      }
+    } catch {}
+  }, 5000);
+}
 
 function setTab(tf) {
   currentTf = tf;
@@ -148,13 +168,18 @@ async function loadPicks(tf) {
   try {
     const res = await fetch(`/scanner/picks?timeframe=${tf}`);
     const data = await res.json();
-    if (data.error) { errorMsg.textContent = data.error; errorMsg.style.display = 'block'; return; }
+    if (data.scanning) {
+      document.getElementById('spinnerText').textContent = 'First-time scan in progress — analyzing stocks across all timeframes. This may take 30-60 minutes...';
+      pollScanStatus(tf);
+      return;
+    }
+    if (data.error) { errorMsg.textContent = data.error; errorMsg.style.display = 'block'; spinner.classList.remove('active'); return; }
     cache[tf] = data;
     renderPicks(data);
+    spinner.classList.remove('active');
   } catch (err) {
     errorMsg.textContent = 'Network error: ' + err.message;
     errorMsg.style.display = 'block';
-  } finally {
     spinner.classList.remove('active');
   }
 }

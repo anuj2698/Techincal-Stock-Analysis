@@ -23,6 +23,67 @@ from backtester import run_backtest, backtest_logged_predictions
 
 load_dotenv()
 
+import threading
+
+# ---------------------------------------------------------------------------
+# Background scanner
+# ---------------------------------------------------------------------------
+_scan_lock = threading.Lock()
+_scan_running = False
+_scan_progress = {"done": 0, "total": 0, "status": "idle"}
+
+
+def _run_background_scan():
+    global _scan_running, _scan_progress
+    _scan_progress = {"done": 0, "total": 0, "status": "running"}
+    try:
+        import subprocess, sys
+        proc = subprocess.Popen(
+            [sys.executable, "scan_backtests.py"],
+            cwd=str(Path(__file__).resolve().parent),
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        )
+        for line in proc.stdout:
+            if "/" in line and "]" in line:
+                try:
+                    part = line.split("]")[0].split("[")[1]
+                    done, total = part.split("/")
+                    _scan_progress["done"] = int(done)
+                    _scan_progress["total"] = int(total)
+                except (IndexError, ValueError):
+                    pass
+        proc.wait()
+        _scan_progress["status"] = "done"
+    except Exception as e:
+        _scan_progress["status"] = f"error: {e}"
+    finally:
+        with _scan_lock:
+            _scan_running = False
+
+
+def _ensure_scan_cache():
+    """Start a background scan if cache is missing or older than 24 hours. Returns True if cache is usable."""
+    global _scan_running
+    cache_path = Path(__file__).resolve().parent / "scanner_cache" / "backtest_results.json"
+    if cache_path.exists():
+        try:
+            mtime = datetime.fromtimestamp(cache_path.stat().st_mtime, tz=IST)
+            age_hours = (datetime.now(IST) - mtime).total_seconds() / 3600
+            if age_hours < 24:
+                return True
+        except Exception:
+            pass
+
+    with _scan_lock:
+        if _scan_running:
+            return cache_path.exists()
+        _scan_running = True
+
+    t = threading.Thread(target=_run_background_scan, daemon=True)
+    t.start()
+    return cache_path.exists()
+
+
 # ---------------------------------------------------------------------------
 # Fyers API client (lazy init)
 # ---------------------------------------------------------------------------
@@ -437,8 +498,9 @@ def scanner_picks():
         timeframe = "positional"
 
     cache_path = Path(__file__).resolve().parent / "scanner_cache" / "backtest_results.json"
-    if not cache_path.exists():
-        return jsonify({"error": "No scan data available. Run scan_backtests.py first.", "picks": []})
+    has_cache = _ensure_scan_cache()
+    if not has_cache:
+        return jsonify({"scanning": True, "progress": _scan_progress, "picks": []})
 
     cache = json.loads(cache_path.read_text())
     timestamp = cache.get("timestamp", "")
@@ -497,8 +559,8 @@ def scanner_picks():
             bullish_patterns = [p for p in chart_patterns if p.get("bias") in ("bullish", "neutral") and p.get("breakout_target_up")]
             has_breakout = len(bullish_patterns) > 0
 
-            # Stricter filter: need conviction >= 60, OR breakout pattern, OR confirmed entry
-            if conv_score < 60 and not has_breakout and not conf_confirmed:
+            verdict = ap.get("action_summary", {}).get("verdict", "WAIT")
+            if verdict == "WAIT":
                 return None
 
             cmp = round(candles[-1][4], 2)
@@ -580,6 +642,16 @@ def scanner_picks():
         "picks": picks,
         "timestamp": timestamp,
         "qualifying_count": len(qualifying),
+    })
+
+
+@app.route("/scanner/status")
+def scanner_status():
+    cache_path = Path(__file__).resolve().parent / "scanner_cache" / "backtest_results.json"
+    return jsonify({
+        "scanning": _scan_running,
+        "progress": _scan_progress,
+        "has_cache": cache_path.exists(),
     })
 
 

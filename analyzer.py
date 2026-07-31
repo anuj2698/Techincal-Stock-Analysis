@@ -1806,29 +1806,42 @@ def generate_recommendation(
     buy_reasons = [r for r in buy_reasons if r]
     sell_reasons = [r for r in sell_reasons if r]
 
-    if buy_score >= 6 and buy_score > sell_score + 2:
+    in_buy_zone = status == "BUY ZONE"
+    in_sell_zone = status == "SELL ZONE"
+
+    if in_buy_zone and buy_score >= 4:
         verdict = "BUY"
         verdict_reasons = buy_reasons
-        confidence = "High" if buy_score >= 9 else "Medium"
-    elif sell_score >= 6 and sell_score > buy_score + 2:
+        confidence = "High" if buy_score >= 8 and buy_conf else "Medium" if buy_score >= 5 else "Low"
+    elif in_sell_zone and sell_score >= 4:
         verdict = "SELL"
         verdict_reasons = sell_reasons
-        confidence = "High" if sell_score >= 9 else "Medium"
-    elif buy_score > sell_score and buy_score >= 4:
+        confidence = "High" if sell_score >= 8 and sell_conf else "Medium" if sell_score >= 5 else "Low"
+    elif in_buy_zone:
         verdict = "BUY"
-        verdict_reasons = buy_reasons
-        confidence = "Medium" if buy_score >= 6 else "Low"
-    elif sell_score > buy_score and sell_score >= 4:
+        verdict_reasons = buy_reasons if buy_reasons else ["Price at buy level — awaiting stronger confirmation"]
+        confidence = "Low"
+    elif in_sell_zone:
         verdict = "SELL"
-        verdict_reasons = sell_reasons
-        confidence = "Medium" if sell_score >= 6 else "Low"
+        verdict_reasons = sell_reasons if sell_reasons else ["Price at sell level — awaiting stronger confirmation"]
+        confidence = "Low"
     else:
+        if buy_score > sell_score and buy_score >= 4:
+            bias = "bullish"
+            verdict_reasons = buy_reasons
+            verdict_reasons.insert(0, f"Bullish setup — wait for price to reach buy level at {buy_level['price']:.2f}" if buy_level else "Bullish bias but no clear buy level")
+        elif sell_score > buy_score and sell_score >= 4:
+            bias = "bearish"
+            verdict_reasons = sell_reasons
+            verdict_reasons.insert(0, f"Bearish setup — wait for price to reach sell level at {sell_level['price']:.2f}" if sell_level else "Bearish bias but no clear sell level")
+        else:
+            bias = "neutral"
+            verdict_reasons = ["No clear directional signal"]
+            if buy_level:
+                verdict_reasons.append(f"Watch buy level at {buy_level['price']:.2f}")
+            if sell_level:
+                verdict_reasons.append(f"Watch sell level at {sell_level['price']:.2f}")
         verdict = "WAIT"
-        verdict_reasons = ["No clear directional signal", "Wait for price to reach a key level with confirmation"]
-        if buy_level:
-            verdict_reasons.append(f"Watch buy level at {buy_level['price']:.2f}")
-        if sell_level:
-            verdict_reasons.append(f"Watch sell level at {sell_level['price']:.2f}")
         confidence = "—"
 
     action_plan["action_summary"] = {
