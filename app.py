@@ -567,6 +567,11 @@ def scanner_picks():
             buy_level = buy.get("level")
             if not buy_level:
                 return None
+
+            rr = buy.get("rr") or 0
+            if rr < 1.0:
+                return None
+
             distance_pct = round((buy_level - cmp) / cmp * 100, 2)
 
             # Relative strength vs Nifty
