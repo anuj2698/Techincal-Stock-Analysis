@@ -206,9 +206,12 @@
   <div class="header">
     <h1>Stock Technical Analysis</h1>
     <p>Enter an NSE/BSE stock symbol for data-driven buy/sell levels, patterns, and analysis</p>
-    <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
-      <a href="/scanner" style="display:inline-block;padding:0.5rem 1rem;background:#1f6feb;color:#fff;border-radius:8px;font-size:0.85rem;font-weight:500;text-decoration:none;">Top Picks Scanner &rarr;</a>
-      <a href="/patterns" style="display:inline-block;padding:0.5rem 1rem;background:#8b5cf6;color:#fff;border-radius:8px;font-size:0.85rem;font-weight:500;text-decoration:none;">Chart Patterns &rarr;</a>
+    <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;">
+      <a href="/scanner" style="padding:0.5rem 1rem;background:#1f6feb;color:#fff;border-radius:8px;font-size:0.85rem;font-weight:500;text-decoration:none;">Top Picks Scanner &rarr;</a>
+      <a href="/patterns" style="padding:0.5rem 1rem;background:#8b5cf6;color:#fff;border-radius:8px;font-size:0.85rem;font-weight:500;text-decoration:none;">Chart Patterns &rarr;</a>
+      <!-- <a href="/results" style="padding:0.5rem 1rem;background:#f0883e;color:#fff;border-radius:8px;font-size:0.85rem;font-weight:500;text-decoration:none;">Results Dashboard &rarr;</a> -->
+      <a href="/today" style="padding:0.5rem 1rem;background:#3fb950;color:#000;border-radius:8px;font-size:0.85rem;font-weight:600;text-decoration:none;">Today's Picks &rarr;</a>
+      <a href="/intraday" style="padding:0.5rem 1rem;background:#d29922;color:#000;border-radius:8px;font-size:0.85rem;font-weight:600;text-decoration:none;">Intraday Breakout &rarr;</a>
     </div>
   </div>
 
@@ -374,12 +377,11 @@
         const vBg = as.verdict === 'BUY' ? '#1a3a2a' : as.verdict === 'SELL' ? '#3d1f1f' : '#21262d';
         const vBorder = as.verdict === 'BUY' ? '#238636' : as.verdict === 'SELL' ? '#6e3630' : '#30363d';
         const confColor = as.confidence === 'High' ? '#3fb950' : as.confidence === 'Medium' ? '#d29922' : '#8b949e';
-        html += `<div style="text-align:center;padding:1rem;margin-bottom:1rem;background:${vBg};border:2px solid ${vBorder};border-radius:10px;">
-          <div style="font-size:2rem;font-weight:800;color:${vColor};letter-spacing:0.05em;">${as.verdict}</div>
-          <div style="font-size:0.85rem;color:${confColor};font-weight:600;margin-top:0.25rem;">${as.confidence} Confidence</div>
-          <div style="text-align:left;margin-top:0.75rem;">
-            ${as.reasons.map(r => `<div style="font-size:0.85rem;color:#c9d1d9;padding:0.2rem 0;"><span style="color:${vColor};margin-right:0.4rem;">${as.verdict === 'WAIT' ? '&#9679;' : '&#10003;'}</span>${r}</div>`).join('')}
-          </div>
+        html += `<div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0.85rem;margin-bottom:1rem;background:${vBg};border:1px solid ${vBorder};border-radius:8px;flex-wrap:wrap;">
+          <span style="font-size:1.1rem;font-weight:800;color:${vColor};letter-spacing:0.03em;">${as.verdict}</span>
+          <span style="font-size:0.78rem;color:${confColor};font-weight:600;">${as.confidence} Confidence</span>
+          <span style="font-size:0.78rem;color:#8b949e;">—</span>
+          <span style="font-size:0.78rem;color:#c9d1d9;">${as.reasons.slice(0, 2).join(' · ')}</span>
         </div>`;
       }
 
@@ -403,7 +405,7 @@
           <div class="level-details">
             <span><span class="level-detail-label">SL: </span><span class="level-detail-value" style="color:#f85149;">${fmt(ap.buy.sl)} <span style="font-size:0.75rem;font-weight:400;color:#8b949e;">${pctFrom(ap.buy.sl, ap.buy.level)}</span></span></span>
             ${ap.buy.targets.map((t, i) => `<span><span class="level-detail-label">Target ${i+1}: </span><span class="level-detail-value">${fmt(t)} <span style="font-size:0.75rem;font-weight:400;color:#8b949e;">${pctFrom(t, ap.buy.level)}</span></span></span>`).join('')}
-            ${ap.buy.rr != null ? `<span><span class="level-detail-label">R:R </span><span class="level-detail-value" style="color:${ap.buy.rr >= 1.2 ? '#3fb950' : '#d29922'};">1 : ${ap.buy.rr.toFixed(1)}</span></span>` : ''}
+            ${ap.buy.rr != null ? `<span><span class="level-detail-label">R:R </span><span class="level-detail-value" style="color:${ap.buy.rr >= 1.2 ? '#3fb950' : ap.buy.rr >= 1.0 ? '#d29922' : '#f85149'};">1 : ${ap.buy.rr.toFixed(1)}${ap.buy.rr < 1.0 ? ' ⚠ Risk > Reward' : ''}</span></span>` : ''}
           </div>
           ${ap.buy.trend_warning ? `<div style="margin-top:0.5rem;padding:0.4rem 0.7rem;background:#3d2a1a;border:1px solid #9e6a03;border-radius:6px;font-size:0.8rem;color:#d29922;">&#9888; ${ap.buy.trend_warning}</div>` : ''}
         </div>`;
@@ -424,7 +426,7 @@
           <div class="level-details">
             <span><span class="level-detail-label">SL: </span><span class="level-detail-value" style="color:#f85149;">${fmt(ap.sell.sl)} <span style="font-size:0.75rem;font-weight:400;color:#8b949e;">${pctFrom(ap.sell.sl, ap.sell.level)}</span></span></span>
             ${ap.sell.targets.map((t, i) => `<span><span class="level-detail-label">Target ${i+1}: </span><span class="level-detail-value">${fmt(t)} <span style="font-size:0.75rem;font-weight:400;color:#8b949e;">${pctFrom(t, ap.sell.level)}</span></span></span>`).join('')}
-            ${ap.sell.rr != null ? `<span><span class="level-detail-label">R:R </span><span class="level-detail-value" style="color:${ap.sell.rr >= 1.2 ? '#3fb950' : '#d29922'};">1 : ${ap.sell.rr.toFixed(1)}</span></span>` : ''}
+            ${ap.sell.rr != null ? `<span><span class="level-detail-label">R:R </span><span class="level-detail-value" style="color:${ap.sell.rr >= 1.2 ? '#3fb950' : ap.sell.rr >= 1.0 ? '#d29922' : '#f85149'};">1 : ${ap.sell.rr.toFixed(1)}${ap.sell.rr < 1.0 ? ' ⚠ Risk > Reward' : ''}</span></span>` : ''}
           </div>
           ${ap.sell.trend_warning ? `<div style="margin-top:0.5rem;padding:0.4rem 0.7rem;background:#3d2a1a;border:1px solid #9e6a03;border-radius:6px;font-size:0.8rem;color:#d29922;">&#9888; ${ap.sell.trend_warning}</div>` : ''}
         </div>`;
@@ -829,11 +831,24 @@
       if (cpats.length) {
         cpats.forEach(p => {
           const cls = p.bias === 'bullish' ? 'tag-bullish' : p.bias === 'bearish' ? 'tag-bearish' : 'tag-neutral';
-          html += `<div style="margin-bottom:0.5rem;">
-            <span class="pattern-tag ${cls}">${p.name}</span>
-            <span style="font-size:0.85rem;color:#8b949e;margin-left:0.3rem;">${p.note || ''}</span>`;
-          if (p.breakout_target_up) html += `<span style="font-size:0.8rem;color:#3fb950;margin-left:0.5rem;">Target up: ${fmt(p.breakout_target_up)}</span>`;
-          if (p.breakout_target_down) html += `<span style="font-size:0.8rem;color:#f85149;margin-left:0.5rem;">Target down: ${fmt(p.breakout_target_down)}</span>`;
+          const isAligned = p.trend_aligned !== false;
+          const dimStyle = !isAligned ? 'opacity:0.45;' : '';
+          const confBadge = p.confirmed
+            ? '<span style="font-size:0.65rem;padding:1px 6px;border-radius:3px;background:#3fb95020;color:#3fb950;font-weight:700;margin-left:0.4rem;">CONFIRMED</span>'
+            : '<span style="font-size:0.65rem;padding:1px 6px;border-radius:3px;background:#8b949e20;color:#8b949e;font-weight:600;margin-left:0.4rem;">FORMING</span>';
+          const conflictBadge = !isAligned
+            ? '<span style="font-size:0.65rem;padding:1px 6px;border-radius:3px;background:#f8514915;color:#f85149;font-weight:600;margin-left:0.3rem;">AGAINST TREND</span>'
+            : '';
+          html += `<div style="margin-bottom:0.6rem;padding:0.5rem 0.6rem;background:#0d1117;border-radius:6px;${dimStyle}">
+            <div><span class="pattern-tag ${cls}">${p.name}</span>${confBadge}${conflictBadge}</div>
+            <div style="font-size:0.8rem;color:#8b949e;margin-top:0.2rem;">${p.note || ''}</div>`;
+          if (p.components && p.components.length) {
+            html += `<div style="margin-top:0.3rem;font-size:0.75rem;color:#8b949e;">`;
+            p.components.forEach(c => { html += `<div style="padding:1px 0;">&#8250; ${c}</div>`; });
+            html += `</div>`;
+          }
+          if (p.breakout_level_up) html += `<div style="margin-top:0.3rem;font-size:0.8rem;"><span style="color:#3fb950;">Buy above &#8377;${fmt(p.breakout_level_up)}</span> <span style="color:#a3d977;margin-left:0.5rem;">Target &#8377;${fmt(p.breakout_target_up)}</span>${p.sl_up ? ' <span style="color:#f85149;margin-left:0.5rem;">SL &#8377;' + fmt(p.sl_up) + '</span>' : ''}</div>`;
+          if (p.breakout_level_down) html += `<div style="margin-top:0.2rem;font-size:0.8rem;"><span style="color:#f85149;">Sell below &#8377;${fmt(p.breakout_level_down)}</span> <span style="color:#f0883e;margin-left:0.5rem;">Target &#8377;${fmt(p.breakout_target_down)}</span>${p.sl_down ? ' <span style="color:#f85149;margin-left:0.5rem;">SL &#8377;' + fmt(p.sl_down) + '</span>' : ''}</div>`;
           html += `</div>`;
         });
       } else html += `<div class="no-data">No significant chart patterns detected</div>`;

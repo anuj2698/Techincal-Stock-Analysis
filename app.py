@@ -16,10 +16,11 @@ from flask import Flask, jsonify, render_template, request
 
 from concurrent.futures import ThreadPoolExecutor
 
-from analyzer import full_analysis, TIMEFRAME_CONFIG, detect_chart_patterns, detect_ema_crossovers, resample_weekly
+from analyzer import full_analysis, TIMEFRAME_CONFIG, detect_chart_patterns, detect_ema_crossovers, resample_weekly, rsi_series, ema_series
 from oi_fetcher import fetch_oi
 from prediction_logger import log_prediction, get_predictions, get_all_predictions
 from backtester import run_backtest, backtest_logged_predictions
+from results_fetcher import get_cached_data as get_results_cached, start_background_fetch as start_results_fetch, get_fetch_status as get_results_status, is_cache_fresh as is_results_fresh
 
 load_dotenv()
 
@@ -162,6 +163,162 @@ IST = timezone(timedelta(hours=5, minutes=30))
 MARKET_OPEN = (9, 15)
 MARKET_CLOSE = (15, 30)
 CACHE_DIR = Path(__file__).resolve().parent / ".cache"
+FNO_CACHE_FILE = CACHE_DIR / "fno_list.json"
+FNO_CACHE_MAX_AGE_DAYS = 10
+
+
+def get_fno_stocks() -> list[dict]:
+    """Return F&O stock list, cached to disk for 10 days."""
+    if FNO_CACHE_FILE.exists():
+        try:
+            data = json.loads(FNO_CACHE_FILE.read_text())
+            cached_at = datetime.fromisoformat(data["ts"])
+            if (datetime.now(IST) - cached_at).days < FNO_CACHE_MAX_AGE_DAYS:
+                return data["stocks"]
+        except Exception:
+            pass
+
+    from nselib import capital_market
+    df = capital_market.fno_equity_list()
+    stocks = [{"symbol": row["symbol"], "name": row.get("underlying", row["symbol"])} for _, row in df.iterrows()]
+    CACHE_DIR.mkdir(exist_ok=True)
+    FNO_CACHE_FILE.write_text(json.dumps({"ts": datetime.now(IST).isoformat(), "stocks": stocks}))
+    return stocks
+
+
+RSI_SIGNALS_DIR = Path(__file__).resolve().parent / "rsi_signals"
+RSI_SUMMARY_FILE = RSI_SIGNALS_DIR / "_summary.json"
+
+
+def _rsi_signal_path(symbol: str) -> Path:
+    safe = symbol.replace(":", "_").replace("/", "_") + ".json"
+    return RSI_SIGNALS_DIR / safe
+
+
+def _rsi_signal_key(ce: dict) -> str:
+    return f"{ce['date_key']}|{ce['time']}|{ce['type']}"
+
+
+def save_rsi_signals(results: list[dict]) -> None:
+    """Persist RSI extreme signals from scan results, deduplicating by date+time+type."""
+    RSI_SIGNALS_DIR.mkdir(exist_ok=True)
+    now_iso = datetime.now(IST).isoformat()
+
+    for r in results:
+        symbol = r.get("symbol")
+        if not symbol or not r.get("common"):
+            continue
+        path = _rsi_signal_path(symbol)
+        existing = []
+        if path.exists():
+            try:
+                existing = json.loads(path.read_text())
+            except Exception:
+                existing = []
+        existing_keys = {s.get("key") for s in existing}
+
+        added = False
+        for ce in r["common"]:
+            key = _rsi_signal_key(ce)
+            if key in existing_keys:
+                continue
+            record = {
+                "key": key,
+                "date": ce.get("date"),
+                "date_key": ce.get("date_key"),
+                "time": ce.get("time"),
+                "type": ce.get("type"),
+                "price": ce.get("price"),
+                "rsi_5m": ce.get("rsi_5m"),
+                "rsi_15m": ce.get("rsi_15m"),
+                "move": ce.get("move"),
+                "next30": ce.get("next30"),
+                "ema8_trade": ce.get("ema8_trade"),
+                "recorded_at": now_iso,
+            }
+            existing.append(record)
+            existing_keys.add(key)
+            added = True
+
+        if added:
+            path.write_text(json.dumps(existing, indent=2, default=str))
+
+    _rebuild_rsi_summary()
+
+
+def _rebuild_rsi_summary() -> None:
+    """Recompute per-stock summary from all signal files."""
+    if not RSI_SIGNALS_DIR.exists():
+        return
+    summary = {}
+    now_iso = datetime.now(IST).isoformat()
+
+    for path in RSI_SIGNALS_DIR.glob("*.json"):
+        if path.name.startswith("_"):
+            continue
+        try:
+            signals = json.loads(path.read_text())
+        except Exception:
+            continue
+        if not signals:
+            continue
+
+        symbol = None
+        total = 0
+        reversed_count = 0
+        e8_wins = 0
+        e8_losses = 0
+        last_date = ""
+
+        for s in signals:
+            total += 1
+            move = s.get("move")
+            if move:
+                if move.get("reversed"):
+                    reversed_count += 1
+            e8 = s.get("ema8_trade")
+            if e8:
+                if e8.get("result") == "target":
+                    e8_wins += 1
+                elif e8.get("result") == "sl":
+                    e8_losses += 1
+            dk = s.get("date_key", "")
+            if dk > last_date:
+                last_date = dk
+
+        fname = path.stem.replace("_", ":", 1)
+        for orig_char, safe_char in [(":", "_"), ("/", "_")]:
+            pass
+        sym_key = path.stem
+        if sym_key.startswith("NSE_"):
+            sym_key = "NSE:" + sym_key[4:]
+        elif sym_key.startswith("BSE_"):
+            sym_key = "BSE:" + sym_key[4:]
+
+        e8_decided = e8_wins + e8_losses
+        summary[sym_key] = {
+            "total": total,
+            "reversed": reversed_count,
+            "continued": total - reversed_count,
+            "reversal_pct": round(reversed_count / total * 100, 1) if total > 0 else 0,
+            "ema8_wins": e8_wins,
+            "ema8_losses": e8_losses,
+            "ema8_win_pct": round(e8_wins / e8_decided * 100, 1) if e8_decided > 0 else None,
+            "last_signal": last_date,
+            "last_updated": now_iso,
+        }
+
+    RSI_SUMMARY_FILE.write_text(json.dumps(summary, indent=2))
+
+
+def load_rsi_summary() -> dict:
+    """Load the stored per-stock RSI signal performance summary."""
+    if RSI_SUMMARY_FILE.exists():
+        try:
+            return json.loads(RSI_SUMMARY_FILE.read_text())
+        except Exception:
+            pass
+    return {}
 
 
 def market_status(last_candle_date: str) -> dict:
@@ -668,17 +825,15 @@ def patterns_page():
 @app.route("/patterns/scan")
 def patterns_scan():
     tf = request.args.get("timeframe", "daily").strip()
-    if tf not in ("hourly", "daily", "weekly"):
+    if tf not in ("daily", "weekly", "monthly"):
         tf = "daily"
 
     try:
-        from nselib import capital_market
-        df = capital_market.fno_equity_list()
-        stocks = [{"symbol": row["symbol"], "name": row.get("underlying", row["symbol"])} for _, row in df.iterrows()]
+        stocks = get_fno_stocks()
     except Exception as e:
         return jsonify({"error": f"Failed to fetch F&O list: {e}", "results": []})
 
-    interval_map = {"hourly": ("1h", "60d"), "daily": ("1d", "1y"), "weekly": ("1d", "1y")}
+    interval_map = {"daily": ("1d", "1y"), "weekly": ("1d", "1y"), "monthly": ("1d", "1y")}
     interval, period = interval_map[tf]
 
     def _scan_stock(stock):
@@ -694,6 +849,11 @@ def patterns_scan():
                 candles = resample_weekly(candles)
                 if len(candles) < 20:
                     return None
+            elif tf == "monthly":
+                from analyzer import resample_monthly as _resample_monthly
+                candles = _resample_monthly(candles)
+                if len(candles) < 12:
+                    return None
 
             cmp = round(float(candles[-1][4]), 2)
             patterns = detect_chart_patterns(candles)
@@ -706,25 +866,44 @@ def patterns_scan():
             from analyzer import rsi as _rsi
             d_rsi = _rsi(closes)
 
-            bullish_pats = [p for p in patterns if p.get("bias") == "bullish"]
-            bearish_pats = [p for p in patterns if p.get("bias") == "bearish"]
             ema_align = ema_data.get("alignment", "neutral")
             bull_crosses = [c for c in ema_data.get("crossovers", []) if c["bias"] == "bullish"]
             bear_crosses = [c for c in ema_data.get("crossovers", []) if c["bias"] == "bearish"]
 
-            score_buy = len(bullish_pats) * 2
-            score_sell = len(bearish_pats) * 2
+            trend_bullish = ema_align in ("bullish", "strong_bullish")
+            trend_bearish = ema_align in ("bearish", "strong_bearish")
+
+            for p in patterns:
+                bias = p.get("bias", "neutral")
+                if bias == "bullish":
+                    p["trend_aligned"] = trend_bullish
+                elif bias == "bearish":
+                    p["trend_aligned"] = trend_bearish
+                else:
+                    p["trend_aligned"] = True
+
+            confirmed_bull = [p for p in patterns if p.get("bias") == "bullish" and p.get("confirmed")]
+            confirmed_bear = [p for p in patterns if p.get("bias") == "bearish" and p.get("confirmed")]
+            unconfirmed_bull = [p for p in patterns if p.get("bias") == "bullish" and not p.get("confirmed")]
+            unconfirmed_bear = [p for p in patterns if p.get("bias") == "bearish" and not p.get("confirmed")]
+
+            score_buy = len(confirmed_bull) * 3 + len(unconfirmed_bull) * 1
+            score_sell = len(confirmed_bear) * 3 + len(unconfirmed_bear) * 1
             reasons = []
 
-            if bullish_pats:
-                reasons.append("Bullish pattern: " + ", ".join(p["name"] for p in bullish_pats))
-            if bearish_pats:
-                reasons.append("Bearish pattern: " + ", ".join(p["name"] for p in bearish_pats))
+            if confirmed_bull:
+                reasons.append("Confirmed bullish: " + ", ".join(p["name"] for p in confirmed_bull))
+            if confirmed_bear:
+                reasons.append("Confirmed bearish: " + ", ".join(p["name"] for p in confirmed_bear))
+            if unconfirmed_bull:
+                reasons.append("Forming bullish: " + ", ".join(p["name"] for p in unconfirmed_bull))
+            if unconfirmed_bear:
+                reasons.append("Forming bearish: " + ", ".join(p["name"] for p in unconfirmed_bear))
 
-            if ema_align in ("bullish", "strong_bullish"):
+            if trend_bullish:
                 score_buy += 2
                 reasons.append("EMAs aligned bullish")
-            elif ema_align in ("bearish", "strong_bearish"):
+            elif trend_bearish:
                 score_sell += 2
                 reasons.append("EMAs aligned bearish")
 
@@ -750,6 +929,8 @@ def patterns_scan():
                 verdict = "WATCH"
                 confidence = "—"
                 reasons.append("Pattern forming — wait for breakout confirmation")
+
+            patterns.sort(key=lambda p: (p.get("confirmed", False), p.get("trend_aligned", False)), reverse=True)
 
             return {
                 "symbol": canonical,
@@ -789,6 +970,1567 @@ def patterns_scan():
         "stocks_with_patterns": len(results),
         "pattern_summary": pattern_summary,
         "timeframe": tf,
+    })
+
+
+@app.route("/results")
+def results_page():
+    return render_template("results.html")
+
+
+@app.route("/results/data")
+def results_data():
+    cached = get_results_cached()
+    if cached:
+        cached["cache_fresh"] = is_results_fresh()
+        return jsonify(cached)
+    status = get_results_status()
+    if status["running"]:
+        return jsonify({"fetching": True, "progress": status["progress"]})
+    start_results_fetch()
+    return jsonify({"fetching": True, "progress": {"step": "Starting data fetch...", "done": 0, "total": 4}})
+
+
+@app.route("/results/refresh", methods=["POST"])
+def results_refresh():
+    started = start_results_fetch()
+    if started:
+        return jsonify({"status": "started"})
+    return jsonify({"status": "already_running"})
+
+
+@app.route("/results/status")
+def results_status():
+    return jsonify(get_results_status())
+
+
+@app.route("/today")
+def today_page():
+    return render_template("today.html")
+
+
+@app.route("/today/picks")
+def today_picks():
+    timeframe = request.args.get("timeframe", "short_term").strip()
+    if timeframe not in ("intraday", "short_term"):
+        timeframe = "short_term"
+
+    cache_path = Path(__file__).resolve().parent / "scanner_cache" / "backtest_results.json"
+    has_cache = _ensure_scan_cache()
+    if not has_cache:
+        return jsonify({"scanning": True, "progress": _scan_progress, "picks": []})
+
+    cache = json.loads(cache_path.read_text())
+    timestamp = cache.get("timestamp", "")
+
+    is_intraday = timeframe == "intraday"
+
+    qualifying = []
+    for key, entry in cache.get("results", {}).items():
+        if entry["timeframe"] != timeframe:
+            continue
+        summary = entry.get("summary", {})
+        win_rate = summary.get("win_rate", 0)
+        profit_factor = summary.get("profit_factor", 0)
+        if is_intraday:
+            if win_rate >= 50 and profit_factor >= 1.5:
+                qualifying.append(entry)
+        else:
+            if win_rate >= 70 and profit_factor >= 0.8:
+                qualifying.append(entry)
+
+    if not qualifying:
+        return jsonify({"picks": [], "timestamp": timestamp, "qualifying_count": 0})
+
+    cfg = TIMEFRAME_CONFIG.get(timeframe, TIMEFRAME_CONFIG["short_term"])
+    interval = cfg.get("candle_interval", "1d")
+    period = cfg.get("candle_period", "1y")
+    max_distance_pct = 1.0
+
+    nifty_intraday_return = 0.0
+    if is_intraday:
+        try:
+            nifty_candles = fetch_candles("^NSEI", period="1mo", interval="1h")
+            if nifty_candles and len(nifty_candles) >= 7:
+                from collections import defaultdict as _dd
+                _nifty_days = _dd(list)
+                for c in nifty_candles:
+                    _d = datetime.fromtimestamp(int(c[0]), tz=IST).strftime("%Y-%m-%d")
+                    _nifty_days[_d].append(c)
+                _ndays = sorted(_nifty_days.keys())
+                if len(_ndays) >= 2:
+                    _prev_close = _nifty_days[_ndays[-2]][-1][4]
+                    _today_last = _nifty_days[_ndays[-1]][-1][4]
+                    nifty_intraday_return = round((_today_last - _prev_close) / _prev_close * 100, 2)
+        except Exception:
+            pass
+
+    def _intraday_context(candles):
+        from collections import defaultdict as _dd
+        daily_groups = _dd(list)
+        for c in candles:
+            dt = datetime.fromtimestamp(int(c[0]), tz=IST).strftime("%Y-%m-%d")
+            daily_groups[dt].append(c)
+        days = sorted(daily_groups.keys())
+        if len(days) < 2:
+            return None
+        prev = daily_groups[days[-2]]
+        today = daily_groups[days[-1]]
+
+        pdh = max(c[2] for c in prev)
+        pdl = min(c[3] for c in prev)
+        pdc = prev[-1][4]
+        today_open = today[0][1]
+        today_high = max(c[2] for c in today)
+        today_low = min(c[3] for c in today)
+        today_last = today[-1][4]
+        gap_pct = round((today_open - pdc) / pdc * 100, 2) if pdc else 0
+        or_high = today[0][2]
+        or_low = today[0][3]
+        stock_return = round((today_last - pdc) / pdc * 100, 2) if pdc else 0
+        rs_vs_nifty = round(stock_return - nifty_intraday_return, 2)
+
+        closes = [c[4] for c in candles]
+        atr_period = min(14, len(candles) - 1)
+        trs = []
+        for i in range(1, len(candles)):
+            tr = max(candles[i][2] - candles[i][3], abs(candles[i][2] - candles[i-1][4]), abs(candles[i][3] - candles[i-1][4]))
+            trs.append(tr)
+        day_atr = sum(trs[-atr_period:]) / atr_period if trs else 0
+        day_range = today_high - today_low
+        range_used_pct = round(day_range / (day_atr * 7) * 100, 1) if day_atr > 0 else 0
+
+        return {
+            "pdh": round(pdh, 2), "pdl": round(pdl, 2), "pdc": round(pdc, 2),
+            "today_open": round(today_open, 2),
+            "gap_pct": gap_pct,
+            "or_high": round(or_high, 2), "or_low": round(or_low, 2),
+            "above_pdc": today_last > pdc,
+            "above_pdh": today_last > pdh,
+            "above_or_high": today_last > or_high,
+            "stock_return": stock_return,
+            "rs_vs_nifty": rs_vs_nifty,
+            "range_used_pct": range_used_pct,
+        }
+
+    def _analyze_for_today(entry):
+        sym = entry["symbol"]
+        name = entry["name"]
+        win_rate = entry["summary"]["win_rate"]
+        profit_factor = entry["summary"].get("profit_factor", 0)
+        try:
+            canonical, yahoo_sym = resolve_yahoo_ticker(sym)
+            candles = fetch_candles(yahoo_sym, period=period, interval=interval, canonical=canonical)
+            if not candles:
+                return None
+
+            daily_candles = None
+            if is_intraday:
+                daily_candles = fetch_candles(yahoo_sym, period="1y", interval="1d", canonical=canonical)
+
+            oi_data = fetch_oi(canonical)
+            result = full_analysis(canonical, candles, timeframe=timeframe, oi_data=oi_data, daily_candles=daily_candles)
+            ap = result.get("recommendation", {}).get("action_plan", {})
+            buy = ap.get("buy", {})
+
+            verdict = ap.get("action_summary", {}).get("verdict", "WAIT")
+            if verdict == "WAIT":
+                return None
+
+            cmp = round(candles[-1][4], 2)
+            buy_level = buy.get("level")
+            if not buy_level:
+                return None
+
+            distance_pct = round((buy_level - cmp) / cmp * 100, 2)
+            if distance_pct < -max_distance_pct:
+                return None
+
+            rr = buy.get("rr") or 0
+            if rr < 1.0:
+                return None
+
+            conviction = buy.get("conviction", {})
+            conv_score = conviction.get("score", 0)
+            entry_conf = buy.get("entry_confirmation", {})
+            conf_confirmed = entry_conf.get("confirmed", False)
+            vol_env = ap.get("volume_environment", "normal")
+
+            if vol_env == "low":
+                return None
+            if conv_score < 40:
+                return None
+            if buy.get("trend_warning"):
+                return None
+
+            indicators = result.get("indicators", {})
+            rvol = indicators.get("rvol")
+
+            vwap_data = indicators.get("vwap", {})
+            vwap_price = vwap_data.get("vwap")
+            vwap_position = vwap_data.get("position", "unknown")
+
+            oi_result = result.get("oi", {})
+            pcr = oi_result.get("pcr")
+            oi_buildup = oi_result.get("oi_buildup")
+            max_pain = oi_result.get("max_pain")
+
+            intra_ctx = None
+            if is_intraday:
+                if rvol is not None and rvol < 0.8:
+                    return None
+                intra_ctx = _intraday_context(candles)
+                if intra_ctx and intra_ctx["range_used_pct"] > 85:
+                    return None
+
+            ema_data = ap.get("ema_crossovers", {})
+            chart_patterns = result.get("chart_patterns", [])
+            bullish_patterns = [p for p in chart_patterns if p.get("bias") in ("bullish", "neutral") and p.get("breakout_target_up")]
+
+            capital = 10000.0
+            risk_per_trade = capital * 0.02
+            buy_sl = buy.get("sl")
+            risk_per_share = abs(buy_level - buy_sl) if buy_sl else 0
+            suggested_qty = int(risk_per_trade / risk_per_share) if risk_per_share > 0 else 0
+            capital_required = round(buy_level * suggested_qty, 2) if suggested_qty > 0 else 0
+
+            proximity_score = max(0, 100 - abs(distance_pct) * 100)
+            conf_score_w = 100 if conf_confirmed else 0
+            vol_score = 100 if vol_env == "confirmed" else 50 if vol_env == "normal" else 0
+            rr_score = min(100, rr * 33)
+
+            if is_intraday:
+                vwap_score = 100 if vwap_position == "above" else 50 if vwap_position == "at" else 0
+                oi_score = 0
+                if oi_buildup in ("long_buildup", "short_covering"):
+                    oi_score = 100
+                elif pcr and pcr > 1.0:
+                    oi_score = 60
+
+                ctx_score = 0
+                if intra_ctx:
+                    if intra_ctx["above_pdc"]:
+                        ctx_score += 40
+                    if intra_ctx["rs_vs_nifty"] > 0:
+                        ctx_score += 30
+                    if intra_ctx["gap_pct"] > 0:
+                        ctx_score += 15
+                    if intra_ctx["above_or_high"]:
+                        ctx_score += 15
+                    ctx_score = min(100, ctx_score)
+
+                actionability = round(
+                    proximity_score * 0.15
+                    + conf_score_w * 0.20
+                    + vol_score * 0.15
+                    + vwap_score * 0.10
+                    + oi_score * 0.10
+                    + ctx_score * 0.20
+                    + rr_score * 0.10,
+                    1,
+                )
+            else:
+                actionability = round(
+                    proximity_score * 0.30
+                    + conf_score_w * 0.20
+                    + vol_score * 0.15
+                    + conv_score * 0.15
+                    + rr_score * 0.20,
+                    1,
+                )
+
+            signals = []
+            if ap.get("status") == "BUY ZONE":
+                signals.append("IN BUY ZONE")
+            if conf_confirmed:
+                signals.extend(entry_conf.get("signals", []))
+            if vol_env == "confirmed":
+                signals.append("Volume confirmed")
+            if is_intraday:
+                if intra_ctx and intra_ctx["above_pdc"]:
+                    signals.append("Above prev close")
+                if intra_ctx and intra_ctx["rs_vs_nifty"] > 0.5:
+                    signals.append(f"RS vs Nifty +{intra_ctx['rs_vs_nifty']:.1f}%")
+                if intra_ctx and intra_ctx["gap_pct"] > 0.3:
+                    signals.append(f"Gap up {intra_ctx['gap_pct']:+.1f}%")
+                if intra_ctx and intra_ctx["above_or_high"]:
+                    signals.append("Above opening range")
+                if vwap_position == "above":
+                    signals.append("Above VWAP")
+                if oi_buildup in ("long_buildup", "short_covering"):
+                    signals.append(oi_buildup.replace("_", " ").title())
+                elif pcr and pcr > 1.0:
+                    signals.append(f"PCR {pcr:.2f}")
+            if bullish_patterns:
+                signals.extend(p["name"] for p in bullish_patterns[:2])
+            ema_crosses = [c["type"] for c in ema_data.get("crossovers", []) if c["bias"] == "bullish"]
+            if ema_crosses:
+                signals.append(ema_crosses[0])
+
+            pick = {
+                "symbol": canonical,
+                "name": name,
+                "cmp": cmp,
+                "buy_level": buy_level,
+                "distance_pct": distance_pct,
+                "sl": buy_sl,
+                "targets": buy.get("targets", []),
+                "rr": rr,
+                "conviction": conviction,
+                "entry_confirmed": conf_confirmed,
+                "volume_environment": vol_env,
+                "signals": signals[:6],
+                "verdict": verdict,
+                "verdict_confidence": ap.get("action_summary", {}).get("confidence", "—"),
+                "verdict_reasons": ap.get("action_summary", {}).get("reasons", [])[:3],
+                "win_rate": win_rate,
+                "profit_factor": round(profit_factor, 2),
+                "ema_alignment": ema_data.get("alignment", "neutral"),
+                "suggested_qty": suggested_qty,
+                "capital_required": capital_required,
+                "actionability": actionability,
+                "status": ap.get("status"),
+            }
+
+            if is_intraday:
+                pick["rvol"] = round(rvol, 2) if rvol else None
+                pick["vwap"] = round(vwap_price, 2) if vwap_price else None
+                pick["vwap_position"] = vwap_position
+                pick["pcr"] = round(pcr, 2) if pcr else None
+                pick["oi_buildup"] = oi_buildup
+                pick["max_pain"] = max_pain
+                if intra_ctx:
+                    pick["pdh"] = intra_ctx["pdh"]
+                    pick["pdl"] = intra_ctx["pdl"]
+                    pick["pdc"] = intra_ctx["pdc"]
+                    pick["gap_pct"] = intra_ctx["gap_pct"]
+                    pick["stock_return"] = intra_ctx["stock_return"]
+                    pick["rs_vs_nifty"] = intra_ctx["rs_vs_nifty"]
+                    pick["range_used_pct"] = intra_ctx["range_used_pct"]
+                    pick["or_high"] = intra_ctx["or_high"]
+                    pick["or_low"] = intra_ctx["or_low"]
+
+            return pick
+        except Exception:
+            return None
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        picks_raw = list(pool.map(_analyze_for_today, qualifying))
+
+    picks = [p for p in picks_raw if p is not None]
+    picks.sort(key=lambda p: p.get("actionability", 0), reverse=True)
+
+    from news_fetcher import fetch_news_batch
+    if picks:
+        news_map = fetch_news_batch([p["symbol"] for p in picks[:10]], limit=3)
+        for p in picks:
+            p["news"] = news_map.get(p["symbol"], [])
+
+    return jsonify({
+        "picks": picks,
+        "timestamp": timestamp,
+        "qualifying_count": len(qualifying),
+        "max_distance_pct": max_distance_pct,
+    })
+
+
+@app.route("/today/backtest")
+def today_backtest():
+    timeframe = request.args.get("timeframe", "short_term").strip()
+    if timeframe not in ("intraday", "short_term"):
+        timeframe = "short_term"
+
+    days_back = 7
+    hold_candles = 3 if timeframe == "short_term" else 7
+
+    cache_path = Path(__file__).resolve().parent / "scanner_cache" / "backtest_results.json"
+    if not cache_path.exists():
+        return jsonify({"error": "No scanner cache. Run the scanner first."})
+
+    cache = json.loads(cache_path.read_text())
+
+    is_intraday_bt = timeframe == "intraday"
+    qualifying = []
+    for key, entry in cache.get("results", {}).items():
+        if entry["timeframe"] != timeframe:
+            continue
+        summary = entry.get("summary", {})
+        wr = summary.get("win_rate", 0)
+        pf = summary.get("profit_factor", 0)
+        if is_intraday_bt:
+            if wr >= 50 and pf >= 1.5:
+                qualifying.append(entry)
+        else:
+            if wr >= 70 and pf >= 0.8:
+                qualifying.append(entry)
+
+    if not qualifying:
+        return jsonify({"error": "No qualifying stocks", "daily_results": []})
+
+    cfg = TIMEFRAME_CONFIG.get(timeframe, TIMEFRAME_CONFIG["short_term"])
+    interval = cfg.get("candle_interval", "1d")
+    period = cfg.get("candle_period", "1y")
+
+    def _fetch_candles(entry):
+        sym = entry["symbol"]
+        try:
+            canonical, yahoo_sym = resolve_yahoo_ticker(sym)
+            candles = fetch_candles(yahoo_sym, period=period, interval=interval, canonical=canonical)
+            if candles and len(candles) > 60:
+                return sym, entry["name"], canonical, candles
+        except Exception:
+            pass
+        return sym, entry["name"], None, None
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        fetched = list(pool.map(_fetch_candles, qualifying))
+
+    stock_data = [(s, n, c, cndls) for s, n, c, cndls in fetched if cndls]
+    if not stock_data:
+        return jsonify({"error": "No candle data", "daily_results": []})
+
+    ref_timestamps = sorted(set(c[0] for c in stock_data[0][3]))
+
+    if timeframe == "intraday":
+        from collections import defaultdict
+        daily_groups = defaultdict(list)
+        for ts in ref_timestamps:
+            d = datetime.fromtimestamp(ts, tz=IST).strftime("%Y-%m-%d")
+            daily_groups[d].append(ts)
+        day_keys = sorted(daily_groups.keys())
+        last_ts_per_day = [max(daily_groups[d]) for d in day_keys]
+        sim_dates = last_ts_per_day[-(days_back + 1):-1]
+    else:
+        sim_dates = ref_timestamps[-(days_back + 1):-1]
+
+    all_day_results = {ts: [] for ts in sim_dates}
+
+    def _simulate_stock(args):
+        sym, name, canonical, candles, = args
+        results = {}
+        for sim_ts in sim_dates:
+            truncated = [c for c in candles if c[0] <= sim_ts]
+            if len(truncated) < 60:
+                continue
+            future = [c for c in candles if c[0] > sim_ts][:hold_candles]
+            if not future:
+                continue
+
+            try:
+                daily_candles = None
+                if timeframe == "intraday":
+                    daily_candles = candles
+                result = full_analysis(canonical, truncated, timeframe=timeframe, daily_candles=daily_candles)
+                ap = result.get("recommendation", {}).get("action_plan", {})
+                buy = ap.get("buy", {})
+
+                verdict = ap.get("action_summary", {}).get("verdict", "WAIT")
+                if verdict == "WAIT":
+                    continue
+
+                cmp = round(truncated[-1][4], 2)
+                buy_level = buy.get("level")
+                if not buy_level:
+                    continue
+
+                distance_pct = round((buy_level - cmp) / cmp * 100, 2)
+                if distance_pct < -1.0:
+                    continue
+
+                rr = buy.get("rr") or 0
+                if rr < 1.0:
+                    continue
+
+                bt_conv = buy.get("conviction", {}).get("score", 0)
+                if bt_conv < 40:
+                    continue
+                bt_vol_env = ap.get("volume_environment", "normal")
+                if bt_vol_env == "low":
+                    continue
+                if buy.get("trend_warning"):
+                    continue
+
+                if timeframe == "intraday":
+                    indicators = result.get("indicators", {})
+                    bt_rvol = indicators.get("rvol")
+                    if bt_rvol is not None and bt_rvol < 0.8:
+                        continue
+
+                sl = buy.get("sl")
+                targets = buy.get("targets", [])
+                t1 = targets[0] if targets else None
+
+                outcome = {"entered": False, "result": "no_trigger", "pnl_pct": None, "exit_price": None, "days_held": 0}
+
+                entry_idx = None
+                for i, fc in enumerate(future):
+                    if fc[3] <= buy_level:
+                        outcome["entered"] = True
+                        entry_idx = i
+                        break
+
+                if outcome["entered"] and sl and t1:
+                    for j in range(entry_idx, len(future)):
+                        fc = future[j]
+                        if fc[3] <= sl:
+                            outcome["result"] = "sl_hit"
+                            outcome["exit_price"] = round(sl, 2)
+                            outcome["pnl_pct"] = round((sl - buy_level) / buy_level * 100, 2)
+                            outcome["days_held"] = j - entry_idx + 1
+                            break
+                        if fc[2] >= t1:
+                            outcome["result"] = "t1_hit"
+                            outcome["exit_price"] = round(t1, 2)
+                            outcome["pnl_pct"] = round((t1 - buy_level) / buy_level * 100, 2)
+                            outcome["days_held"] = j - entry_idx + 1
+                            break
+                    else:
+                        last_close = round(future[-1][4], 2)
+                        outcome["result"] = "open"
+                        outcome["exit_price"] = last_close
+                        outcome["pnl_pct"] = round((last_close - buy_level) / buy_level * 100, 2)
+                        outcome["days_held"] = len(future) - entry_idx
+                elif outcome["entered"] and future:
+                    last_close = round(future[-1][4], 2)
+                    outcome["result"] = "open"
+                    outcome["exit_price"] = last_close
+                    outcome["pnl_pct"] = round((last_close - buy_level) / buy_level * 100, 2)
+
+                conv = buy.get("conviction", {})
+                results[sim_ts] = {
+                    "symbol": canonical,
+                    "name": name,
+                    "cmp_at_pick": cmp,
+                    "buy_level": round(buy_level, 2),
+                    "distance_pct": distance_pct,
+                    "sl": round(sl, 2) if sl else None,
+                    "t1": round(t1, 2) if t1 else None,
+                    "rr": round(rr, 1),
+                    "conviction": conv.get("score", 0),
+                    "outcome": outcome,
+                }
+            except Exception:
+                continue
+        return results
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        all_stock_results = list(pool.map(_simulate_stock, stock_data))
+
+    for stock_results in all_stock_results:
+        for ts, pick in stock_results.items():
+            if ts in all_day_results:
+                all_day_results[ts].append(pick)
+
+    daily_results = []
+    for ts in sim_dates:
+        picks = sorted(all_day_results[ts], key=lambda p: abs(p["distance_pct"]))
+        date_str = datetime.fromtimestamp(ts, tz=IST).strftime("%d %b %Y (%a)")
+        daily_results.append({"date": date_str, "picks": picks})
+
+    all_picks = [p for d in daily_results for p in d["picks"]]
+    entered = [p for p in all_picks if p["outcome"]["entered"]]
+    wins = [p for p in entered if p["outcome"]["result"] == "t1_hit"]
+    losses = [p for p in entered if p["outcome"]["result"] == "sl_hit"]
+    still_open = [p for p in entered if p["outcome"]["result"] == "open"]
+    total_pnl = sum(p["outcome"]["pnl_pct"] for p in entered if p["outcome"]["pnl_pct"] is not None)
+
+    return jsonify({
+        "daily_results": daily_results,
+        "summary": {
+            "total_picks": len(all_picks),
+            "entries_triggered": len(entered),
+            "wins": len(wins),
+            "losses": len(losses),
+            "open": len(still_open),
+            "win_rate": round(len(wins) / max(len(wins) + len(losses), 1) * 100, 1),
+            "total_pnl_pct": round(total_pnl, 2),
+            "avg_pnl_pct": round(total_pnl / len(entered), 2) if entered else 0,
+        },
+        "timeframe": timeframe,
+        "hold_period": "3 days" if timeframe == "short_term" else "1 day (hourly)",
+    })
+
+
+@app.route("/rsi-extremes")
+def rsi_extremes_page():
+    return render_template("rsi_extremes.html")
+
+
+@app.route("/rsi-extremes/today")
+def rsi_extremes_today():
+    try:
+        stocks = get_fno_stocks()
+    except Exception as e:
+        return jsonify({"error": str(e), "results": []})
+
+    def _scan_current(stock):
+        sym = stock["symbol"]
+        name = stock["name"]
+        try:
+            canonical, yahoo_sym = resolve_yahoo_ticker(sym)
+            cmp = None
+            cur_rsi = {}
+            ema_ctx = {}
+
+            for interval in ["5m", "15m", "1h"]:
+                candles = fetch_candles(yahoo_sym, period="1mo", interval=interval, canonical=canonical)
+                if not candles or len(candles) < 20:
+                    if interval in ("5m", "15m"):
+                        return None
+                    continue
+
+                closes = [float(c[4]) for c in candles]
+                rsi_vals = rsi_series(closes, 14)
+                if not rsi_vals:
+                    if interval in ("5m", "15m"):
+                        return None
+                    continue
+                cur_rsi[interval] = round(rsi_vals[-1], 1)
+
+                if interval == "5m":
+                    cmp = round(float(candles[-1][4]), 2)
+                    e9 = ema_series(closes, 9)
+                    e20 = ema_series(closes, 20)
+                    ema_ctx = {
+                        "ema9": round(e9[-1], 2) if e9 else None,
+                        "ema20": round(e20[-1], 2) if e20 else None,
+                    }
+
+            r5 = cur_rsi.get("5m")
+            r15 = cur_rsi.get("15m")
+            if r5 is None or r15 is None:
+                return None
+
+            # Both 5m and 15m RSI must be < 20 or > 80
+            both_ob = r5 > 80 and r15 > 80
+            both_os = r5 < 20 and r15 < 20
+            if not (both_ob or both_os):
+                return None
+
+            signal_type = "overbought" if both_ob else "oversold"
+
+            return {
+                "symbol": canonical,
+                "display_symbol": sym,
+                "name": name,
+                "cmp": cmp,
+                "rsi_5m": r5,
+                "rsi_15m": r15,
+                "rsi_1h": cur_rsi.get("1h"),
+                "type": signal_type,
+                "emas": ema_ctx,
+            }
+        except Exception:
+            return None
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results_raw = list(pool.map(_scan_current, stocks))
+
+    results = [r for r in results_raw if r is not None]
+
+    def _sort_key(r):
+        r5, r15 = r["rsi_5m"], r["rsi_15m"]
+        if r["type"] == "overbought":
+            return r15
+        else:
+            return -r15
+
+    results.sort(key=_sort_key, reverse=True)
+
+    # Attach stored all-time performance
+    summary = load_rsi_summary()
+    for r in results:
+        sp = summary.get(r["symbol"])
+        if sp:
+            r["stored_perf"] = sp
+
+    return jsonify({
+        "results": results,
+        "total_scanned": len(stocks),
+        "count": len(results),
+        "time": datetime.now(IST).strftime("%H:%M:%S"),
+    })
+
+
+@app.route("/rsi-extremes/scan")
+def rsi_extremes_scan():
+    scan_days = min(int(request.args.get("days", "10")), 30) if request.args.get("days", "").isdigit() else 10
+    candle_period = "2mo" if scan_days > 15 else "1mo"
+
+    try:
+        stocks = get_fno_stocks()
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch F&O list: {e}", "results": []})
+
+    def _find_daily_extremes(candles, last_10_days):
+        closes = [float(c[4]) for c in candles]
+        rsi_vals = rsi_series(closes, 14)
+        if not rsi_vals:
+            return [], None
+
+        offset = len(closes) - len(rsi_vals)
+        day_overbought = {}
+        day_oversold = {}
+
+        for j, rv in enumerate(rsi_vals):
+            ci = j + offset
+            c = candles[ci]
+            dt = datetime.fromtimestamp(int(c[0]), tz=IST)
+            day_str = dt.strftime("%Y-%m-%d")
+
+            if day_str not in last_10_days:
+                continue
+
+            if rv > 80:
+                if day_str not in day_overbought or rv > day_overbought[day_str]["rsi"]:
+                    day_overbought[day_str] = {
+                        "date": dt.strftime("%d %b"),
+                        "date_key": day_str,
+                        "time": dt.strftime("%H:%M"),
+                        "rsi": round(rv, 1),
+                        "price": round(float(c[4]), 2),
+                        "type": "overbought",
+                    }
+            elif rv < 20:
+                if day_str not in day_oversold or rv < day_oversold[day_str]["rsi"]:
+                    day_oversold[day_str] = {
+                        "date": dt.strftime("%d %b"),
+                        "date_key": day_str,
+                        "time": dt.strftime("%H:%M"),
+                        "rsi": round(rv, 1),
+                        "price": round(float(c[4]), 2),
+                        "type": "oversold",
+                    }
+
+        extremes = list(day_overbought.values()) + list(day_oversold.values())
+        extremes.sort(key=lambda e: e["date_key"], reverse=True)
+        return extremes, round(rsi_vals[-1], 1)
+
+    def _build_rsi_lookup(candles, last_10_days):
+        """Return {timestamp: (rsi_val, price, datetime_obj)} for candles in last_10_days."""
+        closes = [float(c[4]) for c in candles]
+        rsi_vals = rsi_series(closes, 14)
+        if not rsi_vals:
+            return {}, None
+        offset = len(closes) - len(rsi_vals)
+        lookup = {}
+        for j, rv in enumerate(rsi_vals):
+            ci = j + offset
+            c = candles[ci]
+            ts = int(c[0])
+            dt = datetime.fromtimestamp(ts, tz=IST)
+            if dt.strftime("%Y-%m-%d") in last_10_days:
+                lookup[ts] = (rv, round(float(c[4]), 2), dt)
+        return lookup, round(rsi_vals[-1], 1)
+
+    def _scan_stock(stock):
+        sym = stock["symbol"]
+        name = stock["name"]
+        try:
+            canonical, yahoo_sym = resolve_yahoo_ticker(sym)
+            display_sym = sym
+
+            result = {"symbol": canonical, "display_symbol": display_sym, "name": name}
+            has_any = False
+            cmp = None
+            rsi_lookups = {}
+            candles_by_tf = {}
+
+            for interval in ["5m", "15m"]:
+                candles = fetch_candles(yahoo_sym, period=candle_period, interval=interval, canonical=canonical)
+                if not candles or len(candles) < 20:
+                    result[interval] = {"extremes": [], "current_rsi": None, "overbought_count": 0, "oversold_count": 0}
+                    continue
+
+                candles_by_tf[interval] = candles
+
+                if cmp is None:
+                    cmp = round(float(candles[-1][4]), 2)
+
+                all_dates = sorted(set(
+                    datetime.fromtimestamp(int(c[0]), tz=IST).strftime("%Y-%m-%d")
+                    for c in candles
+                ))
+                last_n = set(all_dates[-scan_days:]) if len(all_dates) >= scan_days else set(all_dates)
+
+                extremes, current_rsi = _find_daily_extremes(candles, last_n)
+                lookup, _ = _build_rsi_lookup(candles, last_n)
+                rsi_lookups[interval] = lookup
+
+                result[interval] = {
+                    "extremes": extremes,
+                    "current_rsi": current_rsi,
+                    "overbought_count": sum(1 for e in extremes if e["type"] == "overbought"),
+                    "oversold_count": sum(1 for e in extremes if e["type"] == "oversold"),
+                }
+
+                if extremes:
+                    has_any = True
+
+            if not has_any:
+                return None
+
+            # Find common extremes: both 5m and 15m extreme at overlapping times
+            common_extremes = []
+            rsi_5m = rsi_lookups.get("5m", {})
+            rsi_15m = rsi_lookups.get("15m", {})
+
+            if rsi_5m and rsi_15m:
+                for ts_15m, (rv_15m, price_15m, dt_15m) in sorted(rsi_15m.items()):
+                    if 20 <= rv_15m <= 80:
+                        continue
+                    hhmm = dt_15m.hour * 60 + dt_15m.minute
+                    if hhmm < 9 * 60 + 20 or hhmm >= 15 * 60:
+                        continue
+                    extreme_type = "overbought" if rv_15m > 80 else "oversold"
+
+                    for offset_sec in range(0, 15 * 60, 5 * 60):
+                        ts_5m = ts_15m + offset_sec
+                        if ts_5m not in rsi_5m:
+                            continue
+                        rv_5m, price_5m, dt_5m = rsi_5m[ts_5m]
+                        match = (extreme_type == "overbought" and rv_5m > 80) or \
+                                (extreme_type == "oversold" and rv_5m < 20)
+                        if match:
+                            common_extremes.append({
+                                "date": dt_15m.strftime("%d %b"),
+                                "date_key": dt_15m.strftime("%Y-%m-%d"),
+                                "time": dt_5m.strftime("%H:%M"),
+                                "rsi_5m": round(rv_5m, 1),
+                                "rsi_15m": round(rv_15m, 1),
+                                "price": price_5m,
+                                "type": extreme_type,
+                                "_ts_5m": ts_5m,
+                            })
+                            break
+
+                # Deduplicate to peak per day per direction
+                common_by_day = {}
+                for ce in common_extremes:
+                    key = (ce["date_key"], ce["type"])
+                    if key not in common_by_day:
+                        common_by_day[key] = ce
+                    elif ce["type"] == "overbought" and ce["rsi_15m"] > common_by_day[key]["rsi_15m"]:
+                        common_by_day[key] = ce
+                    elif ce["type"] == "oversold" and ce["rsi_15m"] < common_by_day[key]["rsi_15m"]:
+                        common_by_day[key] = ce
+                common_extremes = sorted(common_by_day.values(), key=lambda e: e["date_key"], reverse=True)
+
+            # Forward movement: scan 5m candles until price moves 1% in either direction
+            candles_5m = candles_by_tf.get("5m", [])
+            if candles_5m and common_extremes:
+                ts_to_idx = {int(c[0]): i for i, c in enumerate(candles_5m)}
+                for ce in common_extremes:
+                    ts = ce.pop("_ts_5m", None)
+                    if ts is None:
+                        continue
+                    idx = ts_to_idx.get(ts)
+                    if idx is None:
+                        continue
+                    entry_price = float(candles_5m[idx][4])
+                    target_up = entry_price * 1.01
+                    target_down = entry_price * 0.99
+
+                    hit_dir = None
+                    hit_price = None
+                    hit_time = None
+                    hit_date = None
+                    candles_scanned = 0
+                    max_high = entry_price
+                    max_low = entry_price
+
+                    for k in range(1, len(candles_5m) - idx):
+                        fc = candles_5m[idx + k]
+                        candles_scanned += 1
+                        fh = float(fc[2])
+                        fl = float(fc[3])
+                        if fh > max_high:
+                            max_high = fh
+                        if fl < max_low:
+                            max_low = fl
+
+                        up_hit = fh >= target_up
+                        down_hit = fl <= target_down
+                        fc_dt = datetime.fromtimestamp(int(fc[0]), tz=IST)
+                        if up_hit and down_hit:
+                            fc_o = float(fc[1])
+                            fc_c = float(fc[4])
+                            hit_dir = "down" if fc_c < fc_o else "up"
+                            hit_price = round(target_down if hit_dir == "down" else target_up, 2)
+                            hit_time = fc_dt.strftime("%H:%M")
+                            hit_date = fc_dt.strftime("%d %b")
+                            break
+                        elif up_hit:
+                            hit_dir = "up"
+                            hit_price = round(target_up, 2)
+                            hit_time = fc_dt.strftime("%H:%M")
+                            hit_date = fc_dt.strftime("%d %b")
+                            break
+                        elif down_hit:
+                            hit_dir = "down"
+                            hit_price = round(target_down, 2)
+                            hit_time = fc_dt.strftime("%H:%M")
+                            hit_date = fc_dt.strftime("%d %b")
+                            break
+
+                    # OB expects down move → down hit = reversed
+                    # OS expects up move → up hit = reversed
+                    if hit_dir:
+                        if ce["type"] == "overbought":
+                            reversed_ok = hit_dir == "down"
+                        else:
+                            reversed_ok = hit_dir == "up"
+                    else:
+                        reversed_ok = False
+
+                    ce["move"] = {
+                        "entry": round(entry_price, 2),
+                        "max_high": round(max_high, 2),
+                        "max_low": round(max_low, 2),
+                        "hit_1pct": hit_dir is not None,
+                        "hit_dir": hit_dir,
+                        "hit_price": hit_price,
+                        "hit_date": hit_date,
+                        "hit_time": hit_time,
+                        "candles": candles_scanned,
+                        "minutes": candles_scanned * 5,
+                        "reversed": reversed_ok,
+                    }
+
+                    # Next 30 minutes high/low (6 five-minute candles)
+                    next30_candles = candles_5m[idx + 1: idx + 7]
+                    if next30_candles:
+                        n30_high = max(float(fc[2]) for fc in next30_candles)
+                        n30_low = min(float(fc[3]) for fc in next30_candles)
+                        ce["next30"] = {
+                            "high": round(n30_high, 2),
+                            "low": round(n30_low, 2),
+                            "high_pct": round((n30_high - entry_price) / entry_price * 100, 2),
+                            "low_pct": round((n30_low - entry_price) / entry_price * 100, 2),
+                            "candles": len(next30_candles),
+                        }
+
+                    # EMA observation — how far does the reversal go relative to EMAs?
+                    closes_up_to = [float(c[4]) for c in candles_5m[:idx + 1]]
+                    if len(closes_up_to) >= 20:
+                        e8 = ema_series(closes_up_to, 8)
+                        e9 = ema_series(closes_up_to, 9)
+                        e20 = ema_series(closes_up_to, 20)
+                        ema8_val = round(e8[-1], 2) if e8 else None
+                        ema9_val = round(e9[-1], 2) if e9 else None
+                        ema20_val = round(e20[-1], 2) if e20 else None
+
+                        is_short = ce["type"] == "overbought"
+                        adverse_limit = entry_price * 1.01 if is_short else entry_price * 0.99
+                        max_fav = entry_price
+
+                        for k in range(1, len(candles_5m) - idx):
+                            fc = candles_5m[idx + k]
+                            fh, fl = float(fc[2]), float(fc[3])
+                            if is_short:
+                                if fl < max_fav:
+                                    max_fav = fl
+                                if fh >= adverse_limit:
+                                    break
+                            else:
+                                if fh > max_fav:
+                                    max_fav = fh
+                                if fl <= adverse_limit:
+                                    break
+
+                        max_fav_pct = round(abs(max_fav - entry_price) / entry_price * 100, 2)
+
+                        def _reached(ema_v):
+                            if ema_v is None:
+                                return False
+                            return max_fav <= ema_v if is_short else max_fav >= ema_v
+
+                        ce["emas"] = {
+                            "ema8": ema8_val, "ema9": ema9_val, "ema20": ema20_val,
+                            "ema8_dist": round(abs(entry_price - ema8_val) / entry_price * 100, 2) if ema8_val else None,
+                            "ema9_dist": round(abs(entry_price - ema9_val) / entry_price * 100, 2) if ema9_val else None,
+                            "ema20_dist": round(abs(entry_price - ema20_val) / entry_price * 100, 2) if ema20_val else None,
+                            "max_fav": round(max_fav, 2),
+                            "max_fav_pct": max_fav_pct,
+                            "reached_8": _reached(ema8_val),
+                            "reached_9": _reached(ema9_val),
+                            "reached_20": _reached(ema20_val),
+                        }
+
+                        # 8 EMA trade with 1:1 R:R
+                        if ema8_val is not None:
+                            on_target_side = (is_short and ema8_val < entry_price) or \
+                                             (not is_short and ema8_val > entry_price)
+                            if on_target_side:
+                                dist = abs(entry_price - ema8_val)
+                                sl_8 = round(entry_price + dist, 2) if is_short else round(entry_price - dist, 2)
+                                e8_result = "open"
+                                e8_at = None
+                                for k in range(1, len(candles_5m) - idx):
+                                    fc = candles_5m[idx + k]
+                                    fh, fl = float(fc[2]), float(fc[3])
+                                    fc_dt = datetime.fromtimestamp(int(fc[0]), tz=IST)
+                                    if is_short:
+                                        if fh >= sl_8:
+                                            e8_result = "sl"
+                                            e8_at = fc_dt.strftime("%d %b %H:%M")
+                                            break
+                                        if fl <= ema8_val:
+                                            e8_result = "target"
+                                            e8_at = fc_dt.strftime("%d %b %H:%M")
+                                            break
+                                    else:
+                                        if fl <= sl_8:
+                                            e8_result = "sl"
+                                            e8_at = fc_dt.strftime("%d %b %H:%M")
+                                            break
+                                        if fh >= ema8_val:
+                                            e8_result = "target"
+                                            e8_at = fc_dt.strftime("%d %b %H:%M")
+                                            break
+                                ce["ema8_trade"] = {
+                                    "target": ema8_val,
+                                    "sl": sl_8,
+                                    "dist_pct": round(dist / entry_price * 100, 2),
+                                    "result": e8_result,
+                                    "at": e8_at,
+                                }
+            else:
+                for ce in common_extremes:
+                    ce.pop("_ts_5m", None)
+
+            result["common"] = common_extremes
+            result["common_count"] = len(common_extremes)
+            result["common_overbought"] = sum(1 for e in common_extremes if e["type"] == "overbought")
+            result["common_oversold"] = sum(1 for e in common_extremes if e["type"] == "oversold")
+
+            # Per-stock performance
+            with_move = [ce for ce in common_extremes if ce.get("move")]
+            if with_move:
+                rev_count = sum(1 for ce in with_move if ce["move"]["reversed"])
+                result["stock_perf"] = {
+                    "total": len(with_move),
+                    "reversed": rev_count,
+                    "continued": len(with_move) - rev_count,
+                    "reversal_pct": round(rev_count / len(with_move) * 100, 1),
+                }
+
+            result["cmp"] = cmp
+            total = sum(
+                result.get(tf, {}).get("overbought_count", 0) + result.get(tf, {}).get("oversold_count", 0)
+                for tf in ["5m", "15m"]
+            )
+            result["total_extreme_days"] = total
+            result["both_timeframes"] = bool(
+                result.get("5m", {}).get("extremes") and result.get("15m", {}).get("extremes")
+            )
+            days_set = set()
+            for tf in ["5m", "15m"]:
+                for e in result.get(tf, {}).get("extremes", []):
+                    days_set.add(e["date_key"])
+            result["unique_extreme_days"] = len(days_set)
+
+            return result
+        except Exception:
+            return None
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results_raw = list(pool.map(_scan_stock, stocks))
+
+    results = [r for r in results_raw if r is not None]
+    results.sort(key=lambda r: (r["common_count"], r["both_timeframes"], r["total_extreme_days"]), reverse=True)
+
+    # Aggregate movement stats across all common extremes
+    all_ob_moves = []
+    all_os_moves = []
+    for r in results:
+        for ce in r.get("common", []):
+            m = ce.get("move")
+            if not m:
+                continue
+            if ce["type"] == "overbought":
+                all_ob_moves.append(m)
+            else:
+                all_os_moves.append(m)
+
+    def _move_stats(moves):
+        if not moves:
+            return None
+        with_hit = [m for m in moves if m["hit_1pct"]]
+        reversals = sum(1 for m in moves if m["reversed"])
+        hit_minutes = [m["minutes"] for m in with_hit]
+        return {
+            "count": len(moves),
+            "hit_1pct_count": len(with_hit),
+            "hit_rate": round(len(with_hit) / len(moves) * 100, 1),
+            "reversal_count": reversals,
+            "reversal_rate": round(reversals / len(moves) * 100, 1),
+            "avg_minutes_to_hit": round(sum(hit_minutes) / len(hit_minutes), 0) if hit_minutes else None,
+            "no_hit_count": len(moves) - len(with_hit),
+        }
+
+    # Aggregate EMA reach patterns
+    ema_patterns = {"short": [], "long": []}
+    for r in results:
+        for ce in r.get("common", []):
+            ea = ce.get("emas")
+            if ea:
+                key = "short" if ce["type"] == "overbought" else "long"
+                ema_patterns[key].append(ea)
+
+    def _ema_stats(pats):
+        if not pats:
+            return None
+        n = len(pats)
+        r8 = sum(1 for p in pats if p["reached_8"])
+        r9 = sum(1 for p in pats if p["reached_9"])
+        r20 = sum(1 for p in pats if p["reached_20"])
+        favs = [p["max_fav_pct"] for p in pats]
+        d8 = [p["ema8_dist"] for p in pats if p["ema8_dist"] is not None]
+        d9 = [p["ema9_dist"] for p in pats if p["ema9_dist"] is not None]
+        d20 = [p["ema20_dist"] for p in pats if p["ema20_dist"] is not None]
+        stopped_before_8 = n - r8
+        stopped_8_to_9 = r8 - r9
+        stopped_9_to_20 = r9 - r20
+        past_20 = r20
+        return {
+            "count": n,
+            "reached_8_pct": round(r8 / n * 100, 1),
+            "reached_9_pct": round(r9 / n * 100, 1),
+            "reached_20_pct": round(r20 / n * 100, 1),
+            "avg_max_fav_pct": round(sum(favs) / len(favs), 2) if favs else 0,
+            "avg_ema8_dist": round(sum(d8) / len(d8), 2) if d8 else None,
+            "avg_ema9_dist": round(sum(d9) / len(d9), 2) if d9 else None,
+            "avg_ema20_dist": round(sum(d20) / len(d20), 2) if d20 else None,
+            "stopped_before_8": stopped_before_8,
+            "stopped_8_to_9": stopped_8_to_9,
+            "stopped_9_to_20": stopped_9_to_20,
+            "past_20": past_20,
+            "reached_8_count": r8,
+            "ema8_bounce_rate": round(stopped_8_to_9 / r8 * 100, 1) if r8 > 0 else None,
+            "ema8_continue_rate": round((r8 - stopped_8_to_9) / r8 * 100, 1) if r8 > 0 else None,
+        }
+
+    # Aggregate 8 EMA 1:1 R:R trade stats
+    e8_trades = {"short": [], "long": []}
+    for r in results:
+        for ce in r.get("common", []):
+            t = ce.get("ema8_trade")
+            if t:
+                key = "short" if ce["type"] == "overbought" else "long"
+                e8_trades[key].append(t)
+
+    def _e8_stats(trades):
+        if not trades:
+            return None
+        wins = sum(1 for t in trades if t["result"] == "target")
+        losses = sum(1 for t in trades if t["result"] == "sl")
+        opens = sum(1 for t in trades if t["result"] == "open")
+        decided = wins + losses
+        dists = [t["dist_pct"] for t in trades]
+        return {
+            "count": len(trades),
+            "wins": wins, "losses": losses, "opens": opens,
+            "win_rate": round(wins / decided * 100, 1) if decided else None,
+            "avg_dist_pct": round(sum(dists) / len(dists), 2) if dists else None,
+        }
+
+    # Persist signals and rebuild summary
+    save_rsi_signals(results)
+
+    # Attach stored all-time performance to each result
+    summary = load_rsi_summary()
+    for r in results:
+        sp = summary.get(r["symbol"])
+        if sp:
+            r["stored_perf"] = sp
+
+    return jsonify({
+        "results": results,
+        "total_scanned": len(stocks),
+        "stocks_with_extremes": len(results),
+        "scan_days": scan_days,
+        "move_stats": {
+            "overbought": _move_stats(all_ob_moves),
+            "oversold": _move_stats(all_os_moves),
+        },
+        "ema_stats": {
+            "short": _ema_stats(ema_patterns["short"]),
+            "long": _ema_stats(ema_patterns["long"]),
+        },
+        "ema8_trade_stats": {
+            "short": _e8_stats(e8_trades["short"]),
+            "long": _e8_stats(e8_trades["long"]),
+        },
+    })
+
+
+# ---------------------------------------------------------------------------
+# Intraday Strategies — ORB & PDH/PDL Breakout
+# ---------------------------------------------------------------------------
+
+INTRADAY_CORE_STOCKS = [
+    "KALYANKJIL", "MCX", "BHEL", "COFORGE", "PAYTM", "ADANIPOWER", "DIXON",
+    "ETERNAL", "VEDL", "TATASTEEL", "HDFCBANK", "SAIL", "NATIONALUM", "IDEA", "KAYNES",
+]
+
+# Backtest win rates from our analysis (PDH/PDL 1:1 RR, 60-day backtest)
+BACKTEST_STATS = {
+    "KALYANKJIL": {"wr": 69.4, "pnl": 29.06},
+    "MCX":        {"wr": 59.2, "pnl": 16.53},
+    "BHEL":       {"wr": 63.8, "pnl": 6.36},
+    "COFORGE":    {"wr": 66.7, "pnl": 16.73},
+    "PAYTM":      {"wr": 60.8, "pnl": 16.06},
+    "ADANIPOWER": {"wr": 38.6, "pnl": -9.71},
+    "DIXON":      {"wr": 56.2, "pnl": 2.48},
+    "ETERNAL":    {"wr": 67.9, "pnl": 13.64},
+    "VEDL":       {"wr": 66.7, "pnl": 7.78},
+    "TATASTEEL":  {"wr": 71.4, "pnl": 11.71},
+    "HDFCBANK":   {"wr": 65.3, "pnl": 8.32},
+    "SAIL":       {"wr": 56.6, "pnl": 11.05},
+    "NATIONALUM": {"wr": 77.6, "pnl": 19.69},
+    "IDEA":       {"wr": 53.1, "pnl": 1.41},
+    "KAYNES":     {"wr": 55.1, "pnl": 2.46},
+}
+
+PDHL_BUFFER_PCT = 0.1
+PDHL_SL_RATIO = 0.3
+
+INTRADAY_PICK_CACHE_FILE = CACHE_DIR / "intraday_picks.json"
+INTRADAY_PICK_MAX_STOCKS = 20
+INTRADAY_MIN_AVG_VOL_5D = 500_000     # min 5-day avg volume in shares
+INTRADAY_MIN_VOL_RATIO_5D_20D = 0.50  # 5-day avg must be >= 50% of 20-day avg
+INTRADAY_MIN_PREV_DAY_VOL_RATIO = 0.70  # yesterday's vol must be >= 70% of 20-day avg
+
+
+def _score_stock_for_intraday(sym, candles_daily):
+    """Score a stock for intraday suitability based on daily candles."""
+    if not candles_daily or len(candles_daily) < 25:
+        return None
+
+    recent_20 = candles_daily[-20:]
+    recent_5 = candles_daily[-5:]
+    prev_day = candles_daily[-1]
+
+    pd_high = float(prev_day[2])
+    pd_low = float(prev_day[3])
+    pd_close = float(prev_day[4])
+    pd_vol = float(prev_day[5])
+    pd_range_pct = (pd_high - pd_low) / pd_close * 100 if pd_close > 0 else 0
+
+    avg_vol_20 = sum(float(c[5]) for c in recent_20) / len(recent_20)
+    avg_range_20 = sum((float(c[2]) - float(c[3])) / float(c[4]) * 100 for c in recent_20 if float(c[4]) > 0) / len(recent_20)
+    avg_value_cr = avg_vol_20 * pd_close / 1e7
+
+    avg_range_5 = sum((float(c[2]) - float(c[3])) / float(c[4]) * 100 for c in recent_5 if float(c[4]) > 0) / len(recent_5)
+    avg_vol_5 = sum(float(c[5]) for c in recent_5) / len(recent_5)
+
+    # Volume-based liquidity filters
+    if avg_vol_5 < INTRADAY_MIN_AVG_VOL_5D:
+        return None
+    if avg_vol_20 > 0 and avg_vol_5 / avg_vol_20 < INTRADAY_MIN_VOL_RATIO_5D_20D:
+        return None
+    if avg_vol_20 > 0 and pd_vol / avg_vol_20 < INTRADAY_MIN_PREV_DAY_VOL_RATIO:
+        return None
+
+    # Scoring components (each 0-100)
+    vol_spike = min(pd_vol / avg_vol_20, 3.0) / 3.0 * 100 if avg_vol_20 > 0 else 0
+    range_expansion = min(avg_range_5 / avg_range_20, 2.0) / 2.0 * 100 if avg_range_20 > 0 else 0
+    abs_range = min(avg_range_5 / 4.0, 1.0) * 100
+    vol_trend = min(avg_vol_5 / avg_vol_20, 2.0) / 2.0 * 100 if avg_vol_20 > 0 else 0
+    liquidity = min(avg_vol_5 / 5_000_000, 1.0) * 100  # 50L shares/day = max score
+
+    # Weighted score
+    score = (
+        vol_spike * 0.20 +
+        range_expansion * 0.25 +
+        abs_range * 0.25 +
+        vol_trend * 0.15 +
+        liquidity * 0.15
+    )
+
+    is_core = sym in INTRADAY_CORE_STOCKS
+    backtest = BACKTEST_STATS.get(sym)
+
+    return {
+        "symbol": sym,
+        "score": round(score, 1),
+        "is_core": is_core,
+        "cmp": round(pd_close, 2),
+        "pd_range_pct": round(pd_range_pct, 2),
+        "avg_range_5d": round(avg_range_5, 2),
+        "avg_range_20d": round(avg_range_20, 2),
+        "vol_spike": round(pd_vol / avg_vol_20, 2) if avg_vol_20 > 0 else 0,
+        "vol_trend_5d": round(avg_vol_5 / avg_vol_20, 2) if avg_vol_20 > 0 else 0,
+        "avg_vol_5d": int(avg_vol_5),
+        "avg_vol_20d": int(avg_vol_20),
+        "avg_value_cr": round(avg_value_cr, 1),
+        "backtest": backtest,
+    }
+
+
+def pick_intraday_stocks() -> list[dict]:
+    """Scan all F&O stocks and return top candidates ranked by intraday score."""
+    # Check cache (valid for same day)
+    if INTRADAY_PICK_CACHE_FILE.exists():
+        try:
+            cached = json.loads(INTRADAY_PICK_CACHE_FILE.read_text())
+            if cached.get("date") == datetime.now(IST).strftime("%Y-%m-%d"):
+                return cached["picks"]
+        except Exception:
+            pass
+
+    try:
+        stocks = get_fno_stocks()
+    except Exception:
+        return [{"symbol": s, "score": 0, "is_core": True, "backtest": BACKTEST_STATS.get(s)} for s in INTRADAY_CORE_STOCKS]
+
+    scored = []
+
+    def _score_one(stock):
+        sym = stock["symbol"]
+        try:
+            canonical, yahoo_sym = resolve_yahoo_ticker(sym)
+            candles = fetch_candles(yahoo_sym, period="2mo", interval="1d", canonical=canonical)
+            return _score_stock_for_intraday(sym, candles)
+        except Exception:
+            return None
+
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        results = list(pool.map(_score_one, stocks))
+
+    scored = [r for r in results if r is not None]
+    scored.sort(key=lambda x: x["score"], reverse=True)
+
+    # Always include core stocks if they pass liquidity filter, fill rest from top scorers
+    core_picks = [s for s in scored if s["is_core"]]
+    non_core_picks = [s for s in scored if not s["is_core"]]
+
+    core_syms = {s["symbol"] for s in core_picks}
+    final = list(core_picks)
+    for s in non_core_picks:
+        if len(final) >= INTRADAY_PICK_MAX_STOCKS:
+            break
+        if s["symbol"] not in core_syms:
+            final.append(s)
+
+    final.sort(key=lambda x: x["score"], reverse=True)
+
+    # Cache for today
+    CACHE_DIR.mkdir(exist_ok=True)
+    INTRADAY_PICK_CACHE_FILE.write_text(json.dumps({
+        "date": datetime.now(IST).strftime("%Y-%m-%d"),
+        "picks": final,
+        "total_scanned": len(scored),
+    }))
+
+    return final
+
+
+@app.route("/intraday")
+def intraday_page():
+    return render_template("intraday.html")
+
+
+@app.route("/intraday/pick")
+def intraday_pick():
+    """Scan all F&O stocks and return today's top intraday candidates."""
+    force = request.args.get("force", "0") == "1"
+    if force and INTRADAY_PICK_CACHE_FILE.exists():
+        INTRADAY_PICK_CACHE_FILE.unlink()
+
+    picks = pick_intraday_stocks()
+    return jsonify({
+        "picks": picks,
+        "count": len(picks),
+        "date": datetime.now(IST).strftime("%Y-%m-%d"),
+        "time": datetime.now(IST).strftime("%H:%M:%S"),
+    })
+
+
+@app.route("/intraday/levels")
+def intraday_levels():
+    now = datetime.now(IST)
+    mkt_open_time = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    mkt_close_time = now.replace(hour=15, minute=30, second=0, microsecond=0)
+
+    if now < mkt_open_time:
+        market_status = "pre_open"
+    elif now <= mkt_close_time:
+        market_status = "open"
+    else:
+        market_status = "closed"
+
+    today_str = now.strftime("%Y-%m-%d")
+
+    # Get dynamically picked stocks
+    picks = pick_intraday_stocks()
+    pick_symbols = [p["symbol"] for p in picks]
+    pick_data = {p["symbol"]: p for p in picks}
+
+    def _process_stock(sym):
+        try:
+            canonical, yahoo_sym = resolve_yahoo_ticker(sym)
+
+            # Fetch 5-min candles for intraday (recent data)
+            candles_5m = fetch_candles(yahoo_sym, period="1mo", interval="5m", canonical=canonical)
+            if not candles_5m or len(candles_5m) < 20:
+                return {"symbol": sym, "error": "No intraday data"}
+
+            # Fetch daily candles for PDH/PDL
+            candles_daily = fetch_candles(yahoo_sym, period="1mo", interval="1d", canonical=canonical)
+
+            # Group 5m candles by day
+            from collections import defaultdict as _dd
+            day_groups = _dd(list)
+            for c in candles_5m:
+                dt = datetime.fromtimestamp(int(c[0]), tz=IST)
+                day_groups[dt.strftime("%Y-%m-%d")].append(c)
+
+            days_sorted = sorted(day_groups.keys())
+            today_candles = day_groups.get(today_str, [])
+
+            # Current price
+            if today_candles:
+                cmp = round(float(today_candles[-1][4]), 2)
+                day_open = float(today_candles[0][1])
+                change_pct = round((cmp - day_open) / day_open * 100, 2) if day_open > 0 else 0
+            elif candles_5m:
+                cmp = round(float(candles_5m[-1][4]), 2)
+                change_pct = None
+            else:
+                return {"symbol": sym, "error": "No price data"}
+
+            result = {"symbol": sym, "cmp": cmp, "change_pct": change_pct}
+
+            # ── PDH/PDL levels ──
+            pdhl_data = None
+            if candles_daily and len(candles_daily) >= 2:
+                # Find previous completed day
+                daily_days = {}
+                for c in candles_daily:
+                    d = datetime.fromtimestamp(int(c[0]), tz=IST).strftime("%Y-%m-%d")
+                    daily_days[d] = c
+
+                sorted_daily = sorted(daily_days.keys())
+                prev_day = None
+                for d in reversed(sorted_daily):
+                    if d < today_str:
+                        prev_day = d
+                        break
+
+                if prev_day and prev_day in daily_days:
+                    pc = daily_days[prev_day]
+                    pdh = round(float(pc[2]), 2)
+                    pdl = round(float(pc[3]), 2)
+                    pd_range = pdh - pdl
+
+                    if pd_range > 0:
+                        buffer = pdh * PDHL_BUFFER_PCT / 100
+                        long_entry = round(pdh + buffer, 2)
+                        short_entry = round(pdl - buffer, 2)
+                        long_sl = round(pdh - pd_range * PDHL_SL_RATIO, 2)
+                        short_sl = round(pdl + pd_range * PDHL_SL_RATIO, 2)
+                        long_risk = long_entry - long_sl
+                        short_risk = short_sl - short_entry
+                        long_target = round(long_entry + long_risk, 2)
+                        short_target = round(short_entry - short_risk, 2)
+
+                        # Check signal status from today's 5m candles
+                        long_status = "waiting"
+                        short_status = "waiting"
+                        long_pnl_pct = None
+                        short_pnl_pct = None
+
+                        post_15 = [c for c in today_candles
+                                   if (datetime.fromtimestamp(int(c[0]), tz=IST).hour - 9) * 60 +
+                                      (datetime.fromtimestamp(int(c[0]), tz=IST).minute - 15) >= 15]
+
+                        long_triggered = False
+                        short_triggered = False
+                        for c in post_15:
+                            h, l, cl = c[2], c[3], c[4]
+                            if not long_triggered and h >= long_entry:
+                                long_triggered = True
+                                long_status = "triggered"
+                            if long_triggered and long_status == "triggered":
+                                if l <= long_sl:
+                                    long_status = "sl"
+                                    long_pnl_pct = round((long_sl - long_entry) / long_entry * 100, 2)
+                                elif h >= long_target:
+                                    long_status = "target"
+                                    long_pnl_pct = round((long_target - long_entry) / long_entry * 100, 2)
+
+                            if not short_triggered and l <= short_entry:
+                                short_triggered = True
+                                short_status = "triggered"
+                            if short_triggered and short_status == "triggered":
+                                if h >= short_sl:
+                                    short_status = "sl"
+                                    short_pnl_pct = round((short_entry - short_sl) / short_entry * 100, 2)
+                                elif l <= short_target:
+                                    short_status = "target"
+                                    short_pnl_pct = round((short_entry - short_target) / short_entry * 100, 2)
+
+                        eod_closed = market_status == "closed"
+                        if long_status == "triggered":
+                            long_pnl_pct = round((cmp - long_entry) / long_entry * 100, 2)
+                            if eod_closed:
+                                long_status = "eod"
+                        if short_status == "triggered":
+                            short_pnl_pct = round((short_entry - cmp) / short_entry * 100, 2)
+                            if eod_closed:
+                                short_status = "eod"
+
+                        pdhl_data = {
+                            "pdh": pdh, "pdl": pdl, "prev_date": prev_day,
+                            "long_entry": long_entry, "short_entry": short_entry,
+                            "long_sl": long_sl, "short_sl": short_sl,
+                            "long_target": long_target, "short_target": short_target,
+                            "range_abs": round(pd_range, 2),
+                            "range_pct": round(pd_range / pdl * 100, 2) if pdl > 0 else 0,
+                            "long_status": long_status, "short_status": short_status,
+                            "long_pnl_pct": long_pnl_pct, "short_pnl_pct": short_pnl_pct,
+                        }
+
+            result["pdhl"] = pdhl_data
+
+            # Attach pick metadata
+            pd = pick_data.get(sym, {})
+            result["score"] = pd.get("score", 0)
+            result["is_core"] = pd.get("is_core", False)
+            result["avg_range_5d"] = pd.get("avg_range_5d")
+            result["vol_spike"] = pd.get("vol_spike")
+            result["avg_value_cr"] = pd.get("avg_value_cr")
+            result["backtest"] = pd.get("backtest") or BACKTEST_STATS.get(sym)
+            return result
+
+        except Exception as e:
+            return {"symbol": sym, "error": str(e)}
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(_process_stock, pick_symbols))
+
+    # Sort: active signals first, then by score
+    def _sort_key(r):
+        has_signal = 0
+        strat = r.get("pdhl")
+        if strat:
+            if strat.get("long_status") == "triggered" or strat.get("short_status") == "triggered":
+                has_signal = 2
+            elif strat.get("long_status") in ("target", "sl") or strat.get("short_status") in ("target", "sl"):
+                has_signal = 1
+        return (-has_signal, -r.get("score", 0))
+
+    results.sort(key=_sort_key)
+
+    return jsonify({
+        "stocks": results,
+        "market_status": market_status,
+        "time": now.strftime("%H:%M:%S"),
+        "date": today_str,
+        "total_picked": len(pick_symbols),
+        "total_scanned": len(picks),
     })
 
 

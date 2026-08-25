@@ -582,6 +582,15 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
     lows = [float(c[3]) for c in candles]
     volumes = [float(c[5]) if len(c) > 5 else 0 for c in candles]
     last = closes[-1]
+    m = len(candles)
+
+    def _ts_to_date(idx):
+        if 0 <= idx < m:
+            return datetime.fromtimestamp(int(candles[idx][0]), tz=UTC).strftime("%d %b")
+        return ""
+
+    def _date_range(start_idx, end_idx):
+        return f"{_ts_to_date(max(0, start_idx))} – {_ts_to_date(min(m - 1, end_idx))}"
 
     atr_val = atr(candles, 14)
     vol20 = sma(volumes, 20) if volumes else 0
@@ -591,6 +600,8 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
     band_pct = abs(hh - ll) / ll * 100 if ll else 0
 
     if band_pct <= 10:
+        hh_idx = m - w + max(range(w), key=lambda i: highs[m - w + i])
+        ll_idx = m - w + min(range(w), key=lambda i: lows[m - w + i])
         patterns.append({
             "name": "Volatility Compression",
             "note": f"30-day range {band_pct:.1f}% — tight consolidation, breakout likely",
@@ -601,6 +612,11 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
             "breakout_target_down": round(ll - (hh - ll), 2),
             "sl_up": round(ll, 2),
             "sl_down": round(hh, 2),
+            "components": [
+                f"Compression range: {_date_range(m - w, m - 1)}",
+                f"Range high ₹{hh:.2f} on {_ts_to_date(hh_idx)}",
+                f"Range low ₹{ll:.2f} on {_ts_to_date(ll_idx)}",
+            ],
         })
 
     m = len(candles)
@@ -622,6 +638,12 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
                 "breakout_target_down": round(apex - height, 2),
                 "sl_up": round(ll, 2),
                 "sl_down": round(hh, 2),
+                "components": [
+                    f"Triangle forming: {_date_range(m - 35, m - 1)}",
+                    f"Declining highs (slope: {h_slope:.4f})",
+                    f"Rising lows (slope: {l_slope:.4f})",
+                    f"Apex converging near ₹{apex:.2f}",
+                ],
             })
 
         highs_tail = [a for a, _ in hl_seg]
@@ -638,6 +660,11 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
                 "breakout_target_up": round(resistance + height, 2),
                 "sl_up": round(recent_low - atr_val * 0.5, 2),
                 "volume_confirmed": bool(vol_rising),
+                "components": [
+                    f"Triangle forming: {_date_range(m - 35, m - 1)}",
+                    f"Flat resistance at ₹{resistance:.2f}",
+                    f"Rising lows from ₹{min([b for _, b in hl_seg]):.2f} to ₹{min([b for _, b in hl_seg[-5:]]):.2f}",
+                ],
             })
 
         if h_slope < 0 and l_slope > atr_val / last * -0.2:
@@ -651,29 +678,47 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
                 "breakout_level_down": round(support, 2),
                 "breakout_target_down": round(support - height, 2),
                 "sl_down": round(recent_high + atr_val * 0.5, 2),
+                "components": [
+                    f"Triangle forming: {_date_range(m - 35, m - 1)}",
+                    f"Declining highs from ₹{max(highs_tail[:5]):.2f} to ₹{max(highs_tail[-5:]):.2f}",
+                    f"Flat support at ₹{support:.2f}",
+                ],
             })
 
     pk, _ = _local_extrema(highs[-80:], win=4)
     if len(pk) >= 3:
         last_peaks = [p for _, p in pk[-3:]]
+        pk_indices = [i for i, _ in pk[-3:]]
         if _pct(last_peaks[-1], last_peaks[-2]) < 2.8:
             if last < min(last_peaks) * 0.985:
                 neckline = min(lows[-(80 - pk[-2][0]):]) if pk else ll
+                pk1_abs = m - 80 + pk_indices[-2]
+                pk2_abs = m - 80 + pk_indices[-1]
                 patterns.append({
                     "name": "Double Top",
-                    "note": f"Resistance cluster near {last_peaks[-1]:.2f} — broke below neckline",
+                    "note": f"Resistance cluster near {last_peaks[-1]:.2f} — price reversing from double peak",
                     "bias": "bearish",
                     "breakout_level_down": round(neckline, 2),
                     "breakout_target_down": round(neckline - (last_peaks[-1] - neckline), 2),
                     "sl_down": round(last_peaks[-1] + atr_val * 0.5, 2),
+                    "components": [
+                        f"Peak 1: ₹{last_peaks[-2]:.2f} on {_ts_to_date(pk1_abs)}",
+                        f"Peak 2: ₹{last_peaks[-1]:.2f} on {_ts_to_date(pk2_abs)}",
+                        f"Neckline (support): ₹{neckline:.2f}",
+                        f"CMP ₹{last:.2f} {'below neckline ✓' if last < neckline else 'above neckline — awaiting breakdown'}",
+                    ],
                 })
 
     peaks, troughs = _local_extrema(highs[-100:], win=5)
     if len(peaks) >= 3:
         p3 = [peaks[-3][1], peaks[-2][1], peaks[-1][1]]
+        p3_idx = [peaks[-3][0], peaks[-2][0], peaks[-1][0]]
         if p3[0] < p3[1] and p3[2] < p3[1] and abs(p3[0] - p3[2]) / p3[1] < 0.04:
             if last < p3[2] * 0.98:
                 neckline = min(lows[-60:]) if len(lows) >= 60 else ll
+                ls_abs = m - 100 + p3_idx[0]
+                hd_abs = m - 100 + p3_idx[1]
+                rs_abs = m - 100 + p3_idx[2]
                 patterns.append({
                     "name": "Head & Shoulders",
                     "note": "Central peak higher than shoulders — bearish reversal pattern",
@@ -681,16 +726,29 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
                     "breakout_level_down": round(neckline, 2),
                     "breakout_target_down": round(neckline - (p3[1] - neckline), 2),
                     "sl_down": round(p3[2] + atr_val * 0.5, 2),
+                    "components": [
+                        f"Left shoulder: ₹{p3[0]:.2f} on {_ts_to_date(ls_abs)}",
+                        f"Head: ₹{p3[1]:.2f} on {_ts_to_date(hd_abs)}",
+                        f"Right shoulder: ₹{p3[2]:.2f} on {_ts_to_date(rs_abs)}",
+                        f"Neckline: ₹{neckline:.2f}",
+                        f"CMP ₹{last:.2f} {'below neckline ✓' if last < neckline else 'above neckline — awaiting breakdown'}",
+                    ],
                 })
 
     if len(closes) >= 60:
-        seg = closes[-120:] if len(closes) >= 120 else closes
+        seg_len = min(120, len(closes))
+        seg = closes[-seg_len:]
         lhs = statistics.fmean(seg[:20])
         mid = min(seg[:len(seg) - 15])
+        mid_idx_in_seg = seg.index(mid)
         rhs = statistics.fmean(seg[-30:-10])
         handle = statistics.fmean(seg[-8:])
         if lhs > mid * 0.97 and rhs > mid * 1.06 and handle < rhs * 0.988 and handle > mid * 1.03:
             cup_high = max(highs[-30:])
+            cup_start_abs = m - seg_len
+            cup_bottom_abs = m - seg_len + mid_idx_in_seg
+            cup_end_abs = m - 10
+            handle_start_abs = m - 8
             patterns.append({
                 "name": "Cup & Handle",
                 "note": "Rounded base with handle pullback — bullish continuation",
@@ -698,6 +756,13 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
                 "breakout_level_up": round(cup_high, 2),
                 "breakout_target_up": round(cup_high + (cup_high - mid), 2),
                 "sl_up": round(handle - atr_val, 2),
+                "components": [
+                    f"Cup left rim: ₹{lhs:.2f} ({_date_range(cup_start_abs, cup_start_abs + 19)})",
+                    f"Cup bottom: ₹{mid:.2f} on {_ts_to_date(cup_bottom_abs)}",
+                    f"Cup right rim: ₹{rhs:.2f} ({_date_range(m - 30, cup_end_abs)})",
+                    f"Handle: ₹{handle:.2f} ({_date_range(handle_start_abs, m - 1)})",
+                    f"Breakout level: ₹{cup_high:.2f}",
+                ],
             })
 
     if len(closes) >= 30:
@@ -707,6 +772,10 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
             direction = "bullish" if closes[-30] < closes[-20] else "bearish"
             flag_high = max(highs[-10:])
             flag_low = min(lows[-10:])
+            impulse_comp = [
+                f"Impulse move: {_date_range(m - 30, m - 20)} ({ret_prior:.1f}%)",
+                f"Flag consolidation: {_date_range(m - 10, m - 1)} ({ret_10:.1f}%)",
+            ]
             if direction == "bullish":
                 patterns.append({
                     "name": "Flag / Pennant",
@@ -715,6 +784,7 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
                     "breakout_level_up": round(flag_high, 2),
                     "breakout_target_up": round(flag_high + abs(closes[-20] - closes[-30]), 2),
                     "sl_up": round(flag_low - atr_val * 0.5, 2),
+                    "components": impulse_comp + [f"Flag range: ₹{flag_low:.2f} – ₹{flag_high:.2f}"],
                 })
             else:
                 patterns.append({
@@ -724,7 +794,27 @@ def detect_chart_patterns(candles: list[list[float]]) -> list[dict]:
                     "breakout_level_down": round(flag_low, 2),
                     "breakout_target_down": round(flag_low - abs(closes[-30] - closes[-20]), 2),
                     "sl_down": round(flag_high + atr_val * 0.5, 2),
+                    "components": impulse_comp + [f"Flag range: ₹{flag_low:.2f} – ₹{flag_high:.2f}"],
                 })
+
+    for p in patterns:
+        bl_up = p.get("breakout_level_up")
+        bl_down = p.get("breakout_level_down")
+        if p["bias"] == "bullish" and bl_up:
+            p["confirmed"] = last > bl_up
+        elif p["bias"] == "bearish" and bl_down:
+            p["confirmed"] = last < bl_down
+        elif p["bias"] == "neutral":
+            if bl_up and last > bl_up:
+                p["confirmed"] = True
+                p["breakout_direction"] = "up"
+            elif bl_down and last < bl_down:
+                p["confirmed"] = True
+                p["breakout_direction"] = "down"
+            else:
+                p["confirmed"] = False
+        else:
+            p["confirmed"] = False
 
     return patterns
 

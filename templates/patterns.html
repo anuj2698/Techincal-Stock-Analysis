@@ -24,9 +24,9 @@
   }
   .tab-bar button:hover { color: #e1e4e8; border-color: #30363d; }
   .tab-bar button.active { color: #fff; }
-  .tab-hourly.active { background: #8b5cf6; border-color: #8b5cf6; }
   .tab-daily.active { background: #1f6feb; border-color: #1f6feb; }
   .tab-weekly.active { background: #238636; border-color: #238636; }
+  .tab-monthly.active { background: #8b5cf6; border-color: #8b5cf6; }
 
   .summary-bar { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
   .summary-chip {
@@ -94,6 +94,8 @@
   <div class="nav-links">
     <a href="/">&larr; Analysis</a>
     <a href="/scanner">Scanner</a>
+    <a href="/results">Results Dashboard</a>
+    <a href="/today" style="color:#3fb950;font-weight:600;">Today's Picks</a>
   </div>
   <div class="header">
     <h1>Chart <span>Patterns</span></h1>
@@ -101,9 +103,9 @@
   </div>
 
   <div class="tab-bar">
-    <button class="tab-hourly" onclick="loadPatterns('hourly')">1H Candles</button>
     <button class="tab-daily active" onclick="loadPatterns('daily')">1D Candles</button>
     <button class="tab-weekly" onclick="loadPatterns('weekly')">1W Candles</button>
+    <button class="tab-monthly" onclick="loadPatterns('monthly')">1M Candles</button>
   </div>
 
   <div id="summaryBar" class="summary-bar" style="display:none;"></div>
@@ -131,7 +133,7 @@ function fmt(v) { return v != null ? Number(v).toLocaleString('en-IN', {maximumF
 function setTab(tf) {
   currentTf = tf;
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
-  const cls = tf === 'hourly' ? 'tab-hourly' : tf === 'weekly' ? 'tab-weekly' : 'tab-daily';
+  const cls = tf === 'monthly' ? 'tab-monthly' : tf === 'weekly' ? 'tab-weekly' : 'tab-daily';
   document.querySelector(`.${cls}`).classList.add('active');
 }
 
@@ -187,6 +189,7 @@ function renderResults(data) {
   // Filter buttons
   currentFilter = 'all';
   let filters = '<span class="filter-btn active" onclick="applyFilter(\'all\', this)">All</span>';
+  filters += '<span class="filter-btn" onclick="applyFilter(\'confirmed\', this)" style="border-color:#3fb95060;color:#3fb950;">Confirmed Only</span>';
   filters += '<span class="filter-btn" onclick="applyFilter(\'verdict_buy\', this)" style="border-color:#3fb95040;">BUY Calls</span>';
   filters += '<span class="filter-btn" onclick="applyFilter(\'verdict_sell\', this)" style="border-color:#f8514940;">SELL Calls</span>';
   filters += '<span class="filter-btn" onclick="applyFilter(\'bullish\', this)">Bullish Patterns</span>';
@@ -212,7 +215,9 @@ function renderCards(results) {
   const emptyState = document.getElementById('emptyState');
 
   let filtered = results;
-  if (currentFilter === 'verdict_buy') {
+  if (currentFilter === 'confirmed') {
+    filtered = results.filter(r => r.patterns.some(p => p.confirmed === true));
+  } else if (currentFilter === 'verdict_buy') {
     filtered = results.filter(r => r.verdict === 'BUY');
   } else if (currentFilter === 'verdict_sell') {
     filtered = results.filter(r => r.verdict === 'SELL');
@@ -238,6 +243,15 @@ function renderCards(results) {
 
     const patternsHtml = r.patterns.map(p => {
       const biasCls = p.bias === 'bullish' ? 'bias-bullish' : p.bias === 'bearish' ? 'bias-bearish' : 'bias-neutral';
+      const isConfirmed = p.confirmed === true;
+      const isAligned = p.trend_aligned !== false;
+      const dimStyle = !isAligned ? 'opacity:0.45;' : '';
+      const confBadge = isConfirmed
+        ? '<span style="font-size:0.65rem;padding:1px 6px;border-radius:3px;background:#3fb95020;color:#3fb950;font-weight:700;margin-left:0.4rem;vertical-align:middle;">CONFIRMED</span>'
+        : '<span style="font-size:0.65rem;padding:1px 6px;border-radius:3px;background:#8b949e20;color:#8b949e;font-weight:600;margin-left:0.4rem;vertical-align:middle;">FORMING</span>';
+      const conflictBadge = !isAligned
+        ? '<span style="font-size:0.65rem;padding:1px 6px;border-radius:3px;background:#f8514915;color:#f85149;font-weight:600;margin-left:0.3rem;vertical-align:middle;">AGAINST TREND</span>'
+        : '';
       let levels = '';
       if (p.breakout_level_up) {
         levels += `<div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.3rem;font-size:0.78rem;">`;
@@ -259,10 +273,15 @@ function renderCards(results) {
       if (!p.breakout_level_down && p.breakout_target_down) {
         levels += `<div style="font-size:0.78rem;margin-top:0.3rem;color:#f0883e;">&#9660; Target: ₹${fmt(p.breakout_target_down)}</div>`;
       }
-      return `<div class="pattern-item">
+      const comps = (p.components && p.components.length)
+        ? `<div style="margin-top:0.3rem;padding:0.3rem 0.5rem;background:#0d1117;border-radius:4px;font-size:0.74rem;color:#8b949e;">${p.components.map(c => `<div style="padding:1px 0;">&#8250; ${c}</div>`).join('')}</div>`
+        : '';
+
+      return `<div class="pattern-item" style="${dimStyle}">
         <div style="flex:1;">
-          <div class="pattern-name">${p.name}</div>
+          <div class="pattern-name">${p.name}${confBadge}${conflictBadge}</div>
           <div class="pattern-note">${p.note || ''}</div>
+          ${comps}
           ${levels}
         </div>
         <span class="pattern-bias ${biasCls}">${p.bias}</span>

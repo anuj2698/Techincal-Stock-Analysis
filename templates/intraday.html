@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intraday Breakout Strategy</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+  a { color: #58a6ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 1.2rem 1.2rem; }
+  .nav-links { display: flex; gap: 1rem; margin-bottom: 0.8rem; font-size: 0.85rem; }
+
+  .header { margin-bottom: 0.8rem; }
+  .header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.15rem; }
+  .header h1 span { color: #8b5cf6; }
+  .header .sub { color: #8b949e; font-size: 0.82rem; }
+  .date-badge { display: inline-block; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 0.12rem 0.45rem; font-size: 0.75rem; color: #8b949e; margin-left: 0.3rem; }
+
+  .status-bar { display: flex; justify-content: space-between; align-items: center; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.5rem 0.8rem; margin-bottom: 0.8rem; font-size: 0.78rem; }
+  .status-left { display: flex; gap: 1.2rem; align-items: center; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 0.25rem; }
+  .dot-green { background: #3fb950; box-shadow: 0 0 6px #3fb95080; }
+  .dot-yellow { background: #d29922; box-shadow: 0 0 6px #d2992280; }
+  .dot-red { background: #f85149; }
+  .status-right { color: #8b949e; }
+
+  .controls { display: flex; gap: 0.4rem; margin-bottom: 0.8rem; flex-wrap: wrap; }
+  .ctrl-btn {
+    padding: 0.4rem 0.8rem; font-size: 0.75rem; font-weight: 600; border: 1px solid #30363d;
+    border-radius: 6px; cursor: pointer; transition: all 0.15s; background: #161b22; color: #8b949e;
+  }
+  .ctrl-btn:hover { color: #e1e4e8; border-color: #58a6ff; }
+  .ctrl-btn.active { color: #fff; background: #8b5cf6; border-color: #8b5cf6; }
+  .ctrl-btn.refresh { border-color: #238636; color: #3fb950; }
+  .ctrl-btn.refresh:hover { background: #23863620; }
+
+  .spinner { text-align: center; padding: 2rem; color: #8b949e; font-size: 0.9rem; display: none; }
+  .spinner.active { display: block; }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.4rem; margin-bottom: 0.8rem; }
+  @media (max-width: 700px) { .summary-grid { grid-template-columns: repeat(4, 1fr); } }
+  .sum-card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 0.5rem; text-align: center; }
+  .sum-val { font-size: 1.2rem; font-weight: 700; }
+  .sum-val.green { color: #3fb950; }
+  .sum-val.red { color: #f85149; }
+  .sum-lbl { font-size: 0.6rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 0.05rem; }
+
+  /* Dialpad grid */
+  .tile-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;
+  }
+  @media (max-width: 900px) { .tile-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px) { .tile-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .tile {
+    background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+    padding: 0.7rem 0.8rem; cursor: pointer; transition: all 0.15s; position: relative;
+  }
+  .tile:hover { border-color: #58a6ff; transform: translateY(-1px); }
+  .tile.target-hit { background: #3fb95012; border-color: #3fb950; }
+  .tile.sl-hit { background: #f8514910; border-color: #f85149; }
+  .tile.triggered { border-color: #3fb95060; }
+
+  .tile-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.35rem; }
+  .tile-symbol { font-size: 1rem; font-weight: 800; letter-spacing: 0.01em; }
+  .tile-symbol a { color: #e1e4e8; }
+  .tile-symbol a:hover { color: #58a6ff; }
+  .tile-score { font-size: 0.72rem; font-weight: 700; color: #8b949e; background: #0d1117; border: 1px solid #21262d; border-radius: 4px; padding: 0.08rem 0.35rem; }
+
+  .tile-price { font-size: 0.85rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .tile-chg { font-size: 0.72rem; font-weight: 600; margin-left: 0.3rem; }
+
+  .tile-badges { display: flex; flex-wrap: wrap; gap: 0.2rem; margin-bottom: 0.3rem; }
+  .pick-badge {
+    font-size: 0.58rem; padding: 0.08rem 0.3rem; border-radius: 3px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap;
+  }
+  .badge-core { background: #8b5cf620; color: #a78bfa; border: 1px solid #8b5cf650; }
+  .badge-new { background: #d2992220; color: #d29922; border: 1px solid #d2992250; }
+  .badge-vol { background: #3fb95015; color: #3fb950; border: 1px solid #3fb95040; }
+  .badge-bt { background: #1f6feb15; color: #58a6ff; border: 1px solid #1f6feb40; }
+  .badge-range { background: #0d1117; color: #d29922; border: 1px solid #d2992230; }
+
+  .tile-signals { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .strat-signal {
+    font-size: 0.62rem; padding: 0.1rem 0.35rem; border-radius: 3px; font-weight: 700;
+    text-transform: uppercase; white-space: nowrap;
+  }
+  .sig-wait { background: #30363d; color: #8b949e; }
+  .sig-long { background: #3fb95025; color: #3fb950; border: 1px solid #3fb95050; }
+  .sig-short { background: #f8514925; color: #f85149; border: 1px solid #f8514950; }
+  .sig-target { background: #3fb95030; color: #3fb950; border: 1px solid #3fb95060; }
+  .sig-sl { background: #f8514930; color: #f85149; border: 1px solid #f8514960; }
+
+  /* Modal overlay for details */
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+    padding: 1.2rem 1.5rem; max-width: 520px; width: 90%; max-height: 80vh; overflow-y: auto;
+  }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
+  .modal-title { font-size: 1.2rem; font-weight: 800; }
+  .modal-close { background: none; border: none; color: #8b949e; font-size: 1.3rem; cursor: pointer; padding: 0.2rem 0.5rem; }
+  .modal-close:hover { color: #e1e4e8; }
+
+  .detail-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1rem; font-size: 0.82rem;
+  }
+  .detail-item { display: flex; justify-content: space-between; padding: 0.25rem 0; border-bottom: 1px solid #21262d; }
+  .detail-lbl { color: #8b949e; font-size: 0.75rem; }
+  .detail-val { font-weight: 600; font-size: 0.85rem; }
+  .detail-val.green { color: #3fb950; }
+  .detail-val.red { color: #f85149; }
+  .detail-val.blue { color: #58a6ff; }
+  .detail-val.yellow { color: #d29922; }
+
+  .detail-section { margin-top: 0.8rem; padding-top: 0.6rem; border-top: 1px solid #30363d; }
+  .detail-section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #8b949e; margin-bottom: 0.4rem; }
+
+  .footer-note { text-align: center; color: #8b949e; font-size: 0.7rem; margin-top: 1.2rem; padding-top: 0.6rem; border-top: 1px solid #21262d; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="nav-links">
+    <a href="/">&larr; Analysis</a>
+    <a href="/today">Today's Picks</a>
+    <a href="/scanner">Scanner</a>
+    <a href="/patterns">Chart Patterns</a>
+  </div>
+
+  <div class="header">
+    <h1>Intraday <span>Breakout Strategy</span> <span class="date-badge" id="todayDate"></span></h1>
+    <div class="sub">Auto-picks top F&amp;O stocks by volume &amp; volatility</div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-left">
+      <span id="marketStatus"></span>
+      <span id="pickCount" style="color:#8b949e"></span>
+    </div>
+    <div class="status-right"><span id="lastUpdate"></span></div>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl-btn active" id="btnAll" onclick="setFilter('all')">All</button>
+    <button class="ctrl-btn" id="btnSignals" onclick="setFilter('signals')">Active</button>
+    <button class="ctrl-btn" id="btnClosed" onclick="setFilter('closed')">Closed</button>
+    <button class="ctrl-btn" id="btnLong" onclick="setFilter('long')">Longs</button>
+    <button class="ctrl-btn" id="btnShort" onclick="setFilter('short')">Shorts</button>
+    <button class="ctrl-btn" id="btnCore" onclick="setFilter('core')">Core</button>
+    <button class="ctrl-btn refresh" onclick="loadData()" style="margin-left:auto;">Refresh</button>
+    <button class="ctrl-btn" onclick="rescan()" style="border-color:#d29922;color:#d29922;">Rescan</button>
+  </div>
+
+  <div id="summarySection"></div>
+  <div class="spinner" id="spinner">Loading PDH/PDL levels...</div>
+  <div class="tile-grid" id="stockGrid"></div>
+  <div class="footer-note">Auto-refreshes every 60s during market hours. Click any tile for trade levels. Data via Fyers / Yahoo Finance.</div>
+</div>
+
+<!-- Detail modal -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" id="modalContent"></div>
+</div>
+
+<script>
+let currentFilter = 'all';
+let data = null;
+let autoTimer = null;
+
+document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-IN', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn' + f.charAt(0).toUpperCase() + f.slice(1)).classList.add('active');
+  if (data) { renderSummary(data); renderCards(data); }
+}
+
+function fmt(v) { return v != null ? v.toFixed(2) : '—'; }
+function pctClass(v) { return v > 0 ? 'green' : v < 0 ? 'red' : ''; }
+
+function passesFilter(s) {
+  const strat = s.pdhl;
+  const hasLong = strat && strat.long_status === 'triggered';
+  const hasShort = strat && strat.short_status === 'triggered';
+  const closedStatuses = ['target', 'sl', 'eod'];
+  const hasClosed = strat && (closedStatuses.includes(strat.long_status) || closedStatuses.includes(strat.short_status));
+  if (currentFilter === 'signals' && !hasLong && !hasShort) return false;
+  if (currentFilter === 'closed' && !hasClosed) return false;
+  if (currentFilter === 'long' && !hasLong) return false;
+  if (currentFilter === 'short' && !hasShort) return false;
+  if (currentFilter === 'core' && !s.is_core) return false;
+  return true;
+}
+
+function renderSummary(d) {
+  const stocks = (d.stocks || []).filter(passesFilter);
+  let signals = 0, pnl = 0, wins = 0, losses = 0, active = 0;
+  stocks.forEach(s => {
+    if (!s.pdhl) return;
+    const ls = s.pdhl.long_status || 'waiting';
+    const ss = s.pdhl.short_status || 'waiting';
+    if (ls !== 'waiting') { signals++; pnl += (s.pdhl.long_pnl_pct||0); if (ls === 'target' || (ls === 'eod' && (s.pdhl.long_pnl_pct||0) > 0)) wins++; else if (ls === 'sl' || (ls === 'eod' && (s.pdhl.long_pnl_pct||0) <= 0)) losses++; else active++; }
+    if (ss !== 'waiting') { signals++; pnl += (s.pdhl.short_pnl_pct||0); if (ss === 'target' || (ss === 'eod' && (s.pdhl.short_pnl_pct||0) > 0)) wins++; else if (ss === 'sl' || (ss === 'eod' && (s.pdhl.short_pnl_pct||0) <= 0)) losses++; else active++; }
+  });
+  const completed = wins + losses;
+  const avgPnl = completed > 0 ? pnl / completed : 0;
+  const winRate = completed > 0 ? (wins / completed * 100) : 0;
+  document.getElementById('summarySection').innerHTML = `
+    <div class="summary-grid">
+      <div class="sum-card"><div class="sum-val">${stocks.length}</div><div class="sum-lbl">Stocks</div></div>
+      <div class="sum-card"><div class="sum-val">${signals}</div><div class="sum-lbl">Trades</div></div>
+      <div class="sum-card"><div class="sum-val green">${wins}</div><div class="sum-lbl">Targets</div></div>
+      <div class="sum-card"><div class="sum-val red">${losses}</div><div class="sum-lbl">SL Hit</div></div>
+      <div class="sum-card"><div class="sum-val ${pctClass(pnl)}">${pnl>=0?'+':''}${pnl.toFixed(2)}%</div><div class="sum-lbl">Total P&L</div></div>
+      <div class="sum-card"><div class="sum-val ${pctClass(avgPnl)}">${avgPnl>=0?'+':''}${avgPnl.toFixed(2)}%</div><div class="sum-lbl">Avg/Trade</div></div>
+      <div class="sum-card"><div class="sum-val ${winRate>=50?'green':'red'}">${winRate.toFixed(0)}%</div><div class="sum-lbl">Win Rate</div></div>
+    </div>`;
+}
+
+function sigBadge(status, dir, pnl) {
+  const p = pnl != null ? ` ${pnl>=0?'+':''}${pnl.toFixed(2)}%` : '';
+  if (status === 'target') return `<span class="strat-signal sig-target">${dir} TGT${p}</span>`;
+  if (status === 'sl') return `<span class="strat-signal sig-sl">${dir} SL${p}</span>`;
+  if (status === 'eod') return `<span class="strat-signal ${pnl>=0?'sig-target':'sig-sl'}">${dir} EOD${p}</span>`;
+  if (status === 'triggered') return `<span class="strat-signal ${dir==='L'?'sig-long':'sig-short'}">${dir}${p}</span>`;
+  return '';
+}
+
+function openModal(sym) {
+  const s = (data.stocks || []).find(x => x.symbol === sym);
+  if (!s || !s.pdhl) return;
+  const st = s.pdhl;
+  const ls = st.long_status || 'waiting';
+  const ss = st.short_status || 'waiting';
+  const lp = st.long_pnl_pct;
+  const sp = st.short_pnl_pct;
+
+  const chg = s.change_pct != null ? `<span class="${pctClass(s.change_pct)}" style="font-size:0.85rem;margin-left:0.5rem;">${s.change_pct>=0?'+':''}${s.change_pct.toFixed(2)}%</span>` : '';
+  const sigs = [sigBadge(ls,'LONG',lp), sigBadge(ss,'SHORT',sp)].filter(Boolean).join(' ') || '<span class="strat-signal sig-wait">WAITING</span>';
+
+  const bt = s.backtest;
+  const btHtml = bt ? `<div class="detail-section"><div class="detail-section-title">Backtest (60-day)</div>
+    <div class="detail-grid">
+      <div class="detail-item"><span class="detail-lbl">Win Rate</span><span class="detail-val ${bt.wr>=55?'green':bt.wr>=45?'yellow':'red'}">${bt.wr}%</span></div>
+      <div class="detail-item"><span class="detail-lbl">Total PnL</span><span class="detail-val ${bt.pnl>=0?'green':'red'}">${bt.pnl>=0?'+':''}${bt.pnl}%</span></div>
+    </div></div>` : '';
+
+  document.getElementById('modalContent').innerHTML = `
+    <div class="modal-header">
+      <div>
+        <span class="modal-title"><a href="/?symbol=${sym}">${sym}</a></span>
+        <span style="font-size:1rem;font-weight:700;margin-left:0.8rem;">₹${fmt(s.cmp)}</span>${chg}
+      </div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div style="margin-bottom:0.7rem;">${sigs}</div>
+    <div class="detail-section-title">PDH/PDL Levels ${st.prev_date ? '(prev: '+st.prev_date+')' : ''}</div>
+    <div style="font-size:0.75rem;color:#8b949e;margin-bottom:0.5rem;">Range: <span class="detail-val yellow">${fmt(st.range_pct)}%</span> (₹${fmt(st.range_abs)})</div>
+    <div class="detail-grid">
+      <div class="detail-item"><span class="detail-lbl">Long Entry</span><span class="detail-val green">${fmt(st.long_entry)}</span></div>
+      <div class="detail-item"><span class="detail-lbl">Short Entry</span><span class="detail-val red">${fmt(st.short_entry)}</span></div>
+      <div class="detail-item"><span class="detail-lbl">Long SL</span><span class="detail-val red">${fmt(st.long_sl)}</span></div>
+      <div class="detail-item"><span class="detail-lbl">Short SL</span><span class="detail-val green">${fmt(st.short_sl)}</span></div>
+      <div class="detail-item"><span class="detail-lbl">Long Target</span><span class="detail-val blue">${fmt(st.long_target)}</span></div>
+      <div class="detail-item"><span class="detail-lbl">Short Target</span><span class="detail-val blue">${fmt(st.short_target)}</span></div>
+      <div class="detail-item"><span class="detail-lbl">PDH</span><span class="detail-val">${fmt(st.pdh)}</span></div>
+      <div class="detail-item"><span class="detail-lbl">PDL</span><span class="detail-val">${fmt(st.pdl)}</span></div>
+    </div>
+    ${btHtml}
+    <div class="detail-section">
+      <div class="detail-section-title">Stock Info</div>
+      <div class="detail-grid">
+        <div class="detail-item"><span class="detail-lbl">Score</span><span class="detail-val">${s.score || '—'}</span></div>
+        <div class="detail-item"><span class="detail-lbl">5D Range</span><span class="detail-val yellow">${s.avg_range_5d ? s.avg_range_5d.toFixed(1)+'%' : '—'}</span></div>
+        <div class="detail-item"><span class="detail-lbl">Vol Spike</span><span class="detail-val ${s.vol_spike>=1.5?'green':''}">${s.vol_spike ? s.vol_spike.toFixed(1)+'x' : '—'}</span></div>
+        <div class="detail-item"><span class="detail-lbl">Avg Value</span><span class="detail-val">${s.avg_value_cr ? '₹'+s.avg_value_cr+'Cr' : '—'}</span></div>
+      </div>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+function renderCards(d) {
+  const stocks = (d.stocks || []).filter(passesFilter);
+  if (!stocks.length) {
+    document.getElementById('stockGrid').innerHTML = '<div style="text-align:center;padding:2rem;color:#8b949e;grid-column:1/-1;">No stocks match the current filter.</div>';
+    return;
+  }
+
+  let html = '';
+  stocks.forEach(s => {
+    const st = s.pdhl;
+    const ls = st ? st.long_status || 'waiting' : 'waiting';
+    const ss = st ? st.short_status || 'waiting' : 'waiting';
+    const lp = st ? st.long_pnl_pct : null;
+    const sp = st ? st.short_pnl_pct : null;
+
+    const isWin = (status, pnl) => status === 'target' || (status === 'eod' && (pnl||0) > 0);
+    const isLoss = (status, pnl) => status === 'sl' || (status === 'eod' && (pnl||0) <= 0);
+    const hasWin = st && (isWin(ls, st.long_pnl_pct) || isWin(ss, st.short_pnl_pct));
+    const hasLoss = st && (isLoss(ls, st.long_pnl_pct) || isLoss(ss, st.short_pnl_pct));
+    const hasActive = st && (ls === 'triggered' || ss === 'triggered');
+    let tileClass = 'tile';
+    if (hasWin && !hasLoss) tileClass += ' target-hit';
+    else if (hasLoss && !hasWin) tileClass += ' sl-hit';
+    else if (hasWin && hasLoss) tileClass += ' target-hit';
+    else if (hasActive) tileClass += ' triggered';
+
+    // Badges
+    const coreBadge = s.is_core ? '<span class="pick-badge badge-core">CORE</span>' : '<span class="pick-badge badge-new">NEW</span>';
+    const volBadge = s.vol_spike != null && s.vol_spike >= 1.5 ? `<span class="pick-badge badge-vol">Vol ${s.vol_spike.toFixed(1)}x</span>` : '';
+    const btBadge = s.backtest ? `<span class="pick-badge badge-bt">WR: ${s.backtest.wr}%</span>` : '';
+    const rangeBadge = s.avg_range_5d != null ? `<span class="pick-badge badge-range">5D Range: ${s.avg_range_5d.toFixed(1)}%</span>` : '';
+
+    // Signals
+    const sigs = [sigBadge(ls,'L',lp), sigBadge(ss,'S',sp)].filter(Boolean).join(' ');
+    const waitBadge = !sigs ? '<span class="strat-signal sig-wait">WAITING</span>' : '';
+
+    // CMP
+    const chg = s.change_pct != null ? `<span class="tile-chg ${pctClass(s.change_pct)}">${s.change_pct>=0?'+':''}${s.change_pct.toFixed(1)}%</span>` : '';
+
+    html += `<div class="${tileClass}" onclick="openModal('${s.symbol}')">
+      <div class="tile-top">
+        <span class="tile-symbol"><a href="/?symbol=${s.symbol}" onclick="event.stopPropagation()">${s.symbol}</a></span>
+        <span class="tile-score">${s.score || '—'}</span>
+      </div>
+      <div class="tile-price">₹${fmt(s.cmp)}${chg}</div>
+      <div class="tile-badges">${coreBadge}${volBadge}${rangeBadge}${btBadge}</div>
+      <div class="tile-signals">${sigs}${waitBadge}</div>
+    </div>`;
+  });
+
+  document.getElementById('stockGrid').innerHTML = html;
+}
+
+function updateStatus(d) {
+  const ms = d.market_status || 'closed';
+  let dotClass = 'dot-red', label = 'Market Closed';
+  if (ms === 'open') { dotClass = 'dot-green'; label = 'Market Open'; }
+  else if (ms === 'pre_open') { dotClass = 'dot-yellow'; label = 'Pre-Open'; }
+  document.getElementById('marketStatus').innerHTML = `<span class="status-dot ${dotClass}"></span> ${label}`;
+  const pickCount = d.total_picked || (d.stocks||[]).length;
+  document.getElementById('pickCount').textContent = `${pickCount} stocks`;
+  document.getElementById('lastUpdate').textContent = 'Updated: ' + (d.time || '—');
+}
+
+async function loadData() {
+  const spinner = document.getElementById('spinner');
+  spinner.classList.add('active');
+  try {
+    const resp = await fetch('/intraday/levels');
+    data = await resp.json();
+    updateStatus(data);
+    renderSummary(data);
+    renderCards(data);
+  } catch(e) {
+    document.getElementById('stockGrid').innerHTML = `<div style="text-align:center;padding:2rem;color:#f85149;">Error: ${e.message}</div>`;
+  } finally { spinner.classList.remove('active'); }
+}
+
+function startAutoRefresh() {
+  if (autoTimer) clearInterval(autoTimer);
+  autoTimer = setInterval(() => { const h = new Date().getHours(); if (h >= 9 && h < 16) loadData(); }, 60000);
+}
+
+async function rescan() {
+  const spinner = document.getElementById('spinner');
+  spinner.textContent = 'Rescanning all F&O stocks...';
+  spinner.classList.add('active');
+  try { await fetch('/intraday/pick?force=1'); await loadData(); }
+  catch(e) { alert('Rescan failed: ' + e.message); }
+  finally { spinner.textContent = 'Loading PDH/PDL levels...'; spinner.classList.remove('active'); }
+}
+
+loadData();
+startAutoRefresh();
+</script>
+</body>
+</html>

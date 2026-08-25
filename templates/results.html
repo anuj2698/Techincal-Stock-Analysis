@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Results Dashboard — Stock Technical Analysis</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1117;color:#e1e4e8;line-height:1.5;min-height:100vh}
+a{color:#58a6ff;text-decoration:none}
+a:hover{text-decoration:underline}
+
+.container{max-width:1440px;margin:0 auto;padding:20px}
+
+.nav-links{display:flex;gap:1rem;margin-bottom:1rem;font-size:0.85rem}
+
+header{display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid #30363d;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+header h1{font-size:1.5rem;font-weight:700;letter-spacing:-.02em}
+header h1 span{color:#58a6ff}
+.header-right{display:flex;align-items:center;gap:12px}
+.updated{color:#8b949e;font-size:.82rem}
+.refresh-btn{padding:7px 14px;background:#161b22;border:1px solid #30363d;border-radius:8px;color:#8b949e;font-size:.82rem;cursor:pointer;transition:all .2s}
+.refresh-btn:hover{border-color:#58a6ff;color:#e1e4e8}
+.refresh-btn:disabled{opacity:.5;cursor:not-allowed}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:18px 20px}
+.card-label{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:#8b949e;margin-bottom:6px}
+.card-value{font-size:1.7rem;font-weight:700}
+.card-value.green{color:#3fb950}.card-value.red{color:#f85149}.card-value.accent{color:#58a6ff}
+
+.filter-bar{display:flex;flex-direction:column;gap:14px;margin-bottom:24px}
+.filter-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.filter-group-label{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:#8b949e;font-weight:600;min-width:60px}
+.pill{padding:7px 16px;background:#161b22;border:1px solid #30363d;border-radius:20px;color:#8b949e;font-size:.82rem;cursor:pointer;transition:all .2s;white-space:nowrap;user-select:none}
+.pill:hover{border-color:#58a6ff;color:#e1e4e8}
+.pill.active{background:#58a6ff;color:#fff;border-color:#58a6ff}
+.pill.active-today{background:#58a6ff;color:#fff;border-color:#58a6ff}
+.pill.active-upcoming{background:#f0883e;color:#000;border-color:#f0883e}
+.pill.active-announced{background:#3fb950;color:#000;border-color:#3fb950}
+
+.multi-select{position:relative;min-width:200px}
+.multi-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 14px;background:#161b22;border:1px solid #30363d;border-radius:8px;color:#e1e4e8;font-size:.85rem;cursor:pointer;transition:border-color .2s;user-select:none}
+.multi-select-trigger:hover,.multi-select.open .multi-select-trigger{border-color:#58a6ff}
+.multi-select-trigger .arrow{font-size:.65rem;color:#8b949e;transition:transform .2s}
+.multi-select.open .arrow{transform:rotate(180deg)}
+.multi-select-trigger .count{background:#58a6ff;color:#fff;font-size:.7rem;padding:1px 7px;border-radius:10px;font-weight:700}
+.multi-select-dropdown{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:240px;max-height:320px;overflow-y:auto;background:#161b22;border:1px solid #30363d;border-radius:8px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.multi-select.open .multi-select-dropdown{display:block}
+.multi-select-search{width:100%;padding:9px 12px;background:#21262d;border:none;border-bottom:1px solid #30363d;color:#e1e4e8;font-size:.84rem;outline:none}
+.multi-select-search::placeholder{color:#8b949e}
+.multi-select-actions{display:flex;gap:0;border-bottom:1px solid #30363d}
+.multi-select-actions button{flex:1;padding:7px;background:none;border:none;color:#58a6ff;font-size:.78rem;cursor:pointer;transition:background .15s}
+.multi-select-actions button:hover{background:#21262d}
+.multi-select-option{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;transition:background .15s;font-size:.84rem}
+.multi-select-option:hover{background:#21262d}
+.multi-select-option.hidden{display:none}
+.multi-select-option input[type="checkbox"]{accent-color:#58a6ff;cursor:pointer}
+.multi-select-option label{cursor:pointer;flex:1;color:#e1e4e8}
+
+.controls{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.search-box{flex:1;min-width:200px;max-width:360px;padding:9px 14px;background:#161b22;border:1px solid #30363d;border-radius:8px;color:#e1e4e8;font-size:.9rem;outline:none;transition:border-color .2s}
+.search-box:focus{border-color:#58a6ff}
+.search-box::placeholder{color:#8b949e}
+.btn{padding:9px 18px;background:#21262d;border:1px solid #30363d;border-radius:8px;color:#8b949e;font-size:.85rem;cursor:pointer;transition:all .2s}
+.btn:hover{border-color:#58a6ff;color:#e1e4e8}
+
+.table-wrap{overflow-x:auto;background:#161b22;border:1px solid #30363d;border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+thead th{position:sticky;top:0;background:#21262d;padding:12px 14px;text-align:left;font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:#8b949e;cursor:pointer;user-select:none;white-space:nowrap;border-bottom:2px solid #30363d}
+thead th:hover{color:#e1e4e8}
+thead th .sort-arrow{margin-left:4px;opacity:.4;font-size:.7rem}
+thead th.sorted .sort-arrow{opacity:1;color:#58a6ff}
+tbody tr{border-bottom:1px solid #30363d;transition:background .15s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#21262d}
+tbody td{padding:10px 14px;white-space:nowrap}
+td.stock-name{max-width:220px;white-space:normal;word-break:break-word}
+
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.badge.bullish{background:#3fb95015;color:#3fb950}
+.badge.mild-bullish{background:#3fb95015;color:#3fb950;opacity:.7}
+.badge.bearish{background:#f8514915;color:#f85149}
+.badge.mild-bearish{background:#f8514915;color:#f85149;opacity:.7}
+.badge.overbought{background:#f8514915;color:#f85149;font-weight:700}
+.badge.oversold{background:#3fb95015;color:#3fb950;font-weight:700}
+.badge.neutral{background:#58a6ff10;color:#58a6ff}
+.badge.upcoming{background:#f0883e15;color:#f0883e}
+.badge.today{background:#58a6ff;color:#fff;font-weight:700}
+.badge.announced{background:#3fb95015;color:#3fb950}
+.badge.not_announced{background:#58a6ff10;color:#8b949e}
+
+.move-pct{font-weight:700;font-size:.95rem}
+.beat-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.7rem;font-weight:700;margin-left:4px}
+.beat-badge.beat{background:#f8514915;color:#f85149}
+.beat-badge.within{background:#3fb95015;color:#3fb950}
+.post-change{font-weight:700;font-size:.9rem}
+.growth{font-weight:600;font-size:.85rem}
+
+.loading-state{text-align:center;padding:60px 20px}
+.loading-state h2{color:#e1e4e8;font-size:1.3rem;margin-bottom:12px}
+.loading-state p{color:#8b949e;font-size:.95rem;margin-bottom:6px}
+.loading-spinner{display:inline-block;width:32px;height:32px;border:3px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.empty-state{text-align:center;padding:60px 20px;color:#8b949e}
+.empty-state p{font-size:1.1rem;margin-bottom:8px}
+
+.footer{text-align:center;padding:24px;color:#8b949e;font-size:.78rem;border-top:1px solid #30363d;margin-top:32px}
+
+@media(max-width:768px){
+  .cards{grid-template-columns:repeat(2,1fr)}
+  .controls{flex-direction:column}
+  .search-box{max-width:100%}
+  .filter-group{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="nav-links">
+    <a href="/">&larr; Analysis</a>
+    <a href="/scanner">Scanner</a>
+    <a href="/patterns">Chart Patterns</a>
+    <a href="/today" style="color:#3fb950;font-weight:600;">Today's Picks</a>
+  </div>
+
+  <header>
+    <h1 id="dashTitle">Results <span>Dashboard</span></h1>
+    <div class="header-right">
+      <div class="updated" id="lastUpdated"></div>
+      <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">Refresh Data</button>
+    </div>
+  </header>
+
+  <div id="loadingState" class="loading-state" style="display:none;">
+    <div class="loading-spinner"></div>
+    <h2>Fetching Results Data</h2>
+    <p id="loadingStep">Initializing...</p>
+    <p id="loadingDetail" style="font-size:.82rem;color:#8b949e;"></p>
+  </div>
+
+  <div id="dashboardContent" style="display:none;">
+    <div class="filter-bar" id="filterBar">
+      <div class="filter-group">
+        <span class="filter-group-label">Status</span>
+        <span class="pill active" data-filter="status" data-value="">All</span>
+        <span class="pill" data-filter="status" data-value="upcoming">Upcoming</span>
+        <span class="pill" data-filter="status" data-value="today">Today</span>
+        <span class="pill" data-filter="status" data-value="announced">Announced</span>
+      </div>
+      <div class="filter-group">
+        <span class="filter-group-label">Sector</span>
+        <div class="multi-select" id="sectorMultiSelect">
+          <div class="multi-select-trigger" id="sectorTrigger">
+            <span id="sectorTriggerText">All Sectors</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="multi-select-dropdown">
+            <input type="text" class="multi-select-search" id="sectorSearch" placeholder="Search sectors...">
+            <div class="multi-select-actions">
+              <button id="sectorSelectAll">Select All</button>
+              <button id="sectorClearAll">Clear All</button>
+            </div>
+            <div id="sectorOptions"></div>
+          </div>
+        </div>
+        <div class="multi-select" id="directionMultiSelect">
+          <div class="multi-select-trigger" id="directionTrigger">
+            <span id="directionTriggerText">All Directions</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="multi-select-dropdown">
+            <div class="multi-select-actions">
+              <button id="directionSelectAll">Select All</button>
+              <button id="directionClearAll">Clear All</button>
+            </div>
+            <div id="directionOptions"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cards" id="summaryCards"></div>
+
+    <div class="controls">
+      <input type="text" class="search-box" id="searchBox" placeholder="Search stock name or symbol...">
+      <select id="statusFilter" style="display:none">
+        <option value="">All Status</option>
+        <option value="today">Today</option>
+        <option value="upcoming">Upcoming</option>
+        <option value="announced">Announced</option>
+        <option value="not_announced">Not Announced</option>
+      </select>
+      <button class="btn" id="resetBtn">Reset Filters</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr id="tableHead"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="emptyState" style="display:none">
+      <p>No stocks match your filters.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    Data sourced from NSE India, MoneyControl, NiftyTrader. Expected move = ATM Straddle / CMP. Direction based on RSI + 50-DMA. Not investment advice.
+  </div>
+</div>
+
+<script>
+const COLUMNS = [
+  {key:"symbol",label:"Symbol",sortable:true},
+  {key:"name",label:"Stock Name",sortable:true,cls:"stock-name"},
+  {key:"sector",label:"Sector",sortable:true},
+  {key:"prev_close",label:"Prev Close (₹)",sortable:true,type:"number"},
+  {key:"cmp",label:"CMP (₹)",sortable:true,type:"number"},
+  {key:"change_pct",label:"Chg %",sortable:true,type:"number"},
+  {key:"expected_move_pct",label:"Exp. Move %",sortable:true,type:"number"},
+  {key:"direction",label:"Direction",sortable:true},
+  {key:"rsi",label:"RSI (14)",sortable:true,type:"number"},
+  {key:"dma_50",label:"50-DMA",sortable:true,type:"number"},
+  {key:"result_date",label:"Result Date",sortable:true,type:"date"},
+  {key:"result_status",label:"Status",sortable:true},
+  {key:"revenue_growth_yoy",label:"Rev YoY %",sortable:true,type:"number"},
+  {key:"profit_growth_yoy",label:"Profit YoY %",sortable:true,type:"number"},
+  {key:"post_result_change_pct",label:"Post-Result %",sortable:true,type:"number"},
+];
+
+let sortCol = "result_date";
+let sortDir = 1;
+let allStocks = [];
+let selectedSectors = new Set();
+let selectedDirections = new Set();
+const DIRECTION_OPTIONS = ["bullish","mild-bullish","neutral","mild-bearish","bearish","overbought","oversold"];
+
+async function loadData() {
+  try {
+    const res = await fetch('/results/data');
+    const data = await res.json();
+
+    if (data.fetching) {
+      showLoading(data.progress);
+      pollStatus();
+      return;
+    }
+
+    if (data.error) {
+      showLoading({step: data.error});
+      return;
+    }
+
+    renderDashboard(data);
+  } catch (err) {
+    showLoading({step: 'Network error: ' + err.message});
+  }
+}
+
+function showLoading(progress) {
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('dashboardContent').style.display = 'none';
+  if (progress && progress.step) {
+    document.getElementById('loadingStep').textContent = progress.step;
+  }
+  if (progress && progress.done && progress.total) {
+    document.getElementById('loadingDetail').textContent = `Step ${progress.done} of ${progress.total}`;
+  }
+}
+
+let pollInterval = null;
+function pollStatus() {
+  if (pollInterval) return;
+  pollInterval = setInterval(async () => {
+    try {
+      const res = await fetch('/results/status');
+      const st = await res.json();
+      if (st.progress) {
+        document.getElementById('loadingStep').textContent = st.progress.step || 'Processing...';
+        if (st.progress.done && st.progress.total) {
+          document.getElementById('loadingDetail').textContent = `Step ${st.progress.done} of ${st.progress.total}`;
+        }
+      }
+      if (!st.running && st.has_cache) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+        await loadData();
+      }
+    } catch {}
+  }, 3000);
+}
+
+async function refreshData() {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  btn.textContent = 'Refreshing...';
+  try {
+    await fetch('/results/refresh', {method: 'POST'});
+    showLoading({step: 'Starting data refresh...'});
+    pollStatus();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Refresh Data';
+  }
+}
+
+function renderDashboard(data) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('dashboardContent').style.display = 'block';
+
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = false;
+  btn.textContent = 'Refresh Data';
+
+  if (data.quarter_label) {
+    document.getElementById('dashTitle').innerHTML = data.quarter_label + ' <span>Results Dashboard</span>';
+  }
+  let updatedText = 'Last updated: ' + formatDateTime(data.generated_at);
+  if (data.from_history != null) {
+    updatedText += ` · ${data.from_history} from history, ${data.freshly_fetched} refreshed`;
+  }
+  if (data.cache_fresh) {
+    updatedText += ' · Market closed, data is current';
+  }
+  document.getElementById('lastUpdated').textContent = updatedText;
+
+  if (data.cache_fresh) {
+    btn.disabled = true;
+    btn.textContent = 'Market Closed';
+    btn.title = 'Data is current — market is closed and data was already fetched today';
+  }
+
+  allStocks = data.stocks || [];
+  populateSectorFilter(allStocks);
+  populateDirectionFilter();
+  initPillFilters();
+  initSectorMultiSelect();
+  initDirectionMultiSelect();
+  renderSummary(allStocks);
+  renderTableHead();
+  applyFiltersAndRender();
+
+  document.getElementById('searchBox').addEventListener('input', applyFiltersAndRender);
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    document.getElementById('searchBox').value = '';
+    syncPillsToDropdown('status', '');
+    document.getElementById('statusFilter').value = '';
+    selectedSectors.clear();
+    document.querySelectorAll('#sectorOptions input').forEach(cb => cb.checked = false);
+    updateSectorTriggerText();
+    selectedDirections.clear();
+    document.querySelectorAll('#directionOptions input').forEach(cb => cb.checked = false);
+    updateDirectionTriggerText();
+    applyFiltersAndRender();
+  });
+}
+
+function formatDateTime(s) {
+  if (!s) return 'N/A';
+  try {
+    const d = new Date(s);
+    return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) + ' ' +
+           d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  } catch { return s; }
+}
+
+function formatDate(s) {
+  if (!s) return '—';
+  try {
+    const d = new Date(s + 'T00:00:00');
+    return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  } catch { return s; }
+}
+
+function populateSectorFilter(stocks) {
+  const sectors = [...new Set(stocks.map(s => s.sector).filter(Boolean).filter(s => s !== 'N/A'))].sort();
+  const container = document.getElementById('sectorOptions');
+  container.innerHTML = '';
+  sectors.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'multi-select-option';
+    div.innerHTML = `<input type="checkbox" value="${s}" id="sec_${s.replace(/[^a-zA-Z0-9]/g,'_')}"><label for="sec_${s.replace(/[^a-zA-Z0-9]/g,'_')}">${s}</label>`;
+    container.appendChild(div);
+  });
+}
+
+function populateDirectionFilter() {
+  const container = document.getElementById('directionOptions');
+  container.innerHTML = '';
+  DIRECTION_OPTIONS.forEach(d => {
+    const div = document.createElement('div');
+    div.className = 'multi-select-option';
+    div.innerHTML = `<input type="checkbox" value="${d}" id="dir_${d}"><label for="dir_${d}">${d}</label>`;
+    container.appendChild(div);
+  });
+}
+
+function initSectorMultiSelect() {
+  const wrapper = document.getElementById('sectorMultiSelect');
+  const trigger = document.getElementById('sectorTrigger');
+  const search = document.getElementById('sectorSearch');
+
+  trigger.onclick = () => wrapper.classList.toggle('open');
+  document.addEventListener('click', e => {
+    if (!wrapper.contains(e.target)) wrapper.classList.remove('open');
+  });
+
+  search.oninput = () => {
+    const q = search.value.toLowerCase();
+    document.querySelectorAll('#sectorOptions .multi-select-option').forEach(opt => {
+      const label = opt.querySelector('label').textContent.toLowerCase();
+      opt.classList.toggle('hidden', !label.includes(q));
+    });
+  };
+
+  document.getElementById('sectorOptions').addEventListener('change', e => {
+    if (e.target.type === 'checkbox') {
+      if (e.target.checked) selectedSectors.add(e.target.value);
+      else selectedSectors.delete(e.target.value);
+      updateSectorTriggerText();
+      applyFiltersAndRender();
+    }
+  });
+
+  document.getElementById('sectorSelectAll').onclick = () => {
+    document.querySelectorAll('#sectorOptions .multi-select-option:not(.hidden) input').forEach(cb => {
+      cb.checked = true; selectedSectors.add(cb.value);
+    });
+    updateSectorTriggerText(); applyFiltersAndRender();
+  };
+  document.getElementById('sectorClearAll').onclick = () => {
+    document.querySelectorAll('#sectorOptions input').forEach(cb => cb.checked = false);
+    selectedSectors.clear(); updateSectorTriggerText(); applyFiltersAndRender();
+  };
+}
+
+function updateSectorTriggerText() {
+  const text = document.getElementById('sectorTriggerText');
+  const trigger = document.getElementById('sectorTrigger');
+  const existing = trigger.querySelector('.count');
+  if (existing) existing.remove();
+  if (selectedSectors.size === 0) { text.textContent = 'All Sectors'; }
+  else if (selectedSectors.size === 1) { text.textContent = [...selectedSectors][0]; }
+  else {
+    text.textContent = 'Sectors';
+    const badge = document.createElement('span'); badge.className = 'count';
+    badge.textContent = selectedSectors.size;
+    trigger.insertBefore(badge, trigger.querySelector('.arrow'));
+  }
+}
+
+function initDirectionMultiSelect() {
+  const wrapper = document.getElementById('directionMultiSelect');
+  const trigger = document.getElementById('directionTrigger');
+
+  trigger.onclick = () => wrapper.classList.toggle('open');
+  document.addEventListener('click', e => {
+    if (!wrapper.contains(e.target)) wrapper.classList.remove('open');
+  });
+
+  document.getElementById('directionOptions').addEventListener('change', e => {
+    if (e.target.type === 'checkbox') {
+      if (e.target.checked) selectedDirections.add(e.target.value);
+      else selectedDirections.delete(e.target.value);
+      updateDirectionTriggerText(); applyFiltersAndRender();
+    }
+  });
+
+  document.getElementById('directionSelectAll').onclick = () => {
+    document.querySelectorAll('#directionOptions input').forEach(cb => {
+      cb.checked = true; selectedDirections.add(cb.value);
+    });
+    updateDirectionTriggerText(); applyFiltersAndRender();
+  };
+  document.getElementById('directionClearAll').onclick = () => {
+    document.querySelectorAll('#directionOptions input').forEach(cb => cb.checked = false);
+    selectedDirections.clear(); updateDirectionTriggerText(); applyFiltersAndRender();
+  };
+}
+
+function updateDirectionTriggerText() {
+  const text = document.getElementById('directionTriggerText');
+  const trigger = document.getElementById('directionTrigger');
+  const existing = trigger.querySelector('.count');
+  if (existing) existing.remove();
+  if (selectedDirections.size === 0) { text.textContent = 'All Directions'; }
+  else if (selectedDirections.size === 1) { text.textContent = [...selectedDirections][0]; }
+  else {
+    text.textContent = 'Directions';
+    const badge = document.createElement('span'); badge.className = 'count';
+    badge.textContent = selectedDirections.size;
+    trigger.insertBefore(badge, trigger.querySelector('.arrow'));
+  }
+}
+
+function initPillFilters() {
+  document.getElementById('filterBar').addEventListener('click', e => {
+    const pill = e.target.closest('.pill[data-filter="status"]');
+    if (!pill) return;
+    const value = pill.dataset.value;
+    document.querySelectorAll('.pill[data-filter="status"]').forEach(p => p.className = 'pill');
+    pill.className = value ? `pill active-${value}` : 'pill active';
+    document.getElementById('statusFilter').value = value;
+    applyFiltersAndRender();
+  });
+}
+
+function syncPillsToDropdown(filterType, value) {
+  document.querySelectorAll(`.pill[data-filter="${filterType}"]`).forEach(p => {
+    if (p.dataset.value === value) {
+      p.className = (filterType === 'status' && value) ? `pill active-${value}` : 'pill active';
+    } else { p.className = 'pill'; }
+  });
+}
+
+function renderSummary(stocks) {
+  const total = stocks.length;
+  const upcoming = stocks.filter(s => s.result_status === 'upcoming').length;
+  const announced = stocks.filter(s => s.result_status === 'announced').length;
+  const withMove = stocks.filter(s => s.expected_move_pct != null && s.expected_move_pct > 0);
+  const avgMove = withMove.length ? (withMove.reduce((a,s) => a + s.expected_move_pct, 0) / withMove.length).toFixed(1) : '—';
+  const announcedWithPost = stocks.filter(s => s.result_status === 'announced' && s.post_result_change_pct != null);
+  const avgPostMove = announcedWithPost.length ? (announcedWithPost.reduce((a,s) => a + Math.abs(s.post_result_change_pct), 0) / announcedWithPost.length).toFixed(1) : '—';
+  const beatCount = stocks.filter(s => s.beat_expected_move === true).length;
+
+  const cards = [
+    {label:'Total F&O Stocks',value:total,cls:'accent'},
+    {label:'Upcoming Results',value:upcoming,cls:''},
+    {label:'Announced',value:announced,cls:'green'},
+    {label:'Avg Expected Move',value:avgMove + '%',cls:'accent'},
+    {label:'Avg Post-Result Move',value:avgPostMove + '%',cls:'accent'},
+    {label:'Beat Expected',value:beatCount,cls:beatCount > 0 ? 'red' : 'green'},
+  ];
+
+  document.getElementById('summaryCards').innerHTML = cards.map(c =>
+    `<div class="card"><div class="card-label">${c.label}</div><div class="card-value ${c.cls}">${c.value}</div></div>`
+  ).join('');
+}
+
+function renderTableHead() {
+  const tr = document.getElementById('tableHead');
+  tr.innerHTML = COLUMNS.map(col => {
+    const sorted = col.key === sortCol;
+    const arrow = sorted ? (sortDir === 1 ? '▲' : '▼') : '▲';
+    return `<th class="${sorted ? 'sorted' : ''}" data-key="${col.key}">${col.label}<span class="sort-arrow">${arrow}</span></th>`;
+  }).join('');
+
+  tr.querySelectorAll('th').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      if (sortCol === key) sortDir *= -1;
+      else { sortCol = key; sortDir = 1; }
+      renderTableHead(); applyFiltersAndRender();
+    });
+  });
+}
+
+function applyFiltersAndRender() {
+  const search = document.getElementById('searchBox').value.toLowerCase().trim();
+  const status = document.getElementById('statusFilter').value;
+
+  let result = allStocks.filter(s => {
+    if (search && !s.symbol.toLowerCase().includes(search) && !(s.name||'').toLowerCase().includes(search)) return false;
+    if (selectedSectors.size > 0 && !selectedSectors.has(s.sector)) return false;
+    if (selectedDirections.size > 0 && !selectedDirections.has(s.direction)) return false;
+    if (status && s.result_status !== status) return false;
+    return true;
+  });
+
+  const col = COLUMNS.find(c => c.key === sortCol);
+  result.sort((a,b) => {
+    let va = a[sortCol], vb = b[sortCol];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (col && col.type === 'number') { va = Number(va); vb = Number(vb); }
+    if (col && col.type === 'date') { va = va || '9999'; vb = vb || '9999'; }
+    if (va < vb) return -1 * sortDir;
+    if (va > vb) return 1 * sortDir;
+    return 0;
+  });
+
+  renderTable(result);
+}
+
+function renderTable(stocks) {
+  const tbody = document.getElementById('tableBody');
+  const empty = document.getElementById('emptyState');
+
+  if (!stocks.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = stocks.map(s => {
+    const movePct = s.expected_move_pct != null ? s.expected_move_pct.toFixed(1) + '%' : '—';
+    return `<tr>
+      <td><strong><a href="/?symbol=${encodeURIComponent(s.symbol)}" style="color:#e1e4e8;">${s.symbol}</a></strong></td>
+      <td class="stock-name">${s.name || '—'}</td>
+      <td>${s.sector || '—'}</td>
+      <td>${s.prev_close ? '₹' + s.prev_close.toLocaleString('en-IN',{maximumFractionDigits:2}) : '—'}</td>
+      <td>${s.cmp ? '₹' + s.cmp.toLocaleString('en-IN',{maximumFractionDigits:2}) : '—'}</td>
+      <td style="color:${s.change_pct > 0 ? '#3fb950' : s.change_pct < 0 ? '#f85149' : '#8b949e'};font-weight:700">${s.change_pct != null ? (s.change_pct > 0 ? '+' : '') + s.change_pct.toFixed(2) + '%' : '—'}</td>
+      <td><span class="move-pct">${movePct}</span></td>
+      <td><span class="badge ${s.direction}">${s.direction}</span></td>
+      <td>${s.rsi != null ? s.rsi.toFixed(1) : '—'}</td>
+      <td>${s.dma_50 != null ? '₹' + s.dma_50.toLocaleString('en-IN',{maximumFractionDigits:2}) : '—'}</td>
+      <td>${formatDate(s.result_date)}</td>
+      <td><span class="badge ${s.result_status}">${(s.result_status || '').replace('_',' ')}</span></td>
+      <td><span class="growth" style="color:${s.revenue_growth_yoy > 0 ? '#3fb950' : s.revenue_growth_yoy < 0 ? '#f85149' : '#8b949e'}">${s.revenue_growth_yoy != null ? (s.revenue_growth_yoy > 0 ? '+' : '') + s.revenue_growth_yoy.toFixed(1) + '%' : '—'}</span></td>
+      <td><span class="growth" style="color:${s.profit_growth_yoy > 0 ? '#3fb950' : s.profit_growth_yoy < 0 ? '#f85149' : '#8b949e'}">${s.profit_growth_yoy != null ? (s.profit_growth_yoy > 0 ? '+' : '') + s.profit_growth_yoy.toFixed(1) + '%' : '—'}</span></td>
+      <td title="${s.pre_result_close != null ? 'Pre-result close: ₹' + s.pre_result_close + ' → Post-result close: ₹' + s.next_day_close + ' (' + s.next_day_date + ')' : ''}">${s.post_result_change_pct != null ? '<span class="post-change" style="color:' + (s.post_result_change_pct > 0 ? '#3fb950' : s.post_result_change_pct < 0 ? '#f85149' : '#8b949e') + '">' + (s.post_result_change_pct > 0 ? '+' : '') + s.post_result_change_pct.toFixed(2) + '%</span>' + (s.beat_expected_move != null ? ' <span class="beat-badge ' + (s.beat_expected_move ? 'beat' : 'within') + '">' + (s.beat_expected_move ? 'BEAT' : 'WITHIN') + '</span>' : '') : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+document.addEventListener('DOMContentLoaded', loadData);
+</script>
+</body>
+</html>
