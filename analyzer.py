@@ -1747,19 +1747,19 @@ def generate_recommendation(
         buy_rr = buy_reward / buy_risk if buy_risk > 0 else 0
         action_plan["buy"]["rr"] = round(buy_rr, 2)
         if buy_rr < hard_min_rr:
-            action_plan["buy"] = {"level": None, "rr_rejected": round(buy_rr, 2)}
+            action_plan["buy"]["low_rr"] = True
     if sell_level and sell_targets:
         sell_risk = abs(sell_sl - sell_price)
         sell_reward = abs(sell_price - sell_targets[0])
         sell_rr = sell_reward / sell_risk if sell_risk > 0 else 0
         action_plan["sell"]["rr"] = round(sell_rr, 2)
         if sell_rr < hard_min_rr:
-            action_plan["sell"] = {"level": None, "rr_rejected": round(sell_rr, 2)}
+            action_plan["sell"]["low_rr"] = True
     rr_notes = []
-    if action_plan["buy"].get("rr_rejected"):
-        rr_notes.append(f"Buy level removed — R:R was 1:{action_plan['buy']['rr_rejected']:.1f} (below 1:1)")
-    if action_plan["sell"].get("rr_rejected"):
-        rr_notes.append(f"Sell level removed — R:R was 1:{action_plan['sell']['rr_rejected']:.1f} (below 1:1)")
+    if action_plan["buy"].get("low_rr"):
+        rr_notes.append(f"Buy R:R is 1:{action_plan['buy']['rr']:.1f} (LOW R:R)")
+    if action_plan["sell"].get("low_rr"):
+        rr_notes.append(f"Sell R:R is 1:{action_plan['sell']['rr']:.1f} (LOW R:R)")
     if min_rr > hard_min_rr:
         if action_plan["buy"].get("rr") and action_plan["buy"]["rr"] < min_rr:
             rr_notes.append(f"Buy R:R is {action_plan['buy']['rr']:.1f} (below {min_rr})")

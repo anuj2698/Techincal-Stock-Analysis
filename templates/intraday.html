@@ -284,6 +284,8 @@ function openModal(sym) {
         <div class="detail-item"><span class="detail-lbl">5D Range</span><span class="detail-val yellow">${s.avg_range_5d ? s.avg_range_5d.toFixed(1)+'%' : '—'}</span></div>
         <div class="detail-item"><span class="detail-lbl">Vol Spike</span><span class="detail-val ${s.vol_spike>=1.5?'green':''}">${s.vol_spike ? s.vol_spike.toFixed(1)+'x' : '—'}</span></div>
         <div class="detail-item"><span class="detail-lbl">Avg Value</span><span class="detail-val">${s.avg_value_cr ? '₹'+s.avg_value_cr+'Cr' : '—'}</span></div>
+        <div class="detail-item"><span class="detail-lbl">RSI (5m)</span><span class="detail-val" style="color:${s.rsi_5m!=null?(s.rsi_5m>=70?'#f85149':s.rsi_5m<=30?'#3fb950':'#e1e4e8'):'#8b949e'}">${s.rsi_5m != null ? s.rsi_5m : '—'}</span></div>
+        <div class="detail-item"><span class="detail-lbl">RSI (Daily)</span><span class="detail-val" style="color:${s.rsi_daily!=null?(s.rsi_daily>=70?'#f85149':s.rsi_daily<=30?'#3fb950':'#e1e4e8'):'#8b949e'}">${s.rsi_daily != null ? s.rsi_daily : '—'}</span></div>
       </div>
     </div>`;
   document.getElementById('modal').classList.add('open');
@@ -325,6 +327,8 @@ function renderCards(d) {
     const volBadge = s.vol_spike != null && s.vol_spike >= 1.5 ? `<span class="pick-badge badge-vol">Vol ${s.vol_spike.toFixed(1)}x</span>` : '';
     const btBadge = s.backtest ? `<span class="pick-badge badge-bt">WR: ${s.backtest.wr}%</span>` : '';
     const rangeBadge = s.avg_range_5d != null ? `<span class="pick-badge badge-range">5D Range: ${s.avg_range_5d.toFixed(1)}%</span>` : '';
+    const rsiColor = (v) => v >= 70 ? '#f85149' : v <= 30 ? '#3fb950' : '#8b949e';
+    const rsiBadge = s.rsi_5m != null ? `<span class="pick-badge" style="background:${rsiColor(s.rsi_5m)}15;color:${rsiColor(s.rsi_5m)};border:1px solid ${rsiColor(s.rsi_5m)}40;">RSI: ${s.rsi_5m}</span>` : '';
 
     // Signals
     const sigs = [sigBadge(ls,'L',lp), sigBadge(ss,'S',sp)].filter(Boolean).join(' ');
@@ -339,7 +343,7 @@ function renderCards(d) {
         <span class="tile-score">${s.score || '—'}</span>
       </div>
       <div class="tile-price">₹${fmt(s.cmp)}${chg}</div>
-      <div class="tile-badges">${coreBadge}${volBadge}${rangeBadge}${btBadge}</div>
+      <div class="tile-badges">${coreBadge}${volBadge}${rangeBadge}${btBadge}${rsiBadge}</div>
       <div class="tile-signals">${sigs}${waitBadge}</div>
     </div>`;
   });
@@ -354,7 +358,10 @@ function updateStatus(d) {
   else if (ms === 'pre_open') { dotClass = 'dot-yellow'; label = 'Pre-Open'; }
   document.getElementById('marketStatus').innerHTML = `<span class="status-dot ${dotClass}"></span> ${label}`;
   const pickCount = d.total_picked || (d.stocks||[]).length;
-  document.getElementById('pickCount').textContent = `${pickCount} stocks`;
+  const src = d.data_source || 'Unknown';
+  const fyers = d.fyers_status || 'unknown';
+  const srcColor = src === 'Fyers' ? '#3fb950' : '#d29922';
+  document.getElementById('pickCount').innerHTML = `${pickCount} stocks &middot; <span style="color:${srcColor};font-weight:700;">${src}</span>`;
   document.getElementById('lastUpdate').textContent = 'Updated: ' + (d.time || '—');
 }
 
@@ -374,7 +381,12 @@ async function loadData() {
 
 function startAutoRefresh() {
   if (autoTimer) clearInterval(autoTimer);
-  autoTimer = setInterval(() => { const h = new Date().getHours(); if (h >= 9 && h < 16) loadData(); }, 60000);
+  autoTimer = setInterval(() => {
+    const now = new Date();
+    const h = now.getHours(), m = now.getMinutes();
+    const mins = h * 60 + m;
+    if (mins >= 9*60+15 && mins < 15*60+15) loadData();
+  }, 60000);
 }
 
 async function rescan() {

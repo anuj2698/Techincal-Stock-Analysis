@@ -95,6 +95,12 @@ def _get_fyers():
     global _fyers_client
     if _fyers_client is not None:
         return _fyers_client
+    # Auto-refresh expired token on first use
+    try:
+        from fyers_auth import refresh_token_if_needed
+        refresh_token_if_needed()
+    except Exception:
+        pass
     app_id = os.environ.get("FYERS_APP_ID")
     token = os.environ.get("FYERS_ACCESS_TOKEN")
     if not app_id or not token:
@@ -2199,8 +2205,9 @@ PDHL_SL_RATIO = 0.3
 INTRADAY_PICK_CACHE_FILE = CACHE_DIR / "intraday_picks.json"
 INTRADAY_PICK_MAX_STOCKS = 20
 INTRADAY_MIN_AVG_VOL_5D = 500_000     # min 5-day avg volume in shares
-INTRADAY_MIN_VOL_RATIO_5D_20D = 0.50  # 5-day avg must be >= 50% of 20-day avg
-INTRADAY_MIN_PREV_DAY_VOL_RATIO = 0.70  # yesterday's vol must be >= 70% of 20-day avg
+INTRADAY_MIN_VOL_RATIO_5D_20D = 0.40  # 5-day avg must be >= 40% of 20-day avg
+INTRADAY_MIN_PREV_DAY_VOL_RATIO = 0.20  # yesterday's vol must be >= 20% of 20-day avg
+INTRADAY_MIN_PRICE = 40               # min stock price in rupees
 
 
 def _score_stock_for_intraday(sym, candles_daily):
@@ -2225,7 +2232,9 @@ def _score_stock_for_intraday(sym, candles_daily):
     avg_range_5 = sum((float(c[2]) - float(c[3])) / float(c[4]) * 100 for c in recent_5 if float(c[4]) > 0) / len(recent_5)
     avg_vol_5 = sum(float(c[5]) for c in recent_5) / len(recent_5)
 
-    # Volume-based liquidity filters
+    # Price and volume filters
+    if pd_close < INTRADAY_MIN_PRICE:
+        return None
     if avg_vol_5 < INTRADAY_MIN_AVG_VOL_5D:
         return None
     if avg_vol_20 > 0 and avg_vol_5 / avg_vol_20 < INTRADAY_MIN_VOL_RATIO_5D_20D:
@@ -2332,6 +2341,93 @@ def intraday_page():
     return render_template("intraday.html")
 
 
+FYERS_TOKEN_REFRESH_FILE = CACHE_DIR / "fyers_token_refresh.json"
+
+
+@app.route("/api/fyers-status")
+def fyers_status():
+    """Check Fyers token status and last refresh time."""
+    app_id = os.environ.get("FYERS_APP_ID")
+    token = os.environ.get("FYERS_ACCESS_TOKEN")
+    status = "not_configured"
+    name = None
+    if app_id and token:
+        try:
+            from fyers_apiv3 import fyersModel
+            client = fyersModel.FyersModel(client_id=app_id, token=token, is_async=False, log_path="logs/")
+            resp = client.get_profile()
+            if resp.get("s") == "ok":
+                status = "active"
+                name = resp["data"]["name"]
+            else:
+                status = "expired"
+        except Exception:
+            status = "error"
+
+    today = datetime.now(IST).strftime("%Y-%m-%d")
+    refreshed_today = False
+    if FYERS_TOKEN_REFRESH_FILE.exists():
+        try:
+            data = json.loads(FYERS_TOKEN_REFRESH_FILE.read_text())
+            refreshed_today = data.get("date") == today
+        except Exception:
+            pass
+
+    return jsonify({"status": status, "name": name, "refreshed_today": refreshed_today})
+
+
+@app.route("/api/refresh-fyers-token", methods=["POST"])
+def refresh_fyers_token():
+    """Refresh Fyers access token. Limited to once per day."""
+    global _fyers_client
+    today = datetime.now(IST).strftime("%Y-%m-%d")
+
+    if FYERS_TOKEN_REFRESH_FILE.exists():
+        try:
+            data = json.loads(FYERS_TOKEN_REFRESH_FILE.read_text())
+            if data.get("date") == today:
+                return jsonify({"success": False, "status": "already_refreshed",
+                                "message": f"Token already refreshed today at {data.get('time', '?')}"})
+        except Exception:
+            pass
+
+    try:
+        from fyers_auth import refresh_token_if_needed
+        refreshed = refresh_token_if_needed()
+        _fyers_client = None
+
+        app_id = os.environ.get("FYERS_APP_ID")
+        token = os.environ.get("FYERS_ACCESS_TOKEN")
+        status = "not_configured"
+        name = None
+        if app_id and token:
+            try:
+                from fyers_apiv3 import fyersModel
+                client = fyersModel.FyersModel(client_id=app_id, token=token, is_async=False, log_path="logs/")
+                resp = client.get_profile()
+                if resp.get("s") == "ok":
+                    status = "active"
+                    name = resp["data"]["name"]
+                else:
+                    status = "expired"
+            except Exception:
+                status = "error"
+
+        # Mark as refreshed today
+        if status == "active":
+            CACHE_DIR.mkdir(exist_ok=True)
+            FYERS_TOKEN_REFRESH_FILE.write_text(json.dumps({
+                "date": today,
+                "time": datetime.now(IST).strftime("%H:%M:%S"),
+                "name": name,
+            }))
+
+        return jsonify({"success": status == "active", "status": status, "name": name,
+                        "message": f"Token active — {name}" if status == "active" else "Refresh failed"})
+    except Exception as e:
+        return jsonify({"success": False, "status": "error", "message": str(e)})
+
+
 @app.route("/intraday/pick")
 def intraday_pick():
     """Scan all F&O stocks and return today's top intraday candidates."""
@@ -2348,6 +2444,9 @@ def intraday_pick():
     })
 
 
+INTRADAY_EOD_CACHE_FILE = CACHE_DIR / "intraday_eod.json"
+
+
 @app.route("/intraday/levels")
 def intraday_levels():
     now = datetime.now(IST)
@@ -2362,6 +2461,15 @@ def intraday_levels():
         market_status = "closed"
 
     today_str = now.strftime("%Y-%m-%d")
+
+    # After market close, serve cached EOD data instead of re-fetching
+    if market_status == "closed" and INTRADAY_EOD_CACHE_FILE.exists():
+        try:
+            cached = json.loads(INTRADAY_EOD_CACHE_FILE.read_text())
+            if cached.get("date") == today_str:
+                return jsonify(cached)
+        except Exception:
+            pass
 
     # Get dynamically picked stocks
     picks = pick_intraday_stocks()
@@ -2495,6 +2603,19 @@ def intraday_levels():
 
             result["pdhl"] = pdhl_data
 
+            # RSI levels (5-min uses last 100 candles for continuity, daily uses all)
+            from analyzer import rsi as _rsi
+            rsi_5m = None
+            rsi_daily = None
+            if candles_5m and len(candles_5m) >= 20:
+                closes_5m = [float(c[4]) for c in candles_5m[-100:]]
+                rsi_5m = _rsi(closes_5m, 14)
+            if candles_daily and len(candles_daily) >= 20:
+                closes_d = [float(c[4]) for c in candles_daily]
+                rsi_daily = _rsi(closes_d, 14)
+            result["rsi_5m"] = round(rsi_5m, 1) if rsi_5m is not None else None
+            result["rsi_daily"] = round(rsi_daily, 1) if rsi_daily is not None else None
+
             # Attach pick metadata
             pd = pick_data.get(sym, {})
             result["score"] = pd.get("score", 0)
@@ -2524,13 +2645,270 @@ def intraday_levels():
 
     results.sort(key=_sort_key)
 
-    return jsonify({
+    # Check Fyers token status
+    fyers_status = "not_configured"
+    fyers = _get_fyers()
+    if fyers:
+        try:
+            resp = fyers.get_profile()
+            fyers_status = "active" if resp.get("s") == "ok" else "expired"
+        except Exception:
+            fyers_status = "error"
+
+    response_data = {
         "stocks": results,
         "market_status": market_status,
         "time": now.strftime("%H:%M:%S"),
         "date": today_str,
         "total_picked": len(pick_symbols),
         "total_scanned": len(picks),
+        "data_source": "Fyers" if fyers_status == "active" else "Yahoo Finance",
+        "fyers_status": fyers_status,
+    }
+
+    # Cache EOD results after market close so we don't re-fetch
+    if market_status == "closed":
+        CACHE_DIR.mkdir(exist_ok=True)
+        INTRADAY_EOD_CACHE_FILE.write_text(json.dumps(response_data))
+
+    return jsonify(response_data)
+
+
+# ---------------------------------------------------------------------------
+# S/R Pattern Breakout Scanner
+# ---------------------------------------------------------------------------
+
+@app.route("/sr-breakout")
+def sr_breakout_page():
+    return render_template("sr_breakout.html")
+
+
+@app.route("/sr-breakout/scan")
+def sr_breakout_scan():
+    from analyzer import (
+        rsi as _rsi,
+        find_support_resistance,
+        pivot_points,
+        fibonacci_retracement,
+        atr as _atr,
+        sma as _sma,
+    )
+
+    try:
+        stocks = get_fno_stocks()
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch F&O list: {e}", "results": []})
+
+    CONFLUENCE_THRESHOLD_PCT = 1.5
+    TRUSTED_PATTERNS = {"Cup & Handle", "Ascending Triangle", "Descending Triangle"}
+
+    def _scan_stock(stock):
+        sym = stock["symbol"]
+        name = stock["name"]
+        try:
+            canonical, yahoo_sym = resolve_yahoo_ticker(sym)
+            candles = fetch_candles(yahoo_sym, period="1y", interval="1d", canonical=canonical)
+            if not candles or len(candles) < 60:
+                return None
+
+            cmp = round(float(candles[-1][4]), 2)
+            closes = [float(c[4]) for c in candles]
+            highs = [float(c[2]) for c in candles]
+            lows = [float(c[3]) for c in candles]
+
+            patterns = detect_chart_patterns(candles)
+            if not patterns:
+                return None
+
+            patterns = [p for p in patterns if p["name"] in TRUSTED_PATTERNS]
+            if not patterns:
+                return None
+
+            has_breakout_level = any(
+                p.get("breakout_level_up") or p.get("breakout_level_down")
+                for p in patterns
+            )
+            if not has_breakout_level:
+                return None
+
+            sr_zones = find_support_resistance(candles, window=5)
+            ema_data = detect_ema_crossovers(closes)
+            d_rsi = _rsi(closes)
+            atr_val = _atr(candles, 14)
+            pivot_data = pivot_points(candles, method="standard", timeframe="positional")
+            fib_data = fibonacci_retracement(candles)
+
+            all_levels = []
+            for z in sr_zones:
+                all_levels.append({
+                    "price": z["level"],
+                    "source": f"S/R ({z['touches']} touches)",
+                    "strength": z["touches"] * 2 + z["recency_score"],
+                    "touches": z["touches"],
+                })
+            if pivot_data:
+                for lk in ("r1", "r2", "r3", "s1", "s2", "s3"):
+                    val = pivot_data.get(lk)
+                    if val:
+                        all_levels.append({"price": val, "source": f"Pivot {lk.upper()}", "strength": 4})
+                all_levels.append({"price": pivot_data["pp"], "source": "Pivot PP", "strength": 5})
+            if fib_data:
+                for fl in fib_data.get("levels", []):
+                    if fl["ratio"] in (0.382, 0.5, 0.618):
+                        all_levels.append({"price": fl["price"], "source": f"Fib {fl['label']}", "strength": 5 if fl["ratio"] == 0.618 else 4})
+
+            sma50 = _sma(closes, 50)
+            sma200 = _sma(closes, 200)
+            if sma50:
+                all_levels.append({"price": sma50, "source": "SMA 50", "strength": 3})
+            if sma200:
+                all_levels.append({"price": sma200, "source": "SMA 200", "strength": 4})
+
+            matched = []
+            for p in patterns:
+                bl_up = p.get("breakout_level_up")
+                bl_down = p.get("breakout_level_down")
+
+                for bl, direction in [(bl_up, "bullish"), (bl_down, "bearish")]:
+                    if bl is None:
+                        continue
+                    nearby = [
+                        lv for lv in all_levels
+                        if abs(lv["price"] - bl) / bl * 100 <= CONFLUENCE_THRESHOLD_PCT
+                    ]
+                    if not nearby:
+                        continue
+
+                    confluence_strength = sum(lv["strength"] for lv in nearby)
+                    confluence_sources = [lv["source"] for lv in nearby]
+                    confluence_count = len(nearby)
+
+                    if p.get("confirmed"):
+                        status = "Breakout Confirmed"
+                    else:
+                        status = "Approaching"
+
+                    distance_pct = round(abs(cmp - bl) / bl * 100, 2)
+
+                    score = confluence_strength * 2
+                    if p.get("confirmed"):
+                        score += 10
+                    if p.get("volume_confirmed"):
+                        score += 5
+                    if confluence_count >= 3:
+                        score += 5
+                    elif confluence_count >= 2:
+                        score += 2
+
+                    ema_align = ema_data.get("alignment", "neutral")
+                    if direction == "bullish" and ema_align in ("bullish", "strong_bullish"):
+                        score += 4
+                    elif direction == "bearish" and ema_align in ("bearish", "strong_bearish"):
+                        score += 4
+
+                    if d_rsi:
+                        if direction == "bullish" and d_rsi < 40:
+                            score += 2
+                        elif direction == "bearish" and d_rsi > 60:
+                            score += 2
+
+                    entry = bl
+                    if direction == "bullish":
+                        sl = p.get("sl_up", round(bl - atr_val, 2))
+                        target = p.get("breakout_target_up", round(bl + atr_val * 2, 2))
+                    else:
+                        sl = p.get("sl_down", round(bl + atr_val, 2))
+                        target = p.get("breakout_target_down", round(bl - atr_val * 2, 2))
+
+                    risk = abs(entry - sl) if sl else 0
+                    reward = abs(target - entry) if target else 0
+                    rr_ratio = round(reward / risk, 2) if risk > 0 else 0
+
+                    if rr_ratio < 1.0:
+                        continue
+
+                    matched.append({
+                        "pattern": p["name"],
+                        "bias": p.get("bias", "neutral"),
+                        "direction": direction,
+                        "breakout_level": round(bl, 2),
+                        "status": status,
+                        "confirmed": p.get("confirmed", False),
+                        "distance_pct": distance_pct,
+                        "confluence_count": confluence_count,
+                        "confluence_strength": confluence_strength,
+                        "confluence_sources": confluence_sources[:5],
+                        "entry": round(entry, 2),
+                        "sl": round(sl, 2) if sl else None,
+                        "target": round(target, 2) if target else None,
+                        "rr_ratio": rr_ratio,
+                        "volume_confirmed": p.get("volume_confirmed", False),
+                        "components": p.get("components", []),
+                    })
+
+            if not matched:
+                return None
+
+            matched.sort(key=lambda m: m["confluence_strength"], reverse=True)
+
+            best = matched[0]
+            ema_align = ema_data.get("alignment", "neutral")
+            bull_crosses = [c for c in ema_data.get("crossovers", []) if c["bias"] == "bullish"]
+            bear_crosses = [c for c in ema_data.get("crossovers", []) if c["bias"] == "bearish"]
+
+            reasons = []
+            reasons.append(f"{best['pattern']} at ₹{best['breakout_level']} with {best['confluence_count']}-way confluence")
+            reasons.append(f"S/R sources: {', '.join(best['confluence_sources'][:3])}")
+            if best["confirmed"]:
+                reasons.append("Breakout confirmed — price beyond level")
+            else:
+                reasons.append(f"Price {best['distance_pct']}% from breakout level")
+            if ema_align in ("bullish", "strong_bullish"):
+                reasons.append("EMAs aligned bullish")
+            elif ema_align in ("bearish", "strong_bearish"):
+                reasons.append("EMAs aligned bearish")
+            if bull_crosses:
+                reasons.append(bull_crosses[0]["type"])
+            if bear_crosses:
+                reasons.append(bear_crosses[0]["type"])
+
+            total_score = sum(m["confluence_strength"] for m in matched)
+
+            return {
+                "symbol": canonical,
+                "display_symbol": sym,
+                "name": name,
+                "cmp": cmp,
+                "rsi": round(d_rsi, 1) if d_rsi else None,
+                "ema_alignment": ema_align,
+                "ema_crossovers": [c["type"] for c in ema_data.get("crossovers", [])],
+                "setups": matched,
+                "top_status": best["status"],
+                "top_direction": best["direction"],
+                "score": total_score,
+                "reasons": reasons[:5],
+            }
+        except Exception:
+            return None
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results_raw = list(pool.map(_scan_stock, stocks))
+
+    results = [r for r in results_raw if r is not None]
+    results.sort(key=lambda r: r["score"], reverse=True)
+
+    summary = {
+        "total_approaching": sum(1 for r in results if r["top_status"] == "Approaching"),
+        "total_confirmed": sum(1 for r in results if r["top_status"] == "Breakout Confirmed"),
+        "total_bullish": sum(1 for r in results if r["top_direction"] == "bullish"),
+        "total_bearish": sum(1 for r in results if r["top_direction"] == "bearish"),
+    }
+
+    return jsonify({
+        "results": results,
+        "total_scanned": len(stocks),
+        "total_with_setups": len(results),
+        "summary": summary,
     })
 
 
