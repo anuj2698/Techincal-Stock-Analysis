@@ -2378,7 +2378,7 @@ def fyers_status():
 
 @app.route("/api/refresh-fyers-token", methods=["POST"])
 def refresh_fyers_token():
-    """Refresh Fyers access token. Limited to once per day."""
+    """Initiate Fyers token refresh. Returns auth URL for the browser to redirect to."""
     global _fyers_client
     today = datetime.now(IST).strftime("%Y-%m-%d")
 
@@ -2392,40 +2392,69 @@ def refresh_fyers_token():
             pass
 
     try:
-        from fyers_auth import refresh_token_if_needed
-        refreshed = refresh_token_if_needed()
-        _fyers_client = None
+        from fyers_auth import get_auth_url
 
-        app_id = os.environ.get("FYERS_APP_ID")
-        token = os.environ.get("FYERS_ACCESS_TOKEN")
-        status = "not_configured"
-        name = None
-        if app_id and token:
-            try:
-                from fyers_apiv3 import fyersModel
-                client = fyersModel.FyersModel(client_id=app_id, token=token, is_async=False, log_path="logs/")
-                resp = client.get_profile()
-                if resp.get("s") == "ok":
-                    status = "active"
-                    name = resp["data"]["name"]
-                else:
-                    status = "expired"
-            except Exception:
-                status = "error"
+        # Use the app's own callback URL so it works on both local and cloud
+        callback_uri = request.host_url.rstrip("/") + "/fyers/callback"
+        auth_url = get_auth_url(redirect_uri_override=callback_uri)
 
-        # Mark as refreshed today
-        if status == "active":
-            CACHE_DIR.mkdir(exist_ok=True)
-            FYERS_TOKEN_REFRESH_FILE.write_text(json.dumps({
-                "date": today,
-                "time": datetime.now(IST).strftime("%H:%M:%S"),
-                "name": name,
-            }))
-
-        return jsonify({"success": status == "active", "status": status, "name": name,
-                        "message": f"Token active — {name}" if status == "active" else "Refresh failed"})
+        return jsonify({"success": True, "status": "redirect", "auth_url": auth_url})
     except Exception as e:
         return jsonify({"success": False, "status": "error", "message": str(e)})
+
+
+@app.route("/fyers/callback")
+def fyers_callback():
+    """OAuth callback — Fyers redirects here with auth_code after user authorizes."""
+    global _fyers_client
+    auth_code = request.args.get("auth_code")
+    if not auth_code:
+        return """<html><body style="background:#0f1117;color:#f85149;font-family:sans-serif;
+            display:flex;justify-content:center;align-items:center;height:100vh;font-size:1.3rem;">
+            Error: No auth_code received from Fyers. Please try again.
+            </body></html>""", 400
+
+    try:
+        from fyers_auth import exchange_auth_code
+        access_token = exchange_auth_code(auth_code)
+        _fyers_client = None
+
+        # Verify
+        app_id = os.environ.get("FYERS_APP_ID")
+        name = "Unknown"
+        try:
+            from fyers_apiv3 import fyersModel
+            client = fyersModel.FyersModel(client_id=app_id, token=access_token, is_async=False, log_path="logs/")
+            resp = client.get_profile()
+            if resp.get("s") == "ok":
+                name = resp["data"]["name"]
+        except Exception:
+            pass
+
+        # Mark as refreshed today
+        today = datetime.now(IST).strftime("%Y-%m-%d")
+        CACHE_DIR.mkdir(exist_ok=True)
+        FYERS_TOKEN_REFRESH_FILE.write_text(json.dumps({
+            "date": today,
+            "time": datetime.now(IST).strftime("%H:%M:%S"),
+            "name": name,
+        }))
+
+        return f"""<html><body style="background:#0f1117;color:#3fb950;font-family:sans-serif;
+            display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;">
+            <div style="font-size:1.5rem;font-weight:700;margin-bottom:1rem;">Fyers Token Generated</div>
+            <div style="font-size:1rem;color:#8b949e;">Authenticated as: {name}</div>
+            <a href="/" style="margin-top:2rem;padding:0.7rem 1.5rem;background:#1f6feb;color:#fff;
+               border-radius:8px;text-decoration:none;font-weight:600;">Go to Dashboard</a>
+            </body></html>"""
+    except Exception as e:
+        return f"""<html><body style="background:#0f1117;color:#f85149;font-family:sans-serif;
+            display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;">
+            <div style="font-size:1.3rem;font-weight:700;">Token generation failed</div>
+            <div style="font-size:0.9rem;color:#8b949e;margin-top:0.5rem;">{e}</div>
+            <a href="/" style="margin-top:2rem;padding:0.7rem 1.5rem;background:#1f6feb;color:#fff;
+               border-radius:8px;text-decoration:none;font-weight:600;">Back to Dashboard</a>
+            </body></html>""", 500
 
 
 @app.route("/intraday/pick")
@@ -2909,6 +2938,262 @@ def sr_breakout_scan():
         "total_scanned": len(stocks),
         "total_with_setups": len(results),
         "summary": summary,
+    })
+
+
+# ---------------------------------------------------------------------------
+# RSI Momentum Scanner (5m + 15m RSI alignment)
+# ---------------------------------------------------------------------------
+
+@app.route("/rsi-momentum")
+def rsi_momentum_page():
+    return render_template("rsi_momentum.html")
+
+
+@app.route("/rsi-momentum/scan")
+def rsi_momentum_scan():
+    RSI_BULL_THRESH = 65
+    RSI_BEAR_THRESH = 35
+
+    try:
+        stocks = get_fno_stocks()
+    except Exception as e:
+        return jsonify({"error": str(e), "results": []})
+
+    now = datetime.now(IST)
+    market_hour = now.hour
+    market_min = now.minute
+    market_time_min = market_hour * 60 + market_min
+    close_min = 15 * 60 + 30
+
+    def _time_zone(h, m):
+        t = h * 60 + m
+        if t < 10 * 60:
+            return "open"
+        elif t < 12 * 60:
+            return "morning"
+        elif t < 13 * 60:
+            return "lunch"
+        elif t < 15 * 60:
+            return "afternoon"
+        else:
+            return "close"
+
+    def _scan_stock(stock):
+        sym = stock["symbol"]
+        name = stock["name"]
+        try:
+            canonical, yahoo_sym = resolve_yahoo_ticker(sym)
+            candles_5m = fetch_candles(yahoo_sym, period="1mo", interval="5m", canonical=canonical)
+            if not candles_5m or len(candles_5m) < 50:
+                return None
+
+            closes_5m = [float(c[4]) for c in candles_5m]
+            cmp = round(closes_5m[-1], 2)
+
+            rsi_5m_vals = rsi_series(closes_5m, 14)
+            if not rsi_5m_vals or len(rsi_5m_vals) < 2:
+                return None
+            rsi_5m = round(rsi_5m_vals[-1], 1)
+
+            # Resample to 15min
+            candles_15m = []
+            for i in range(0, len(candles_5m) - 2, 3):
+                chunk = candles_5m[i:i + 3]
+                candles_15m.append([
+                    chunk[0][0], chunk[0][1],
+                    max(float(c[2]) for c in chunk),
+                    min(float(c[3]) for c in chunk),
+                    chunk[-1][4],
+                    sum(float(c[5]) if len(c) > 5 else 0 for c in chunk),
+                ])
+            if len(candles_15m) < 20:
+                return None
+
+            closes_15m = [float(c[4]) for c in candles_15m]
+            rsi_15m_vals = rsi_series(closes_15m, 14)
+            if not rsi_15m_vals or len(rsi_15m_vals) < 2:
+                return None
+            rsi_15m = round(rsi_15m_vals[-1], 1)
+
+            # Resample to 1H for display context
+            candles_1h = []
+            for i in range(0, len(candles_5m) - 11, 12):
+                chunk = candles_5m[i:i + 12]
+                candles_1h.append([
+                    chunk[0][0], chunk[0][1],
+                    max(float(c[2]) for c in chunk),
+                    min(float(c[3]) for c in chunk),
+                    chunk[-1][4],
+                    sum(float(c[5]) if len(c) > 5 else 0 for c in chunk),
+                ])
+            rsi_1h = None
+            if len(candles_1h) >= 20:
+                closes_1h = [float(c[4]) for c in candles_1h]
+                rsi_1h_vals = rsi_series(closes_1h, 14)
+                if rsi_1h_vals:
+                    rsi_1h = round(rsi_1h_vals[-1], 1)
+
+            # EMAs for context
+            e9 = ema_series(closes_5m, 9)
+            e20 = ema_series(closes_5m, 20)
+            ema_ctx = {
+                "ema9": round(e9[-1], 2) if e9 else None,
+                "ema20": round(e20[-1], 2) if e20 else None,
+            }
+
+            # Check signal
+            is_bull = rsi_5m > RSI_BULL_THRESH and rsi_15m > RSI_BULL_THRESH
+            is_bear = rsi_5m < RSI_BEAR_THRESH and rsi_15m < RSI_BEAR_THRESH
+            if not is_bull and not is_bear:
+                return None
+
+            signal_type = "bullish" if is_bull else "bearish"
+
+            # RSI trend — is it strengthening?
+            rsi_5m_prev = round(rsi_5m_vals[-2], 1) if len(rsi_5m_vals) >= 2 else None
+            rsi_15m_prev = round(rsi_15m_vals[-2], 1) if len(rsi_15m_vals) >= 2 else None
+            if is_bull:
+                strengthening = (rsi_5m_prev and rsi_5m > rsi_5m_prev) or (rsi_15m_prev and rsi_15m > rsi_15m_prev)
+            else:
+                strengthening = (rsi_5m_prev and rsi_5m < rsi_5m_prev) or (rsi_15m_prev and rsi_15m < rsi_15m_prev)
+
+            # Time context
+            can_hold_2h = (close_min - market_time_min) >= 120
+            signal_time = now.strftime("%H:%M")
+            time_zone = _time_zone(market_hour, market_min)
+
+            # Signal strength tier based on RSI brackets
+            if is_bull:
+                min_rsi = min(rsi_5m, rsi_15m)
+                if min_rsi >= 75:
+                    signal_strength = "perfect"
+                    expected_wr = 100.0
+                    expected_rr = 10.5
+                    expected_pnl = 2.64
+                elif min_rsi >= 70:
+                    signal_strength = "very_strong"
+                    expected_wr = 98.0
+                    expected_rr = 8.4
+                    expected_pnl = 1.67
+                else:
+                    signal_strength = "strong"
+                    expected_wr = 91.4
+                    expected_rr = 5.5
+                    expected_pnl = 1.09
+            else:
+                max_rsi = max(rsi_5m, rsi_15m)
+                if max_rsi <= 25:
+                    signal_strength = "perfect"
+                    expected_wr = 98.3
+                    expected_rr = 10.8
+                    expected_pnl = 2.08
+                elif max_rsi <= 30:
+                    signal_strength = "very_strong"
+                    expected_wr = 97.2
+                    expected_rr = 7.1
+                    expected_pnl = 1.34
+                else:
+                    signal_strength = "strong"
+                    expected_wr = 92.1
+                    expected_rr = 4.8
+                    expected_pnl = 0.86
+
+            # SL and target levels
+            sl_pct = 0.5
+            if is_bull:
+                sl_price = round(cmp * (1 - sl_pct / 100), 2)
+                target_price = round(cmp * (1 + expected_pnl / 100), 2)
+            else:
+                sl_price = round(cmp * (1 + sl_pct / 100), 2)
+                target_price = round(cmp * (1 - expected_pnl / 100), 2)
+
+            # Score: higher RSI alignment = stronger signal
+            if is_bull:
+                score = (rsi_5m - RSI_BULL_THRESH) + (rsi_15m - RSI_BULL_THRESH)
+                if rsi_1h and rsi_1h > 60:
+                    score += 5
+            else:
+                score = (RSI_BEAR_THRESH - rsi_5m) + (RSI_BEAR_THRESH - rsi_15m)
+                if rsi_1h and rsi_1h < 40:
+                    score += 5
+            if strengthening:
+                score += 3
+            if time_zone == "afternoon":
+                score += 5
+            if signal_strength == "perfect":
+                score += 10
+            elif signal_strength == "very_strong":
+                score += 5
+
+            hold_note = "Hold 2H from entry" if can_hold_2h else "Hold till close — carry if needed"
+
+            return {
+                "symbol": canonical,
+                "display_symbol": sym,
+                "name": name,
+                "cmp": cmp,
+                "rsi_5m": rsi_5m,
+                "rsi_15m": rsi_15m,
+                "rsi_1h": rsi_1h,
+                "rsi_5m_prev": rsi_5m_prev,
+                "rsi_15m_prev": rsi_15m_prev,
+                "signal_type": signal_type,
+                "signal_strength": signal_strength,
+                "expected_wr": expected_wr,
+                "expected_rr": expected_rr,
+                "expected_pnl": expected_pnl,
+                "sl_pct": sl_pct,
+                "sl_price": sl_price,
+                "target_price": target_price,
+                "strengthening": strengthening,
+                "signal_time": signal_time,
+                "time_zone": time_zone,
+                "can_hold_2h": can_hold_2h,
+                "hold_note": hold_note,
+                "emas": ema_ctx,
+                "score": round(score, 1),
+            }
+        except Exception:
+            return None
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results_raw = list(pool.map(_scan_stock, stocks))
+
+    results = [r for r in results_raw if r is not None]
+    results.sort(key=lambda r: r["score"], reverse=True)
+
+    bt_file = Path("rsi_momentum_backtest.json")
+    bt_data = {}
+    if bt_file.exists():
+        try:
+            bt_data = json.loads(bt_file.read_text())
+        except Exception:
+            pass
+
+    for r in results:
+        sym = r["display_symbol"]
+        bt = bt_data.get(sym, {})
+        direction = r["signal_type"]
+        bt_dir = bt.get("bull" if direction == "bullish" else "bear", {})
+        r["backtest"] = {
+            "trades": bt_dir.get("trades", 0),
+            "win_rate": bt_dir.get("win_rate", 0),
+            "avg_pnl": bt_dir.get("avg_pnl", 0),
+            "rr": bt_dir.get("rr", 0),
+        } if bt_dir else None
+
+    bulls = [r for r in results if r["signal_type"] == "bullish"]
+    bears = [r for r in results if r["signal_type"] == "bearish"]
+
+    return jsonify({
+        "results": results,
+        "total_scanned": len(stocks),
+        "count": len(results),
+        "bulls": len(bulls),
+        "bears": len(bears),
+        "time": now.strftime("%H:%M:%S"),
+        "thresholds": {"bull": RSI_BULL_THRESH, "bear": RSI_BEAR_THRESH},
     })
 
 

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S/R Pattern Breakout — Stock Technical Analysis</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+  a { color: #58a6ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .container { max-width: 1300px; margin: 0 auto; padding: 2rem 1.5rem; }
+  .header { margin-bottom: 1.5rem; }
+  .header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .header h1 span { color: #f0883e; }
+  .header .sub { color: #8b949e; font-size: 0.9rem; }
+  .nav-links { display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.85rem; }
+
+  .summary-bar { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .summary-chip {
+    padding: 0.5rem 0.9rem; border-radius: 8px; font-size: 0.82rem; font-weight: 600;
+    background: #161b22; border: 1px solid #30363d;
+  }
+  .summary-chip .count { font-size: 1.1rem; font-weight: 700; margin-right: 0.3rem; }
+
+  .filter-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .filter-btn {
+    padding: 0.35rem 0.7rem; border-radius: 5px; font-size: 0.78rem; font-weight: 600;
+    border: 1px solid #30363d; background: #161b22; color: #8b949e; cursor: pointer; transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: #58a6ff; color: #e1e4e8; }
+  .filter-btn.active { background: #58a6ff20; color: #58a6ff; border-color: #58a6ff; }
+
+  .meta-bar { display: flex; justify-content: space-between; margin-bottom: 1rem; color: #8b949e; font-size: 0.82rem; }
+  .spinner { display: none; text-align: center; padding: 3rem; color: #8b949e; }
+  .spinner.active { display: block; }
+  .error-msg { text-align: center; padding: 2rem; color: #f85149; display: none; }
+
+  .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1rem; }
+  .stock-card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 1rem 1.15rem;
+    transition: border-color 0.15s;
+  }
+  .stock-card:hover { border-color: #58a6ff; }
+  .stock-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
+  .stock-sym { font-size: 1.05rem; font-weight: 700; }
+  .stock-sym a { color: #e1e4e8; }
+  .stock-sym a:hover { color: #58a6ff; }
+  .stock-cmp { font-size: 0.85rem; color: #8b949e; }
+  .stock-cmp strong { color: #e1e4e8; }
+
+  .setup-item {
+    padding: 0.6rem 0.7rem; background: #0d1117; border-radius: 7px; margin-bottom: 0.5rem;
+    border-left: 3px solid transparent;
+  }
+  .setup-bullish { border-left-color: #3fb950; }
+  .setup-bearish { border-left-color: #f85149; }
+  .setup-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
+  .setup-pattern { font-size: 0.88rem; font-weight: 600; }
+  .status-badge {
+    font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .status-approaching { background: #d2992220; color: #d29922; border: 1px solid #d2992240; }
+  .status-confirmed { background: #3fb95020; color: #3fb950; border: 1px solid #3fb95040; }
+
+  .confluence-bar {
+    display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.3rem 0;
+  }
+  .conf-tag {
+    font-size: 0.68rem; padding: 0.1rem 0.4rem; border-radius: 3px;
+    background: #58a6ff15; color: #58a6ff; border: 1px solid #58a6ff30;
+  }
+
+  .levels-row {
+    display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.35rem; font-size: 0.78rem;
+  }
+
+  .ema-info { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
+  .ema-tag { font-size: 0.7rem; padding: 0.12rem 0.4rem; border-radius: 4px; font-weight: 600; }
+
+  .reason-list { margin-top: 0.4rem; }
+  .reason-item { font-size: 0.78rem; color: #c9d1d9; padding: 0.1rem 0; }
+
+  .empty-state { text-align: center; padding: 3rem; color: #8b949e; }
+
+  @media (max-width: 720px) {
+    .results-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="nav-links">
+    <a href="/">&larr; Analysis</a>
+    <a href="/scanner">Scanner</a>
+    <a href="/patterns">Chart Patterns</a>
+    <a href="/today" style="color:#3fb950;font-weight:600;">Today's Picks</a>
+  </div>
+  <div class="header">
+    <h1>S/R Pattern <span>Breakout</span></h1>
+    <div class="sub">Daily chart patterns aligned with support/resistance confluence zones — high-probability breakout setups</div>
+  </div>
+
+  <div id="summaryBar" class="summary-bar" style="display:none;"></div>
+  <div id="filterRow" class="filter-row" style="display:none;"></div>
+  <div class="meta-bar" id="metaBar" style="display:none;">
+    <span id="metaInfo"></span>
+  </div>
+
+  <div class="spinner" id="spinner">Scanning F&O stocks for S/R pattern breakouts&hellip;</div>
+  <div class="error-msg" id="errorMsg"></div>
+  <div class="results-grid" id="resultsGrid"></div>
+  <div class="empty-state" id="emptyState" style="display:none;">
+    <p>No S/R pattern breakout setups found.</p>
+  </div>
+</div>
+
+<script>
+let currentFilter = 'all';
+let currentData = null;
+
+function fmt(v) { return v != null ? Number(v).toLocaleString('en-IN', {maximumFractionDigits: 2}) : '—'; }
+
+async function loadScan() {
+  const grid = document.getElementById('resultsGrid');
+  const spinner = document.getElementById('spinner');
+  const errorMsg = document.getElementById('errorMsg');
+  const emptyState = document.getElementById('emptyState');
+
+  grid.innerHTML = '';
+  errorMsg.style.display = 'none';
+  emptyState.style.display = 'none';
+  document.getElementById('summaryBar').style.display = 'none';
+  document.getElementById('filterRow').style.display = 'none';
+  document.getElementById('metaBar').style.display = 'none';
+  spinner.classList.add('active');
+
+  try {
+    const res = await fetch('/sr-breakout/scan');
+    const data = await res.json();
+    if (data.error) { errorMsg.textContent = data.error; errorMsg.style.display = 'block'; return; }
+    currentData = data;
+    renderResults(data);
+  } catch (err) {
+    errorMsg.textContent = 'Network error: ' + err.message;
+    errorMsg.style.display = 'block';
+  } finally {
+    spinner.classList.remove('active');
+  }
+}
+
+function renderResults(data) {
+  const summaryBar = document.getElementById('summaryBar');
+  const filterRow = document.getElementById('filterRow');
+  const metaBar = document.getElementById('metaBar');
+  const s = data.summary;
+
+  document.getElementById('metaInfo').textContent =
+    `${data.total_with_setups} of ${data.total_scanned} F&O stocks have S/R breakout setups`;
+  metaBar.style.display = 'flex';
+
+  summaryBar.innerHTML = `
+    <div class="summary-chip"><span class="count" style="color:#d29922;">${s.total_approaching}</span>Approaching</div>
+    <div class="summary-chip"><span class="count" style="color:#3fb950;">${s.total_confirmed}</span>Breakout Confirmed</div>
+    <div class="summary-chip"><span class="count" style="color:#3fb950;">${s.total_bullish}</span>Bullish</div>
+    <div class="summary-chip"><span class="count" style="color:#f85149;">${s.total_bearish}</span>Bearish</div>
+  `;
+  summaryBar.style.display = 'flex';
+
+  currentFilter = 'all';
+  filterRow.innerHTML = `
+    <span class="filter-btn active" onclick="applyFilter('all', this)">All</span>
+    <span class="filter-btn" onclick="applyFilter('confirmed', this)" style="border-color:#3fb95060;color:#3fb950;">Breakout Confirmed</span>
+    <span class="filter-btn" onclick="applyFilter('approaching', this)" style="border-color:#d2992260;color:#d29922;">Approaching</span>
+    <span class="filter-btn" onclick="applyFilter('bullish', this)">Bullish</span>
+    <span class="filter-btn" onclick="applyFilter('bearish', this)">Bearish</span>
+    <span class="filter-btn" onclick="applyFilter('high_confluence', this)" style="border-color:#58a6ff60;color:#58a6ff;">3+ Confluence</span>
+  `;
+  filterRow.style.display = 'flex';
+
+  renderCards(data.results);
+}
+
+function applyFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (currentData) renderCards(currentData.results);
+}
+
+function renderCards(results) {
+  const grid = document.getElementById('resultsGrid');
+  const emptyState = document.getElementById('emptyState');
+
+  let filtered = results;
+  if (currentFilter === 'confirmed') {
+    filtered = results.filter(r => r.top_status === 'Breakout Confirmed');
+  } else if (currentFilter === 'approaching') {
+    filtered = results.filter(r => r.top_status === 'Approaching');
+  } else if (currentFilter === 'bullish') {
+    filtered = results.filter(r => r.top_direction === 'bullish');
+  } else if (currentFilter === 'bearish') {
+    filtered = results.filter(r => r.top_direction === 'bearish');
+  } else if (currentFilter === 'high_confluence') {
+    filtered = results.filter(r => r.setups.some(s => s.confluence_count >= 3));
+  }
+
+  if (!filtered.length) { grid.innerHTML = ''; emptyState.style.display = 'block'; return; }
+  emptyState.style.display = 'none';
+
+  grid.innerHTML = filtered.map(r => {
+    const sym = (r.display_symbol || r.symbol || '').replace('NSE:', '').replace('-EQ', '');
+    const dirColor = r.top_direction === 'bullish' ? '#3fb950' : '#f85149';
+    const statusColor = r.top_status === 'Breakout Confirmed' ? '#3fb950' : '#d29922';
+
+    const emaColor = r.ema_alignment === 'strong_bullish' ? '#3fb950' : r.ema_alignment === 'bullish' ? '#a3d977' : r.ema_alignment === 'bearish' ? '#f0883e' : r.ema_alignment === 'strong_bearish' ? '#f85149' : '#8b949e';
+    let emaTags = `<span class="ema-tag" style="background:${emaColor}15;color:${emaColor};border:1px solid ${emaColor}40;">EMA: ${(r.ema_alignment || 'neutral').replace('_', ' ')}</span>`;
+    if (r.ema_crossovers) r.ema_crossovers.forEach(c => {
+      emaTags += `<span class="ema-tag" style="background:#3fb95015;color:#3fb950;border:1px solid #3fb95040;">${c}</span>`;
+    });
+
+    const reasonsHtml = (r.reasons || []).map(reason =>
+      `<div class="reason-item"><span style="color:${dirColor};margin-right:0.3rem;">&#10003;</span>${reason}</div>`
+    ).join('');
+
+    const setupsHtml = r.setups.map(s => {
+      const setupCls = s.direction === 'bullish' ? 'setup-bullish' : 'setup-bearish';
+      const statusCls = s.confirmed ? 'status-confirmed' : 'status-approaching';
+      const statusLabel = s.confirmed ? 'Breakout Confirmed' : 'Approaching';
+      const dirIcon = s.direction === 'bullish' ? '&#9650;' : '&#9660;';
+      const dirClr = s.direction === 'bullish' ? '#3fb950' : '#f85149';
+
+      const confTags = (s.confluence_sources || []).map(src =>
+        `<span class="conf-tag">${src}</span>`
+      ).join('');
+
+      let levelsHtml = '<div class="levels-row">';
+      if (s.direction === 'bullish') {
+        levelsHtml += `<span style="color:#3fb950;">Entry ₹${fmt(s.entry)}</span>`;
+        if (s.target) levelsHtml += `<span style="color:#a3d977;">Target ₹${fmt(s.target)}</span>`;
+      } else {
+        levelsHtml += `<span style="color:#f85149;">Entry ₹${fmt(s.entry)}</span>`;
+        if (s.target) levelsHtml += `<span style="color:#f0883e;">Target ₹${fmt(s.target)}</span>`;
+      }
+      if (s.sl) levelsHtml += `<span style="color:#f85149;">SL ₹${fmt(s.sl)}</span>`;
+      if (s.rr_ratio) levelsHtml += `<span style="color:#8b949e;">RR ${s.rr_ratio}:1</span>`;
+      levelsHtml += '</div>';
+
+      const volBadge = s.volume_confirmed
+        ? '<span style="font-size:0.65rem;padding:1px 5px;border-radius:3px;background:#3fb95015;color:#3fb950;border:1px solid #3fb95030;margin-left:0.3rem;">VOL &#10003;</span>'
+        : '';
+
+      return `<div class="setup-item ${setupCls}">
+        <div class="setup-top">
+          <div class="setup-pattern">
+            <span style="color:${dirClr};margin-right:0.2rem;">${dirIcon}</span>
+            ${s.pattern}${volBadge}
+          </div>
+          <span class="status-badge ${statusCls}">${statusLabel}</span>
+        </div>
+        <div style="font-size:0.76rem;color:#8b949e;margin-bottom:0.2rem;">
+          Breakout at ₹${fmt(s.breakout_level)} &middot; ${s.distance_pct}% away &middot; ${s.confluence_count}-way confluence (str: ${s.confluence_strength})
+        </div>
+        <div class="confluence-bar">${confTags}</div>
+        ${levelsHtml}
+      </div>`;
+    }).join('');
+
+    return `<div class="stock-card" style="border-color:${dirColor}30;">
+      <div class="stock-header">
+        <div>
+          <div class="stock-sym">
+            <a href="/?symbol=${encodeURIComponent(sym)}">${sym}</a>
+            <span style="font-size:0.75rem;font-weight:700;color:${statusColor};margin-left:0.4rem;">${r.top_status.toUpperCase()}</span>
+          </div>
+          <div style="font-size:0.75rem;color:#8b949e;">${r.name || ''}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="stock-cmp">&#8377;<strong>${fmt(r.cmp)}</strong></div>
+          ${r.rsi ? `<div style="font-size:0.7rem;color:#8b949e;">RSI: ${r.rsi}</div>` : ''}
+        </div>
+      </div>
+      <div class="reason-list">${reasonsHtml}</div>
+      <div class="ema-info">${emaTags}</div>
+      <div style="margin-top:0.6rem;">${setupsHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+loadScan();
+</script>
+</body>
+</html>

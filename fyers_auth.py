@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Automated Fyers access token generation using TOTP + local redirect server."""
+"""Fyers access token generation — supports both local (browser) and cloud (callback) flows."""
 from __future__ import annotations
 
 import hashlib
@@ -47,23 +47,22 @@ class _AuthCodeHandler(BaseHTTPRequestHandler):
         pass
 
 
-def generate_access_token() -> str:
+def _do_login():
+    """Perform Fyers API login (OTP + TOTP + PIN) and return the bearer token."""
     fy_id = os.environ.get("FYERS_FY_ID")
     app_id = os.environ.get("FYERS_APP_ID")
-    secret_key = os.environ.get("FYERS_SECRET_KEY")
     redirect_uri = os.environ.get("FYERS_REDIRECT_URI")
     pin = os.environ.get("FYERS_PIN")
     totp_secret = os.environ.get("FYERS_TOTP_SECRET")
 
-    if not all([fy_id, app_id, secret_key, redirect_uri, pin, totp_secret]):
+    if not all([fy_id, app_id, redirect_uri, pin, totp_secret]):
         missing = [k for k, v in {
-            "FYERS_FY_ID": fy_id, "FYERS_APP_ID": app_id, "FYERS_SECRET_KEY": secret_key,
+            "FYERS_FY_ID": fy_id, "FYERS_APP_ID": app_id,
             "FYERS_REDIRECT_URI": redirect_uri, "FYERS_PIN": pin, "FYERS_TOTP_SECRET": totp_secret,
         }.items() if not v]
-        raise ValueError(f"Missing in .env: {', '.join(missing)}")
+        raise ValueError(f"Missing env vars: {', '.join(missing)}")
 
-    # Step 1: Login via API
-    print("  Step 1/4: Logging in (OTP + TOTP + PIN)...")
+    print("  Step 1: Logging in (OTP + TOTP + PIN)...")
     r1 = requests.post(f"{BASE_URL}/send_login_otp", json={"fy_id": fy_id, "app_id": "2"})
     r1.raise_for_status()
     d1 = r1.json()
@@ -87,9 +86,7 @@ def generate_access_token() -> str:
 
     bearer = d3["data"]["access_token"]
 
-    # Step 2: Get auth session + start local server + open browser
-    print("  Step 2/4: Opening browser for authorization...")
-
+    print("  Step 2: Creating auth session...")
     r4 = requests.post(f"{TOKEN_URL}/token", json={
         "fyers_id": fy_id, "app_id": app_id.split("-")[0], "redirect_uri": redirect_uri,
         "appType": "100", "code_challenge": "", "state": "None",
@@ -100,23 +97,85 @@ def generate_access_token() -> str:
     if d4.get("s") != "ok":
         raise Exception(f"token request failed: {d4}")
 
-    # Start local server to catch the redirect
+    return bearer
+
+
+def get_auth_url(redirect_uri_override=None):
+    """Do the login and return the Fyers authorization URL the user must visit.
+    Used by the web app to redirect the user's browser to Fyers for auth.
+    """
+    _do_login()
+    app_id = os.environ.get("FYERS_APP_ID")
+    redirect_uri = redirect_uri_override or os.environ.get("FYERS_REDIRECT_URI")
+    return (
+        f"{TOKEN_URL}/generate-authcode"
+        f"?client_id={app_id}&redirect_uri={redirect_uri}"
+        f"&response_type=code&state=None"
+    )
+
+
+def exchange_auth_code(auth_code: str) -> str:
+    """Exchange an auth_code for an access token. Save to env."""
+    app_id = os.environ.get("FYERS_APP_ID")
+    secret_key = os.environ.get("FYERS_SECRET_KEY")
+
+    print("  Exchanging auth code for access token...")
+    app_id_hash = hashlib.sha256(f"{app_id}:{secret_key}".encode()).hexdigest()
+    r = requests.post(f"{TOKEN_URL}/validate-authcode", json={
+        "grant_type": "authorization_code", "appIdHash": app_id_hash, "code": auth_code,
+    })
+    r.raise_for_status()
+    d = r.json()
+    if d.get("s") != "ok":
+        raise Exception(f"validate-authcode failed: {d}")
+
+    access_token = d["access_token"]
+
+    print("  Verifying token...")
+    from fyers_apiv3 import fyersModel
+    os.makedirs("logs", exist_ok=True)
+    client = fyersModel.FyersModel(client_id=app_id, token=access_token, is_async=False, log_path="logs/")
+    profile = client.get_profile()
+    if profile.get("s") != "ok":
+        raise Exception(f"Token verification failed: {profile}")
+
+    name = profile["data"]["name"]
+    print(f"  Authenticated as: {name}")
+
+    os.environ["FYERS_ACCESS_TOKEN"] = access_token
+    try:
+        set_key(ENV_PATH, "FYERS_ACCESS_TOKEN", access_token)
+        print("  Token saved to .env")
+    except Exception:
+        print("  Token saved to env (no .env file write on cloud)")
+
+    return access_token
+
+
+def generate_access_token() -> str:
+    """Full token generation — login + browser/local server + exchange.
+    Used when running locally. On cloud, use get_auth_url() + exchange_auth_code() instead.
+    """
+    _do_login()
+
+    app_id = os.environ.get("FYERS_APP_ID")
+    redirect_uri = os.environ.get("FYERS_REDIRECT_URI")
+
+    auth_url = (
+        f"{TOKEN_URL}/generate-authcode"
+        f"?client_id={app_id}&redirect_uri={redirect_uri}"
+        f"&response_type=code&state=None"
+    )
+
     parsed = urlparse(redirect_uri)
     port = parsed.port or 8080
     server = HTTPServer(("127.0.0.1", port), _AuthCodeHandler)
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
 
-    # Open the auth URL in the default browser
-    auth_url = (
-        f"{TOKEN_URL}/generate-authcode"
-        f"?client_id={app_id}&redirect_uri={redirect_uri}"
-        f"&response_type=code&state=None"
-    )
     webbrowser.open(auth_url)
 
-    # Wait for the auth_code to come back via redirect
-    print("  Waiting for browser authorization (log in if prompted)...")
+    print("  Waiting for browser authorization...")
     for _ in range(120):
         if _auth_code_result["code"]:
             break
@@ -128,36 +187,13 @@ def generate_access_token() -> str:
     _auth_code_result["code"] = None
 
     if not auth_code:
-        raise Exception("Timed out waiting for auth_code (60s). Did you complete the login?")
+        raise Exception("Timed out waiting for auth_code")
 
-    # Step 3: Exchange auth_code for access token
-    print("  Step 3/4: Exchanging auth code for access token...")
-    app_id_hash = hashlib.sha256(f"{app_id}:{secret_key}".encode()).hexdigest()
-    r5 = requests.post(f"{TOKEN_URL}/validate-authcode", json={
-        "grant_type": "authorization_code", "appIdHash": app_id_hash, "code": auth_code,
-    })
-    r5.raise_for_status()
-    d5 = r5.json()
-    if d5.get("s") != "ok":
-        raise Exception(f"validate-authcode failed: {d5}")
-
-    access_token = d5["access_token"]
-
-    # Step 4: Verify
-    print("  Step 4/4: Verifying token...")
-    from fyers_apiv3 import fyersModel
-    os.makedirs("logs", exist_ok=True)
-    client = fyersModel.FyersModel(client_id=app_id, token=access_token, is_async=False, log_path="logs/")
-    profile = client.get_profile()
-    if profile.get("s") != "ok":
-        raise Exception(f"Token verification failed: {profile}")
-
-    print(f"  Authenticated as: {profile['data']['name']}")
-    return access_token
+    return exchange_auth_code(auth_code)
 
 
 def refresh_token_if_needed() -> bool:
-    """Check if current token works. If not, generate new one and update .env."""
+    """Check if current token works. If not, generate new one (local only)."""
     app_id = os.environ.get("FYERS_APP_ID")
     token = os.environ.get("FYERS_ACCESS_TOKEN")
 
@@ -176,9 +212,6 @@ def refresh_token_if_needed() -> bool:
     print("Fyers token expired. Refreshing...")
     try:
         new_token = generate_access_token()
-        os.environ["FYERS_ACCESS_TOKEN"] = new_token
-        set_key(ENV_PATH, "FYERS_ACCESS_TOKEN", new_token)
-        print("Token saved to .env")
         return True
     except Exception as e:
         print(f"Token refresh failed: {e}")

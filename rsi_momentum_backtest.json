@@ -1,0 +1,4832 @@
+{
+  "360ONE": {
+    "symbol": "360ONE",
+    "bull": {
+      "trades": 24,
+      "wins": 23,
+      "win_rate": 95.8,
+      "avg_pnl": 1.068,
+      "avg_mfe": 1.411,
+      "avg_mae": 0.31,
+      "total_pnl": 25.63,
+      "rr": 4.6
+    },
+    "bear": {
+      "trades": 14,
+      "wins": 12,
+      "win_rate": 85.7,
+      "avg_pnl": 1.102,
+      "avg_mfe": 1.531,
+      "avg_mae": 0.298,
+      "total_pnl": 15.43,
+      "rr": 5.1
+    }
+  },
+  "ABB": {
+    "symbol": "ABB",
+    "bull": {
+      "trades": 17,
+      "wins": 15,
+      "win_rate": 88.2,
+      "avg_pnl": 2.134,
+      "avg_mfe": 2.908,
+      "avg_mae": 0.34,
+      "total_pnl": 36.28,
+      "rr": 8.6
+    },
+    "bear": {
+      "trades": 19,
+      "wins": 17,
+      "win_rate": 89.5,
+      "avg_pnl": 0.688,
+      "avg_mfe": 1.192,
+      "avg_mae": 0.242,
+      "total_pnl": 13.07,
+      "rr": 4.9
+    }
+  },
+  "APLAPOLLO": {
+    "symbol": "APLAPOLLO",
+    "bull": {
+      "trades": 32,
+      "wins": 30,
+      "win_rate": 93.8,
+      "avg_pnl": 1.087,
+      "avg_mfe": 1.335,
+      "avg_mae": 0.238,
+      "total_pnl": 34.78,
+      "rr": 5.6
+    },
+    "bear": {
+      "trades": 7,
+      "wins": 7,
+      "win_rate": 100.0,
+      "avg_pnl": 0.602,
+      "avg_mfe": 0.784,
+      "avg_mae": 0.165,
+      "total_pnl": 4.21,
+      "rr": 4.8
+    }
+  },
+  "AUBANK": {
+    "symbol": "AUBANK",
+    "bull": {
+      "trades": 13,
+      "wins": 12,
+      "win_rate": 92.3,
+      "avg_pnl": 1.705,
+      "avg_mfe": 2.208,
+      "avg_mae": 0.297,
+      "total_pnl": 22.17,
+      "rr": 7.4
+    },
+    "bear": {
+      "trades": 24,
+      "wins": 24,
+      "win_rate": 100.0,
+      "avg_pnl": 1.307,
+      "avg_mfe": 1.62,
+      "avg_mae": 0.246,
+      "total_pnl": 31.36,
+      "rr": 6.6
+    }
+  },
+  "ADANIENSOL": {
+    "symbol": "ADANIENSOL",
+    "bull": {
+      "trades": 14,
+      "wins": 13,
+      "win_rate": 92.9,
+      "avg_pnl": 1.128,
+      "avg_mfe": 1.563,
+      "avg_mae": 0.376,
+      "total_pnl": 15.79,
+      "rr": 4.2
+    },
+    "bear": {
+      "trades": 12,
+      "wins": 12,
+      "win_rate": 100.0,
+      "avg_pnl": 1.221,
+      "avg_mfe": 1.523,
+      "avg_mae": 0.328,
+      "total_pnl": 14.66,
+      "rr": 4.6
+    }
+  },
+  "ADANIENT": {
+    "symbol": "ADANIENT",
+    "bull": {
+      "trades": 19,
+      "wins": 18,
+      "win_rate": 94.7,
+      "avg_pnl": 0.942,
+      "avg_mfe": 1.25,
+      "avg_mae": 0.275,
+      "total_pnl": 17.89,
+      "rr": 4.5
+    },
+    "bear": {
+      "trades": 29,
+      "wins": 29,
+      "win_rate": 100.0,
+      "avg_pnl": 0.935,
+      "avg_mfe": 1.196,
+      "avg_mae": 0.264,
+      "total_pnl": 27.11,
+      "rr": 4.5
+    }
+  },
+  "ADANIGREEN": {
+    "symbol": "ADANIGREEN",
+    "bull": {
+      "trades": 11,
+      "wins": 11,
+      "win_rate": 100.0,
+      "avg_pnl": 1.396,
+      "avg_mfe": 2.074,
+      "avg_mae": 0.375,
+      "total_pnl": 15.36,
+      "rr": 5.5
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 23,
+      "win_rate": 92.0,
+      "avg_pnl": 1.206,
+      "avg_mfe": 1.505,
+      "avg_mae": 0.437,
+      "total_pnl": 30.14,
+      "rr": 3.4
+    }
+  },
+  "ADANIPORTS": {
+    "symbol": "ADANIPORTS",
+    "bull": {
+      "trades": 14,
+      "wins": 11,
+      "win_rate": 78.6,
+      "avg_pnl": 0.695,
+      "avg_mfe": 0.966,
+      "avg_mae": 0.231,
+      "total_pnl": 9.73,
+      "rr": 4.2
+    },
+    "bear": {
+      "trades": 34,
+      "wins": 34,
+      "win_rate": 100.0,
+      "avg_pnl": 0.888,
+      "avg_mfe": 1.133,
+      "avg_mae": 0.25,
+      "total_pnl": 30.19,
+      "rr": 4.5
+    }
+  },
+  "ADANIPOWER": {
+    "symbol": "ADANIPOWER",
+    "bull": {
+      "trades": 17,
+      "wins": 17,
+      "win_rate": 100.0,
+      "avg_pnl": 1.379,
+      "avg_mfe": 1.879,
+      "avg_mae": 0.227,
+      "total_pnl": 23.44,
+      "rr": 8.3
+    },
+    "bear": {
+      "trades": 31,
+      "wins": 29,
+      "win_rate": 93.5,
+      "avg_pnl": 0.922,
+      "avg_mfe": 1.284,
+      "avg_mae": 0.201,
+      "total_pnl": 28.58,
+      "rr": 6.4
+    }
+  },
+  "ABCAPITAL": {
+    "symbol": "ABCAPITAL",
+    "bull": {
+      "trades": 31,
+      "wins": 31,
+      "win_rate": 100.0,
+      "avg_pnl": 1.345,
+      "avg_mfe": 1.63,
+      "avg_mae": 0.3,
+      "total_pnl": 41.69,
+      "rr": 5.4
+    },
+    "bear": {
+      "trades": 17,
+      "wins": 16,
+      "win_rate": 94.1,
+      "avg_pnl": 1.098,
+      "avg_mfe": 1.639,
+      "avg_mae": 0.21,
+      "total_pnl": 18.66,
+      "rr": 7.8
+    }
+  },
+  "ALKEM": {
+    "symbol": "ALKEM",
+    "bull": {
+      "trades": 7,
+      "wins": 7,
+      "win_rate": 100.0,
+      "avg_pnl": 1.825,
+      "avg_mfe": 2.083,
+      "avg_mae": 0.216,
+      "total_pnl": 12.77,
+      "rr": 9.6
+    },
+    "bear": {
+      "trades": 22,
+      "wins": 21,
+      "win_rate": 95.5,
+      "avg_pnl": 0.708,
+      "avg_mfe": 0.91,
+      "avg_mae": 0.246,
+      "total_pnl": 15.57,
+      "rr": 3.7
+    }
+  },
+  "AMBER": {
+    "symbol": "AMBER",
+    "bull": {
+      "trades": 15,
+      "wins": 12,
+      "win_rate": 80.0,
+      "avg_pnl": 0.953,
+      "avg_mfe": 1.553,
+      "avg_mae": 0.303,
+      "total_pnl": 14.29,
+      "rr": 5.1
+    },
+    "bear": {
+      "trades": 23,
+      "wins": 22,
+      "win_rate": 95.7,
+      "avg_pnl": 0.888,
+      "avg_mfe": 1.235,
+      "avg_mae": 0.253,
+      "total_pnl": 20.42,
+      "rr": 4.9
+    }
+  },
+  "AMBUJACEM": {
+    "symbol": "AMBUJACEM",
+    "bull": {
+      "trades": 21,
+      "wins": 19,
+      "win_rate": 90.5,
+      "avg_pnl": 1.074,
+      "avg_mfe": 1.521,
+      "avg_mae": 0.215,
+      "total_pnl": 22.55,
+      "rr": 7.1
+    },
+    "bear": {
+      "trades": 29,
+      "wins": 27,
+      "win_rate": 93.1,
+      "avg_pnl": 0.755,
+      "avg_mfe": 1.011,
+      "avg_mae": 0.216,
+      "total_pnl": 21.91,
+      "rr": 4.7
+    }
+  },
+  "ANGELONE": {
+    "symbol": "ANGELONE",
+    "bull": {
+      "trades": 21,
+      "wins": 18,
+      "win_rate": 85.7,
+      "avg_pnl": 1.102,
+      "avg_mfe": 1.69,
+      "avg_mae": 0.471,
+      "total_pnl": 23.15,
+      "rr": 3.6
+    },
+    "bear": {
+      "trades": 38,
+      "wins": 37,
+      "win_rate": 97.4,
+      "avg_pnl": 1.027,
+      "avg_mfe": 1.387,
+      "avg_mae": 0.312,
+      "total_pnl": 39.02,
+      "rr": 4.4
+    }
+  },
+  "APOLLOHOSP": {
+    "symbol": "APOLLOHOSP",
+    "bull": {
+      "trades": 20,
+      "wins": 19,
+      "win_rate": 95.0,
+      "avg_pnl": 0.713,
+      "avg_mfe": 0.967,
+      "avg_mae": 0.176,
+      "total_pnl": 14.26,
+      "rr": 5.5
+    },
+    "bear": {
+      "trades": 13,
+      "wins": 13,
+      "win_rate": 100.0,
+      "avg_pnl": 0.818,
+      "avg_mfe": 1.099,
+      "avg_mae": 0.289,
+      "total_pnl": 10.63,
+      "rr": 3.8
+    }
+  },
+  "ASHOKLEY": {
+    "symbol": "ASHOKLEY",
+    "bull": {
+      "trades": 19,
+      "wins": 18,
+      "win_rate": 94.7,
+      "avg_pnl": 1.33,
+      "avg_mfe": 1.626,
+      "avg_mae": 0.333,
+      "total_pnl": 25.27,
+      "rr": 4.9
+    },
+    "bear": {
+      "trades": 18,
+      "wins": 16,
+      "win_rate": 88.9,
+      "avg_pnl": 0.827,
+      "avg_mfe": 1.149,
+      "avg_mae": 0.318,
+      "total_pnl": 14.89,
+      "rr": 3.6
+    }
+  },
+  "ASIANPAINT": {
+    "symbol": "ASIANPAINT",
+    "bull": {
+      "trades": 14,
+      "wins": 11,
+      "win_rate": 78.6,
+      "avg_pnl": 0.835,
+      "avg_mfe": 1.19,
+      "avg_mae": 0.231,
+      "total_pnl": 11.7,
+      "rr": 5.2
+    },
+    "bear": {
+      "trades": 11,
+      "wins": 8,
+      "win_rate": 72.7,
+      "avg_pnl": 0.656,
+      "avg_mfe": 0.936,
+      "avg_mae": 0.212,
+      "total_pnl": 7.21,
+      "rr": 4.4
+    }
+  },
+  "ASTRAL": {
+    "symbol": "ASTRAL",
+    "bull": {
+      "trades": 34,
+      "wins": 31,
+      "win_rate": 91.2,
+      "avg_pnl": 1.598,
+      "avg_mfe": 2.185,
+      "avg_mae": 0.214,
+      "total_pnl": 54.32,
+      "rr": 10.2
+    },
+    "bear": {
+      "trades": 13,
+      "wins": 12,
+      "win_rate": 92.3,
+      "avg_pnl": 0.65,
+      "avg_mfe": 0.892,
+      "avg_mae": 0.238,
+      "total_pnl": 8.46,
+      "rr": 3.7
+    }
+  },
+  "ATHERENERG": {
+    "symbol": "ATHERENERG",
+    "bull": {
+      "trades": 35,
+      "wins": 32,
+      "win_rate": 91.4,
+      "avg_pnl": 2.062,
+      "avg_mfe": 2.768,
+      "avg_mae": 0.52,
+      "total_pnl": 72.17,
+      "rr": 5.3
+    },
+    "bear": {
+      "trades": 22,
+      "wins": 18,
+      "win_rate": 81.8,
+      "avg_pnl": 1.132,
+      "avg_mfe": 1.83,
+      "avg_mae": 0.277,
+      "total_pnl": 24.89,
+      "rr": 6.6
+    }
+  },
+  "AUROPHARMA": {
+    "symbol": "AUROPHARMA",
+    "bull": {
+      "trades": 23,
+      "wins": 23,
+      "win_rate": 100.0,
+      "avg_pnl": 1.338,
+      "avg_mfe": 1.624,
+      "avg_mae": 0.269,
+      "total_pnl": 30.78,
+      "rr": 6.0
+    },
+    "bear": {
+      "trades": 16,
+      "wins": 15,
+      "win_rate": 93.8,
+      "avg_pnl": 0.831,
+      "avg_mfe": 1.238,
+      "avg_mae": 0.318,
+      "total_pnl": 13.29,
+      "rr": 3.9
+    }
+  },
+  "DMART": {
+    "symbol": "DMART",
+    "bull": {
+      "trades": 18,
+      "wins": 17,
+      "win_rate": 94.4,
+      "avg_pnl": 1.008,
+      "avg_mfe": 1.355,
+      "avg_mae": 0.148,
+      "total_pnl": 18.15,
+      "rr": 9.2
+    },
+    "bear": {
+      "trades": 28,
+      "wins": 26,
+      "win_rate": 92.9,
+      "avg_pnl": 1.054,
+      "avg_mfe": 1.351,
+      "avg_mae": 0.236,
+      "total_pnl": 29.52,
+      "rr": 5.7
+    }
+  },
+  "AXISBANK": {
+    "symbol": "AXISBANK",
+    "bull": {
+      "trades": 27,
+      "wins": 27,
+      "win_rate": 100.0,
+      "avg_pnl": 0.707,
+      "avg_mfe": 0.919,
+      "avg_mae": 0.167,
+      "total_pnl": 19.1,
+      "rr": 5.5
+    },
+    "bear": {
+      "trades": 29,
+      "wins": 23,
+      "win_rate": 79.3,
+      "avg_pnl": 0.641,
+      "avg_mfe": 1.074,
+      "avg_mae": 0.251,
+      "total_pnl": 18.58,
+      "rr": 4.3
+    }
+  },
+  "BSE": {
+    "symbol": "BSE",
+    "bull": {
+      "trades": 22,
+      "wins": 21,
+      "win_rate": 95.5,
+      "avg_pnl": 1.109,
+      "avg_mfe": 1.41,
+      "avg_mae": 0.258,
+      "total_pnl": 24.4,
+      "rr": 5.5
+    },
+    "bear": {
+      "trades": 37,
+      "wins": 32,
+      "win_rate": 86.5,
+      "avg_pnl": 0.933,
+      "avg_mfe": 1.341,
+      "avg_mae": 0.358,
+      "total_pnl": 34.52,
+      "rr": 3.7
+    }
+  },
+  "BAJAJ-AUTO": {
+    "symbol": "BAJAJ-AUTO",
+    "bull": {
+      "trades": 23,
+      "wins": 21,
+      "win_rate": 91.3,
+      "avg_pnl": 1.158,
+      "avg_mfe": 1.536,
+      "avg_mae": 0.28,
+      "total_pnl": 26.63,
+      "rr": 5.5
+    },
+    "bear": {
+      "trades": 7,
+      "wins": 5,
+      "win_rate": 71.4,
+      "avg_pnl": 0.487,
+      "avg_mfe": 0.807,
+      "avg_mae": 0.157,
+      "total_pnl": 3.41,
+      "rr": 5.1
+    }
+  },
+  "BAJFINANCE": {
+    "symbol": "BAJFINANCE",
+    "bull": {
+      "trades": 30,
+      "wins": 29,
+      "win_rate": 96.7,
+      "avg_pnl": 1.096,
+      "avg_mfe": 1.563,
+      "avg_mae": 0.234,
+      "total_pnl": 32.88,
+      "rr": 6.7
+    },
+    "bear": {
+      "trades": 15,
+      "wins": 14,
+      "win_rate": 93.3,
+      "avg_pnl": 0.927,
+      "avg_mfe": 1.293,
+      "avg_mae": 0.203,
+      "total_pnl": 13.9,
+      "rr": 6.4
+    }
+  },
+  "BAJAJFINSV": {
+    "symbol": "BAJAJFINSV",
+    "bull": {
+      "trades": 28,
+      "wins": 27,
+      "win_rate": 96.4,
+      "avg_pnl": 1.211,
+      "avg_mfe": 1.664,
+      "avg_mae": 0.215,
+      "total_pnl": 33.91,
+      "rr": 7.7
+    },
+    "bear": {
+      "trades": 11,
+      "wins": 11,
+      "win_rate": 100.0,
+      "avg_pnl": 1.283,
+      "avg_mfe": 1.677,
+      "avg_mae": 0.133,
+      "total_pnl": 14.11,
+      "rr": 12.6
+    }
+  },
+  "BAJAJHLDNG": {
+    "symbol": "BAJAJHLDNG",
+    "bull": {
+      "trades": 15,
+      "wins": 11,
+      "win_rate": 73.3,
+      "avg_pnl": 0.829,
+      "avg_mfe": 1.282,
+      "avg_mae": 0.311,
+      "total_pnl": 12.44,
+      "rr": 4.1
+    },
+    "bear": {
+      "trades": 19,
+      "wins": 19,
+      "win_rate": 100.0,
+      "avg_pnl": 0.969,
+      "avg_mfe": 1.214,
+      "avg_mae": 0.243,
+      "total_pnl": 18.4,
+      "rr": 5.0
+    }
+  },
+  "BANDHANBNK": {
+    "symbol": "BANDHANBNK",
+    "bull": {
+      "trades": 19,
+      "wins": 16,
+      "win_rate": 84.2,
+      "avg_pnl": 1.276,
+      "avg_mfe": 1.848,
+      "avg_mae": 0.416,
+      "total_pnl": 24.25,
+      "rr": 4.4
+    },
+    "bear": {
+      "trades": 36,
+      "wins": 36,
+      "win_rate": 100.0,
+      "avg_pnl": 1.324,
+      "avg_mfe": 1.71,
+      "avg_mae": 0.276,
+      "total_pnl": 47.66,
+      "rr": 6.2
+    }
+  },
+  "BANKBARODA": {
+    "symbol": "BANKBARODA",
+    "bull": {
+      "trades": 21,
+      "wins": 21,
+      "win_rate": 100.0,
+      "avg_pnl": 1.033,
+      "avg_mfe": 1.339,
+      "avg_mae": 0.274,
+      "total_pnl": 21.7,
+      "rr": 4.9
+    },
+    "bear": {
+      "trades": 28,
+      "wins": 26,
+      "win_rate": 92.9,
+      "avg_pnl": 1.126,
+      "avg_mfe": 1.474,
+      "avg_mae": 0.192,
+      "total_pnl": 31.52,
+      "rr": 7.7
+    }
+  },
+  "BANKINDIA": {
+    "symbol": "BANKINDIA",
+    "bull": {
+      "trades": 20,
+      "wins": 18,
+      "win_rate": 90.0,
+      "avg_pnl": 1.223,
+      "avg_mfe": 1.838,
+      "avg_mae": 0.249,
+      "total_pnl": 24.45,
+      "rr": 7.4
+    },
+    "bear": {
+      "trades": 17,
+      "wins": 17,
+      "win_rate": 100.0,
+      "avg_pnl": 1.201,
+      "avg_mfe": 1.388,
+      "avg_mae": 0.287,
+      "total_pnl": 20.42,
+      "rr": 4.8
+    }
+  },
+  "MAHABANK": {
+    "symbol": "MAHABANK",
+    "bull": {
+      "trades": 30,
+      "wins": 28,
+      "win_rate": 93.3,
+      "avg_pnl": 1.296,
+      "avg_mfe": 1.887,
+      "avg_mae": 0.295,
+      "total_pnl": 38.87,
+      "rr": 6.4
+    },
+    "bear": {
+      "trades": 30,
+      "wins": 26,
+      "win_rate": 86.7,
+      "avg_pnl": 0.801,
+      "avg_mfe": 1.127,
+      "avg_mae": 0.4,
+      "total_pnl": 24.03,
+      "rr": 2.8
+    }
+  },
+  "BDL": {
+    "symbol": "BDL",
+    "bull": {
+      "trades": 15,
+      "wins": 14,
+      "win_rate": 93.3,
+      "avg_pnl": 1.628,
+      "avg_mfe": 2.165,
+      "avg_mae": 0.395,
+      "total_pnl": 24.42,
+      "rr": 5.5
+    },
+    "bear": {
+      "trades": 35,
+      "wins": 33,
+      "win_rate": 94.3,
+      "avg_pnl": 0.953,
+      "avg_mfe": 1.215,
+      "avg_mae": 0.257,
+      "total_pnl": 33.36,
+      "rr": 4.7
+    }
+  },
+  "BEL": {
+    "symbol": "BEL",
+    "bull": {
+      "trades": 11,
+      "wins": 11,
+      "win_rate": 100.0,
+      "avg_pnl": 0.933,
+      "avg_mfe": 1.15,
+      "avg_mae": 0.188,
+      "total_pnl": 10.27,
+      "rr": 6.1
+    },
+    "bear": {
+      "trades": 18,
+      "wins": 16,
+      "win_rate": 88.9,
+      "avg_pnl": 0.864,
+      "avg_mfe": 1.065,
+      "avg_mae": 0.171,
+      "total_pnl": 15.55,
+      "rr": 6.2
+    }
+  },
+  "BHARATFORG": {
+    "symbol": "BHARATFORG",
+    "bull": {
+      "trades": 27,
+      "wins": 25,
+      "win_rate": 92.6,
+      "avg_pnl": 0.869,
+      "avg_mfe": 1.302,
+      "avg_mae": 0.229,
+      "total_pnl": 23.47,
+      "rr": 5.7
+    },
+    "bear": {
+      "trades": 22,
+      "wins": 20,
+      "win_rate": 90.9,
+      "avg_pnl": 0.967,
+      "avg_mfe": 1.269,
+      "avg_mae": 0.326,
+      "total_pnl": 21.28,
+      "rr": 3.9
+    }
+  },
+  "BHEL": {
+    "symbol": "BHEL",
+    "bull": {
+      "trades": 18,
+      "wins": 18,
+      "win_rate": 100.0,
+      "avg_pnl": 1.471,
+      "avg_mfe": 1.908,
+      "avg_mae": 0.385,
+      "total_pnl": 26.48,
+      "rr": 5.0
+    },
+    "bear": {
+      "trades": 24,
+      "wins": 24,
+      "win_rate": 100.0,
+      "avg_pnl": 1.531,
+      "avg_mfe": 1.983,
+      "avg_mae": 0.354,
+      "total_pnl": 36.74,
+      "rr": 5.6
+    }
+  },
+  "BPCL": {
+    "symbol": "BPCL",
+    "bull": {
+      "trades": 32,
+      "wins": 30,
+      "win_rate": 93.8,
+      "avg_pnl": 0.848,
+      "avg_mfe": 1.229,
+      "avg_mae": 0.198,
+      "total_pnl": 27.15,
+      "rr": 6.2
+    },
+    "bear": {
+      "trades": 19,
+      "wins": 16,
+      "win_rate": 84.2,
+      "avg_pnl": 0.792,
+      "avg_mfe": 1.202,
+      "avg_mae": 0.197,
+      "total_pnl": 15.05,
+      "rr": 6.1
+    }
+  },
+  "BHARTIARTL": {
+    "symbol": "BHARTIARTL",
+    "bull": {
+      "trades": 24,
+      "wins": 22,
+      "win_rate": 91.7,
+      "avg_pnl": 1.054,
+      "avg_mfe": 1.384,
+      "avg_mae": 0.213,
+      "total_pnl": 25.29,
+      "rr": 6.5
+    },
+    "bear": {
+      "trades": 38,
+      "wins": 36,
+      "win_rate": 94.7,
+      "avg_pnl": 0.575,
+      "avg_mfe": 0.825,
+      "avg_mae": 0.189,
+      "total_pnl": 21.83,
+      "rr": 4.4
+    }
+  },
+  "BIOCON": {
+    "symbol": "BIOCON",
+    "bull": {
+      "trades": 14,
+      "wins": 13,
+      "win_rate": 92.9,
+      "avg_pnl": 1.614,
+      "avg_mfe": 2.006,
+      "avg_mae": 0.343,
+      "total_pnl": 22.6,
+      "rr": 5.8
+    },
+    "bear": {
+      "trades": 27,
+      "wins": 26,
+      "win_rate": 96.3,
+      "avg_pnl": 1.128,
+      "avg_mfe": 1.508,
+      "avg_mae": 0.206,
+      "total_pnl": 30.47,
+      "rr": 7.3
+    }
+  },
+  "BLUESTARCO": {
+    "symbol": "BLUESTARCO",
+    "bull": {
+      "trades": 20,
+      "wins": 19,
+      "win_rate": 95.0,
+      "avg_pnl": 1.007,
+      "avg_mfe": 1.291,
+      "avg_mae": 0.35,
+      "total_pnl": 20.14,
+      "rr": 3.7
+    },
+    "bear": {
+      "trades": 19,
+      "wins": 18,
+      "win_rate": 94.7,
+      "avg_pnl": 1.259,
+      "avg_mfe": 1.781,
+      "avg_mae": 0.398,
+      "total_pnl": 23.93,
+      "rr": 4.5
+    }
+  },
+  "BOSCHLTD": {
+    "symbol": "BOSCHLTD",
+    "bull": {
+      "trades": 45,
+      "wins": 42,
+      "win_rate": 93.3,
+      "avg_pnl": 1.013,
+      "avg_mfe": 1.327,
+      "avg_mae": 0.212,
+      "total_pnl": 45.6,
+      "rr": 6.3
+    },
+    "bear": {
+      "trades": 16,
+      "wins": 14,
+      "win_rate": 87.5,
+      "avg_pnl": 0.628,
+      "avg_mfe": 0.887,
+      "avg_mae": 0.184,
+      "total_pnl": 10.04,
+      "rr": 4.8
+    }
+  },
+  "BRITANNIA": {
+    "symbol": "BRITANNIA",
+    "bull": {
+      "trades": 25,
+      "wins": 24,
+      "win_rate": 96.0,
+      "avg_pnl": 0.738,
+      "avg_mfe": 1.021,
+      "avg_mae": 0.166,
+      "total_pnl": 18.44,
+      "rr": 6.2
+    },
+    "bear": {
+      "trades": 29,
+      "wins": 26,
+      "win_rate": 89.7,
+      "avg_pnl": 0.72,
+      "avg_mfe": 0.99,
+      "avg_mae": 0.156,
+      "total_pnl": 20.89,
+      "rr": 6.3
+    }
+  },
+  "CGPOWER": {
+    "symbol": "CGPOWER",
+    "bull": {
+      "trades": 15,
+      "wins": 13,
+      "win_rate": 86.7,
+      "avg_pnl": 1.077,
+      "avg_mfe": 1.493,
+      "avg_mae": 0.18,
+      "total_pnl": 16.15,
+      "rr": 8.3
+    },
+    "bear": {
+      "trades": 27,
+      "wins": 26,
+      "win_rate": 96.3,
+      "avg_pnl": 1.304,
+      "avg_mfe": 1.732,
+      "avg_mae": 0.245,
+      "total_pnl": 35.21,
+      "rr": 7.1
+    }
+  },
+  "CANBK": {
+    "symbol": "CANBK",
+    "bull": {
+      "trades": 13,
+      "wins": 11,
+      "win_rate": 84.6,
+      "avg_pnl": 1.115,
+      "avg_mfe": 1.459,
+      "avg_mae": 0.156,
+      "total_pnl": 14.49,
+      "rr": 9.4
+    },
+    "bear": {
+      "trades": 21,
+      "wins": 20,
+      "win_rate": 95.2,
+      "avg_pnl": 0.607,
+      "avg_mfe": 0.827,
+      "avg_mae": 0.207,
+      "total_pnl": 12.74,
+      "rr": 4.0
+    }
+  },
+  "CDSL": {
+    "symbol": "CDSL",
+    "bull": {
+      "trades": 21,
+      "wins": 15,
+      "win_rate": 71.4,
+      "avg_pnl": 0.869,
+      "avg_mfe": 1.359,
+      "avg_mae": 0.308,
+      "total_pnl": 18.25,
+      "rr": 4.4
+    },
+    "bear": {
+      "trades": 19,
+      "wins": 16,
+      "win_rate": 84.2,
+      "avg_pnl": 0.575,
+      "avg_mfe": 0.893,
+      "avg_mae": 0.213,
+      "total_pnl": 10.93,
+      "rr": 4.2
+    }
+  },
+  "CHOLAFIN": {
+    "symbol": "CHOLAFIN",
+    "bull": {
+      "trades": 16,
+      "wins": 14,
+      "win_rate": 87.5,
+      "avg_pnl": 1.821,
+      "avg_mfe": 2.351,
+      "avg_mae": 0.326,
+      "total_pnl": 29.14,
+      "rr": 7.2
+    },
+    "bear": {
+      "trades": 20,
+      "wins": 19,
+      "win_rate": 95.0,
+      "avg_pnl": 0.992,
+      "avg_mfe": 1.32,
+      "avg_mae": 0.233,
+      "total_pnl": 19.85,
+      "rr": 5.7
+    }
+  },
+  "CIPLA": {
+    "symbol": "CIPLA",
+    "bull": {
+      "trades": 16,
+      "wins": 14,
+      "win_rate": 87.5,
+      "avg_pnl": 1.072,
+      "avg_mfe": 1.42,
+      "avg_mae": 0.103,
+      "total_pnl": 17.15,
+      "rr": 13.8
+    },
+    "bear": {
+      "trades": 26,
+      "wins": 24,
+      "win_rate": 92.3,
+      "avg_pnl": 0.703,
+      "avg_mfe": 0.866,
+      "avg_mae": 0.179,
+      "total_pnl": 18.27,
+      "rr": 4.8
+    }
+  },
+  "COALINDIA": {
+    "symbol": "COALINDIA",
+    "bull": {
+      "trades": 9,
+      "wins": 9,
+      "win_rate": 100.0,
+      "avg_pnl": 0.759,
+      "avg_mfe": 1.182,
+      "avg_mae": 0.109,
+      "total_pnl": 6.83,
+      "rr": 10.8
+    },
+    "bear": {
+      "trades": 23,
+      "wins": 19,
+      "win_rate": 82.6,
+      "avg_pnl": 0.882,
+      "avg_mfe": 1.09,
+      "avg_mae": 0.17,
+      "total_pnl": 20.29,
+      "rr": 6.4
+    }
+  },
+  "COCHINSHIP": {
+    "symbol": "COCHINSHIP",
+    "bull": {
+      "trades": 26,
+      "wins": 22,
+      "win_rate": 84.6,
+      "avg_pnl": 0.739,
+      "avg_mfe": 1.196,
+      "avg_mae": 0.237,
+      "total_pnl": 19.2,
+      "rr": 5.0
+    },
+    "bear": {
+      "trades": 21,
+      "wins": 19,
+      "win_rate": 90.5,
+      "avg_pnl": 1.312,
+      "avg_mfe": 1.721,
+      "avg_mae": 0.292,
+      "total_pnl": 27.55,
+      "rr": 5.9
+    }
+  },
+  "COFORGE": {
+    "symbol": "COFORGE",
+    "bull": {
+      "trades": 48,
+      "wins": 43,
+      "win_rate": 89.6,
+      "avg_pnl": 1.306,
+      "avg_mfe": 1.771,
+      "avg_mae": 0.398,
+      "total_pnl": 62.71,
+      "rr": 4.4
+    },
+    "bear": {
+      "trades": 23,
+      "wins": 20,
+      "win_rate": 87.0,
+      "avg_pnl": 1.102,
+      "avg_mfe": 1.395,
+      "avg_mae": 0.575,
+      "total_pnl": 25.34,
+      "rr": 2.4
+    }
+  },
+  "COLPAL": {
+    "symbol": "COLPAL",
+    "bull": {
+      "trades": 21,
+      "wins": 18,
+      "win_rate": 85.7,
+      "avg_pnl": 1.062,
+      "avg_mfe": 1.397,
+      "avg_mae": 0.392,
+      "total_pnl": 22.31,
+      "rr": 3.6
+    },
+    "bear": {
+      "trades": 39,
+      "wins": 36,
+      "win_rate": 92.3,
+      "avg_pnl": 0.778,
+      "avg_mfe": 0.994,
+      "avg_mae": 0.287,
+      "total_pnl": 30.33,
+      "rr": 3.5
+    }
+  },
+  "CAMS": {
+    "symbol": "CAMS",
+    "bull": {
+      "trades": 18,
+      "wins": 13,
+      "win_rate": 72.2,
+      "avg_pnl": 0.675,
+      "avg_mfe": 1.098,
+      "avg_mae": 0.221,
+      "total_pnl": 12.14,
+      "rr": 5.0
+    },
+    "bear": {
+      "trades": 34,
+      "wins": 31,
+      "win_rate": 91.2,
+      "avg_pnl": 0.649,
+      "avg_mfe": 0.899,
+      "avg_mae": 0.248,
+      "total_pnl": 22.06,
+      "rr": 3.6
+    }
+  },
+  "CONCOR": {
+    "symbol": "CONCOR",
+    "bull": {
+      "trades": 37,
+      "wins": 34,
+      "win_rate": 91.9,
+      "avg_pnl": 1.395,
+      "avg_mfe": 1.905,
+      "avg_mae": 0.427,
+      "total_pnl": 51.63,
+      "rr": 4.5
+    },
+    "bear": {
+      "trades": 27,
+      "wins": 24,
+      "win_rate": 88.9,
+      "avg_pnl": 0.779,
+      "avg_mfe": 1.076,
+      "avg_mae": 0.187,
+      "total_pnl": 21.03,
+      "rr": 5.8
+    }
+  },
+  "CROMPTON": {
+    "symbol": "CROMPTON",
+    "bull": {
+      "trades": 13,
+      "wins": 13,
+      "win_rate": 100.0,
+      "avg_pnl": 1.058,
+      "avg_mfe": 1.584,
+      "avg_mae": 0.228,
+      "total_pnl": 13.75,
+      "rr": 6.9
+    },
+    "bear": {
+      "trades": 21,
+      "wins": 20,
+      "win_rate": 95.2,
+      "avg_pnl": 1.254,
+      "avg_mfe": 1.621,
+      "avg_mae": 0.274,
+      "total_pnl": 26.34,
+      "rr": 5.9
+    }
+  },
+  "CUMMINSIND": {
+    "symbol": "CUMMINSIND",
+    "bull": {
+      "trades": 8,
+      "wins": 8,
+      "win_rate": 100.0,
+      "avg_pnl": 1.001,
+      "avg_mfe": 1.334,
+      "avg_mae": 0.201,
+      "total_pnl": 8.01,
+      "rr": 6.6
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 22,
+      "win_rate": 88.0,
+      "avg_pnl": 1.041,
+      "avg_mfe": 1.347,
+      "avg_mae": 0.278,
+      "total_pnl": 26.02,
+      "rr": 4.8
+    }
+  },
+  "DLF": {
+    "symbol": "DLF",
+    "bull": {
+      "trades": 39,
+      "wins": 37,
+      "win_rate": 94.9,
+      "avg_pnl": 1.125,
+      "avg_mfe": 1.463,
+      "avg_mae": 0.266,
+      "total_pnl": 43.88,
+      "rr": 5.5
+    },
+    "bear": {
+      "trades": 26,
+      "wins": 25,
+      "win_rate": 96.2,
+      "avg_pnl": 0.961,
+      "avg_mfe": 1.243,
+      "avg_mae": 0.244,
+      "total_pnl": 24.97,
+      "rr": 5.1
+    }
+  },
+  "DABUR": {
+    "symbol": "DABUR",
+    "bull": {
+      "trades": 7,
+      "wins": 6,
+      "win_rate": 85.7,
+      "avg_pnl": 1.12,
+      "avg_mfe": 1.761,
+      "avg_mae": 0.425,
+      "total_pnl": 7.84,
+      "rr": 4.1
+    },
+    "bear": {
+      "trades": 26,
+      "wins": 23,
+      "win_rate": 88.5,
+      "avg_pnl": 0.59,
+      "avg_mfe": 0.873,
+      "avg_mae": 0.17,
+      "total_pnl": 15.33,
+      "rr": 5.1
+    }
+  },
+  "DELHIVERY": {
+    "symbol": "DELHIVERY",
+    "bull": {
+      "trades": 22,
+      "wins": 22,
+      "win_rate": 100.0,
+      "avg_pnl": 0.942,
+      "avg_mfe": 1.246,
+      "avg_mae": 0.277,
+      "total_pnl": 20.73,
+      "rr": 4.5
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 24,
+      "win_rate": 96.0,
+      "avg_pnl": 0.891,
+      "avg_mfe": 1.209,
+      "avg_mae": 0.194,
+      "total_pnl": 22.27,
+      "rr": 6.2
+    }
+  },
+  "DIVISLAB": {
+    "symbol": "DIVISLAB",
+    "bull": {
+      "trades": 57,
+      "wins": 53,
+      "win_rate": 93.0,
+      "avg_pnl": 1.059,
+      "avg_mfe": 1.409,
+      "avg_mae": 0.203,
+      "total_pnl": 60.37,
+      "rr": 6.9
+    },
+    "bear": {
+      "trades": 8,
+      "wins": 8,
+      "win_rate": 100.0,
+      "avg_pnl": 0.654,
+      "avg_mfe": 0.97,
+      "avg_mae": 0.074,
+      "total_pnl": 5.23,
+      "rr": 13.1
+    }
+  },
+  "DIXON": {
+    "symbol": "DIXON",
+    "bull": {
+      "trades": 48,
+      "wins": 45,
+      "win_rate": 93.8,
+      "avg_pnl": 1.293,
+      "avg_mfe": 1.74,
+      "avg_mae": 0.238,
+      "total_pnl": 62.07,
+      "rr": 7.3
+    },
+    "bear": {
+      "trades": 14,
+      "wins": 12,
+      "win_rate": 85.7,
+      "avg_pnl": 0.715,
+      "avg_mfe": 1.005,
+      "avg_mae": 0.254,
+      "total_pnl": 10.01,
+      "rr": 4.0
+    }
+  },
+  "DRREDDY": {
+    "symbol": "DRREDDY",
+    "bull": {
+      "trades": 8,
+      "wins": 8,
+      "win_rate": 100.0,
+      "avg_pnl": 1.248,
+      "avg_mfe": 1.92,
+      "avg_mae": 0.307,
+      "total_pnl": 9.99,
+      "rr": 6.3
+    },
+    "bear": {
+      "trades": 29,
+      "wins": 28,
+      "win_rate": 96.6,
+      "avg_pnl": 1.228,
+      "avg_mfe": 1.665,
+      "avg_mae": 0.268,
+      "total_pnl": 35.6,
+      "rr": 6.2
+    }
+  },
+  "ETERNAL": {
+    "symbol": "ETERNAL",
+    "bull": {
+      "trades": 34,
+      "wins": 31,
+      "win_rate": 91.2,
+      "avg_pnl": 1.323,
+      "avg_mfe": 1.848,
+      "avg_mae": 0.427,
+      "total_pnl": 44.98,
+      "rr": 4.3
+    },
+    "bear": {
+      "trades": 12,
+      "wins": 12,
+      "win_rate": 100.0,
+      "avg_pnl": 1.404,
+      "avg_mfe": 1.703,
+      "avg_mae": 0.122,
+      "total_pnl": 16.85,
+      "rr": 14.0
+    }
+  },
+  "EICHERMOT": {
+    "symbol": "EICHERMOT",
+    "bull": {
+      "trades": 24,
+      "wins": 22,
+      "win_rate": 91.7,
+      "avg_pnl": 0.953,
+      "avg_mfe": 1.317,
+      "avg_mae": 0.136,
+      "total_pnl": 22.87,
+      "rr": 9.7
+    },
+    "bear": {
+      "trades": 5,
+      "wins": 5,
+      "win_rate": 100.0,
+      "avg_pnl": 1.004,
+      "avg_mfe": 1.315,
+      "avg_mae": 0.167,
+      "total_pnl": 5.02,
+      "rr": 7.9
+    }
+  },
+  "FORCEMOT": {
+    "symbol": "FORCEMOT",
+    "bull": {
+      "trades": 14,
+      "wins": 13,
+      "win_rate": 92.9,
+      "avg_pnl": 1.284,
+      "avg_mfe": 1.973,
+      "avg_mae": 0.418,
+      "total_pnl": 17.98,
+      "rr": 4.7
+    },
+    "bear": {
+      "trades": 29,
+      "wins": 26,
+      "win_rate": 89.7,
+      "avg_pnl": 1.006,
+      "avg_mfe": 1.397,
+      "avg_mae": 0.298,
+      "total_pnl": 29.19,
+      "rr": 4.7
+    }
+  },
+  "NYKAA": {
+    "symbol": "NYKAA",
+    "bull": {
+      "trades": 23,
+      "wins": 20,
+      "win_rate": 87.0,
+      "avg_pnl": 0.824,
+      "avg_mfe": 1.153,
+      "avg_mae": 0.264,
+      "total_pnl": 18.96,
+      "rr": 4.4
+    },
+    "bear": {
+      "trades": 10,
+      "wins": 8,
+      "win_rate": 80.0,
+      "avg_pnl": 0.723,
+      "avg_mfe": 0.999,
+      "avg_mae": 0.207,
+      "total_pnl": 7.23,
+      "rr": 4.8
+    }
+  },
+  "FORTIS": {
+    "symbol": "FORTIS",
+    "bull": {
+      "trades": 25,
+      "wins": 24,
+      "win_rate": 96.0,
+      "avg_pnl": 1.048,
+      "avg_mfe": 1.485,
+      "avg_mae": 0.192,
+      "total_pnl": 26.19,
+      "rr": 7.7
+    },
+    "bear": {
+      "trades": 18,
+      "wins": 17,
+      "win_rate": 94.4,
+      "avg_pnl": 1.057,
+      "avg_mfe": 1.338,
+      "avg_mae": 0.229,
+      "total_pnl": 19.03,
+      "rr": 5.8
+    }
+  },
+  "GAIL": {
+    "symbol": "GAIL",
+    "bull": {
+      "trades": 13,
+      "wins": 13,
+      "win_rate": 100.0,
+      "avg_pnl": 0.835,
+      "avg_mfe": 1.256,
+      "avg_mae": 0.178,
+      "total_pnl": 10.85,
+      "rr": 7.1
+    },
+    "bear": {
+      "trades": 24,
+      "wins": 24,
+      "win_rate": 100.0,
+      "avg_pnl": 0.764,
+      "avg_mfe": 0.982,
+      "avg_mae": 0.222,
+      "total_pnl": 18.33,
+      "rr": 4.4
+    }
+  },
+  "GVT&D": {
+    "symbol": "GVT&D",
+    "bull": {
+      "trades": 29,
+      "wins": 26,
+      "win_rate": 89.7,
+      "avg_pnl": 1.708,
+      "avg_mfe": 2.349,
+      "avg_mae": 0.364,
+      "total_pnl": 49.54,
+      "rr": 6.5
+    },
+    "bear": {
+      "trades": 36,
+      "wins": 36,
+      "win_rate": 100.0,
+      "avg_pnl": 1.837,
+      "avg_mfe": 2.328,
+      "avg_mae": 0.357,
+      "total_pnl": 66.13,
+      "rr": 6.5
+    }
+  },
+  "GMRAIRPORT": {
+    "symbol": "GMRAIRPORT",
+    "bull": {
+      "trades": 12,
+      "wins": 12,
+      "win_rate": 100.0,
+      "avg_pnl": 0.656,
+      "avg_mfe": 0.942,
+      "avg_mae": 0.246,
+      "total_pnl": 7.87,
+      "rr": 3.8
+    },
+    "bear": {
+      "trades": 27,
+      "wins": 24,
+      "win_rate": 88.9,
+      "avg_pnl": 0.759,
+      "avg_mfe": 1.067,
+      "avg_mae": 0.246,
+      "total_pnl": 20.49,
+      "rr": 4.3
+    }
+  },
+  "GLENMARK": {
+    "symbol": "GLENMARK",
+    "bull": {
+      "trades": 25,
+      "wins": 25,
+      "win_rate": 100.0,
+      "avg_pnl": 1.168,
+      "avg_mfe": 1.464,
+      "avg_mae": 0.166,
+      "total_pnl": 29.19,
+      "rr": 8.8
+    },
+    "bear": {
+      "trades": 10,
+      "wins": 9,
+      "win_rate": 90.0,
+      "avg_pnl": 0.89,
+      "avg_mfe": 1.349,
+      "avg_mae": 0.527,
+      "total_pnl": 8.9,
+      "rr": 2.6
+    }
+  },
+  "GODFRYPHLP": {
+    "symbol": "GODFRYPHLP",
+    "bull": {
+      "trades": 15,
+      "wins": 14,
+      "win_rate": 93.3,
+      "avg_pnl": 1.761,
+      "avg_mfe": 2.768,
+      "avg_mae": 0.281,
+      "total_pnl": 26.41,
+      "rr": 9.9
+    },
+    "bear": {
+      "trades": 39,
+      "wins": 36,
+      "win_rate": 92.3,
+      "avg_pnl": 0.726,
+      "avg_mfe": 1.021,
+      "avg_mae": 0.262,
+      "total_pnl": 28.33,
+      "rr": 3.9
+    }
+  },
+  "GODREJCP": {
+    "symbol": "GODREJCP",
+    "bull": {
+      "trades": 14,
+      "wins": 12,
+      "win_rate": 85.7,
+      "avg_pnl": 0.7,
+      "avg_mfe": 1.217,
+      "avg_mae": 0.288,
+      "total_pnl": 9.8,
+      "rr": 4.2
+    },
+    "bear": {
+      "trades": 21,
+      "wins": 17,
+      "win_rate": 81.0,
+      "avg_pnl": 0.831,
+      "avg_mfe": 1.314,
+      "avg_mae": 0.408,
+      "total_pnl": 17.46,
+      "rr": 3.2
+    }
+  },
+  "GODREJPROP": {
+    "symbol": "GODREJPROP",
+    "bull": {
+      "trades": 36,
+      "wins": 34,
+      "win_rate": 94.4,
+      "avg_pnl": 1.133,
+      "avg_mfe": 1.563,
+      "avg_mae": 0.242,
+      "total_pnl": 40.79,
+      "rr": 6.5
+    },
+    "bear": {
+      "trades": 27,
+      "wins": 27,
+      "win_rate": 100.0,
+      "avg_pnl": 1.024,
+      "avg_mfe": 1.352,
+      "avg_mae": 0.276,
+      "total_pnl": 27.66,
+      "rr": 4.9
+    }
+  },
+  "GRASIM": {
+    "symbol": "GRASIM",
+    "bull": {
+      "trades": 31,
+      "wins": 31,
+      "win_rate": 100.0,
+      "avg_pnl": 0.969,
+      "avg_mfe": 1.28,
+      "avg_mae": 0.139,
+      "total_pnl": 30.04,
+      "rr": 9.2
+    },
+    "bear": {
+      "trades": 20,
+      "wins": 19,
+      "win_rate": 95.0,
+      "avg_pnl": 1.122,
+      "avg_mfe": 1.456,
+      "avg_mae": 0.22,
+      "total_pnl": 22.44,
+      "rr": 6.6
+    }
+  },
+  "HCLTECH": {
+    "symbol": "HCLTECH",
+    "bull": {
+      "trades": 30,
+      "wins": 30,
+      "win_rate": 100.0,
+      "avg_pnl": 1.357,
+      "avg_mfe": 1.718,
+      "avg_mae": 0.243,
+      "total_pnl": 40.72,
+      "rr": 7.1
+    },
+    "bear": {
+      "trades": 26,
+      "wins": 21,
+      "win_rate": 80.8,
+      "avg_pnl": 0.873,
+      "avg_mfe": 1.03,
+      "avg_mae": 0.184,
+      "total_pnl": 22.71,
+      "rr": 5.6
+    }
+  },
+  "HDFCAMC": {
+    "symbol": "HDFCAMC",
+    "bull": {
+      "trades": 32,
+      "wins": 30,
+      "win_rate": 93.8,
+      "avg_pnl": 0.742,
+      "avg_mfe": 1.053,
+      "avg_mae": 0.241,
+      "total_pnl": 23.75,
+      "rr": 4.4
+    },
+    "bear": {
+      "trades": 37,
+      "wins": 36,
+      "win_rate": 97.3,
+      "avg_pnl": 1.078,
+      "avg_mfe": 1.428,
+      "avg_mae": 0.321,
+      "total_pnl": 39.87,
+      "rr": 4.4
+    }
+  },
+  "HDFCBANK": {
+    "symbol": "HDFCBANK",
+    "bull": {
+      "trades": 11,
+      "wins": 11,
+      "win_rate": 100.0,
+      "avg_pnl": 0.837,
+      "avg_mfe": 1.029,
+      "avg_mae": 0.255,
+      "total_pnl": 9.2,
+      "rr": 4.0
+    },
+    "bear": {
+      "trades": 32,
+      "wins": 30,
+      "win_rate": 93.8,
+      "avg_pnl": 0.762,
+      "avg_mfe": 0.979,
+      "avg_mae": 0.127,
+      "total_pnl": 24.37,
+      "rr": 7.7
+    }
+  },
+  "HDFCLIFE": {
+    "symbol": "HDFCLIFE",
+    "bull": {
+      "trades": 17,
+      "wins": 16,
+      "win_rate": 94.1,
+      "avg_pnl": 0.831,
+      "avg_mfe": 1.091,
+      "avg_mae": 0.228,
+      "total_pnl": 14.13,
+      "rr": 4.8
+    },
+    "bear": {
+      "trades": 23,
+      "wins": 22,
+      "win_rate": 95.7,
+      "avg_pnl": 0.744,
+      "avg_mfe": 0.96,
+      "avg_mae": 0.239,
+      "total_pnl": 17.11,
+      "rr": 4.0
+    }
+  },
+  "HAVELLS": {
+    "symbol": "HAVELLS",
+    "bull": {
+      "trades": 14,
+      "wins": 14,
+      "win_rate": 100.0,
+      "avg_pnl": 1.146,
+      "avg_mfe": 1.575,
+      "avg_mae": 0.202,
+      "total_pnl": 16.05,
+      "rr": 7.8
+    },
+    "bear": {
+      "trades": 11,
+      "wins": 9,
+      "win_rate": 81.8,
+      "avg_pnl": 0.71,
+      "avg_mfe": 0.98,
+      "avg_mae": 0.109,
+      "total_pnl": 7.81,
+      "rr": 9.0
+    }
+  },
+  "HEROMOTOCO": {
+    "symbol": "HEROMOTOCO",
+    "bull": {
+      "trades": 38,
+      "wins": 35,
+      "win_rate": 92.1,
+      "avg_pnl": 0.982,
+      "avg_mfe": 1.374,
+      "avg_mae": 0.276,
+      "total_pnl": 37.32,
+      "rr": 5.0
+    },
+    "bear": {
+      "trades": 10,
+      "wins": 10,
+      "win_rate": 100.0,
+      "avg_pnl": 0.679,
+      "avg_mfe": 0.9,
+      "avg_mae": 0.213,
+      "total_pnl": 6.79,
+      "rr": 4.2
+    }
+  },
+  "HINDALCO": {
+    "symbol": "HINDALCO",
+    "bull": {
+      "trades": 31,
+      "wins": 28,
+      "win_rate": 90.3,
+      "avg_pnl": 0.846,
+      "avg_mfe": 1.162,
+      "avg_mae": 0.209,
+      "total_pnl": 26.24,
+      "rr": 5.6
+    },
+    "bear": {
+      "trades": 30,
+      "wins": 29,
+      "win_rate": 96.7,
+      "avg_pnl": 0.806,
+      "avg_mfe": 1.119,
+      "avg_mae": 0.186,
+      "total_pnl": 24.19,
+      "rr": 6.0
+    }
+  },
+  "HAL": {
+    "symbol": "HAL",
+    "bull": {
+      "trades": 14,
+      "wins": 11,
+      "win_rate": 78.6,
+      "avg_pnl": 1.927,
+      "avg_mfe": 2.326,
+      "avg_mae": 0.297,
+      "total_pnl": 26.97,
+      "rr": 7.8
+    },
+    "bear": {
+      "trades": 16,
+      "wins": 15,
+      "win_rate": 93.8,
+      "avg_pnl": 0.669,
+      "avg_mfe": 0.893,
+      "avg_mae": 0.239,
+      "total_pnl": 10.71,
+      "rr": 3.7
+    }
+  },
+  "HINDPETRO": {
+    "symbol": "HINDPETRO",
+    "bull": {
+      "trades": 12,
+      "wins": 11,
+      "win_rate": 91.7,
+      "avg_pnl": 1.149,
+      "avg_mfe": 1.53,
+      "avg_mae": 0.245,
+      "total_pnl": 13.79,
+      "rr": 6.2
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 22,
+      "win_rate": 88.0,
+      "avg_pnl": 1.006,
+      "avg_mfe": 1.579,
+      "avg_mae": 0.215,
+      "total_pnl": 25.16,
+      "rr": 7.3
+    }
+  },
+  "HINDUNILVR": {
+    "symbol": "HINDUNILVR",
+    "bull": {
+      "trades": 16,
+      "wins": 13,
+      "win_rate": 81.2,
+      "avg_pnl": 0.974,
+      "avg_mfe": 1.348,
+      "avg_mae": 0.205,
+      "total_pnl": 15.59,
+      "rr": 6.6
+    },
+    "bear": {
+      "trades": 29,
+      "wins": 27,
+      "win_rate": 93.1,
+      "avg_pnl": 0.764,
+      "avg_mfe": 0.97,
+      "avg_mae": 0.206,
+      "total_pnl": 22.17,
+      "rr": 4.7
+    }
+  },
+  "HINDZINC": {
+    "symbol": "HINDZINC",
+    "bull": {
+      "trades": 45,
+      "wins": 41,
+      "win_rate": 91.1,
+      "avg_pnl": 1.183,
+      "avg_mfe": 1.625,
+      "avg_mae": 0.275,
+      "total_pnl": 53.25,
+      "rr": 5.9
+    },
+    "bear": {
+      "trades": 31,
+      "wins": 31,
+      "win_rate": 100.0,
+      "avg_pnl": 1.087,
+      "avg_mfe": 1.361,
+      "avg_mae": 0.145,
+      "total_pnl": 33.7,
+      "rr": 9.4
+    }
+  },
+  "POWERINDIA": {
+    "symbol": "POWERINDIA",
+    "bull": {
+      "trades": 12,
+      "wins": 12,
+      "win_rate": 100.0,
+      "avg_pnl": 2.08,
+      "avg_mfe": 2.659,
+      "avg_mae": 0.265,
+      "total_pnl": 24.97,
+      "rr": 10.0
+    },
+    "bear": {
+      "trades": 30,
+      "wins": 27,
+      "win_rate": 90.0,
+      "avg_pnl": 1.698,
+      "avg_mfe": 2.243,
+      "avg_mae": 0.385,
+      "total_pnl": 50.93,
+      "rr": 5.8
+    }
+  },
+  "HYUNDAI": {
+    "symbol": "HYUNDAI",
+    "bull": {
+      "trades": 29,
+      "wins": 27,
+      "win_rate": 93.1,
+      "avg_pnl": 1.146,
+      "avg_mfe": 1.445,
+      "avg_mae": 0.278,
+      "total_pnl": 33.23,
+      "rr": 5.2
+    },
+    "bear": {
+      "trades": 10,
+      "wins": 10,
+      "win_rate": 100.0,
+      "avg_pnl": 1.333,
+      "avg_mfe": 1.555,
+      "avg_mae": 0.199,
+      "total_pnl": 13.33,
+      "rr": 7.8
+    }
+  },
+  "ICICIBANK": {
+    "symbol": "ICICIBANK",
+    "bull": {
+      "trades": 20,
+      "wins": 18,
+      "win_rate": 90.0,
+      "avg_pnl": 0.783,
+      "avg_mfe": 1.064,
+      "avg_mae": 0.177,
+      "total_pnl": 15.66,
+      "rr": 6.0
+    },
+    "bear": {
+      "trades": 26,
+      "wins": 24,
+      "win_rate": 92.3,
+      "avg_pnl": 0.544,
+      "avg_mfe": 0.743,
+      "avg_mae": 0.128,
+      "total_pnl": 14.15,
+      "rr": 5.8
+    }
+  },
+  "ICICIGI": {
+    "symbol": "ICICIGI",
+    "bull": {
+      "trades": 19,
+      "wins": 17,
+      "win_rate": 89.5,
+      "avg_pnl": 1.333,
+      "avg_mfe": 1.9,
+      "avg_mae": 0.269,
+      "total_pnl": 25.32,
+      "rr": 7.1
+    },
+    "bear": {
+      "trades": 20,
+      "wins": 19,
+      "win_rate": 95.0,
+      "avg_pnl": 1.276,
+      "avg_mfe": 1.704,
+      "avg_mae": 0.243,
+      "total_pnl": 25.52,
+      "rr": 7.0
+    }
+  },
+  "ICICIPRULI": {
+    "symbol": "ICICIPRULI",
+    "bull": {
+      "trades": 23,
+      "wins": 20,
+      "win_rate": 87.0,
+      "avg_pnl": 0.888,
+      "avg_mfe": 1.298,
+      "avg_mae": 0.271,
+      "total_pnl": 20.43,
+      "rr": 4.8
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 24,
+      "win_rate": 96.0,
+      "avg_pnl": 0.835,
+      "avg_mfe": 1.083,
+      "avg_mae": 0.196,
+      "total_pnl": 20.88,
+      "rr": 5.5
+    }
+  },
+  "IDFCFIRSTB": {
+    "symbol": "IDFCFIRSTB",
+    "bull": {
+      "trades": 16,
+      "wins": 16,
+      "win_rate": 100.0,
+      "avg_pnl": 1.118,
+      "avg_mfe": 1.695,
+      "avg_mae": 0.2,
+      "total_pnl": 17.89,
+      "rr": 8.5
+    },
+    "bear": {
+      "trades": 14,
+      "wins": 14,
+      "win_rate": 100.0,
+      "avg_pnl": 0.759,
+      "avg_mfe": 0.953,
+      "avg_mae": 0.125,
+      "total_pnl": 10.62,
+      "rr": 7.6
+    }
+  },
+  "ITC": {
+    "symbol": "ITC",
+    "bull": {
+      "trades": 5,
+      "wins": 4,
+      "win_rate": 80.0,
+      "avg_pnl": 0.46,
+      "avg_mfe": 0.69,
+      "avg_mae": 0.298,
+      "total_pnl": 2.3,
+      "rr": 2.3
+    },
+    "bear": {
+      "trades": 52,
+      "wins": 41,
+      "win_rate": 78.8,
+      "avg_pnl": 0.355,
+      "avg_mfe": 0.595,
+      "avg_mae": 0.163,
+      "total_pnl": 18.47,
+      "rr": 3.7
+    }
+  },
+  "INDIANB": {
+    "symbol": "INDIANB",
+    "bull": {
+      "trades": 29,
+      "wins": 27,
+      "win_rate": 93.1,
+      "avg_pnl": 1.182,
+      "avg_mfe": 1.626,
+      "avg_mae": 0.287,
+      "total_pnl": 34.27,
+      "rr": 5.7
+    },
+    "bear": {
+      "trades": 15,
+      "wins": 14,
+      "win_rate": 93.3,
+      "avg_pnl": 0.806,
+      "avg_mfe": 1.093,
+      "avg_mae": 0.304,
+      "total_pnl": 12.1,
+      "rr": 3.6
+    }
+  },
+  "IEX": {
+    "symbol": "IEX",
+    "bull": {
+      "trades": 18,
+      "wins": 17,
+      "win_rate": 94.4,
+      "avg_pnl": 1.079,
+      "avg_mfe": 1.492,
+      "avg_mae": 0.258,
+      "total_pnl": 19.42,
+      "rr": 5.8
+    },
+    "bear": {
+      "trades": 23,
+      "wins": 22,
+      "win_rate": 95.7,
+      "avg_pnl": 0.807,
+      "avg_mfe": 1.075,
+      "avg_mae": 0.223,
+      "total_pnl": 18.55,
+      "rr": 4.8
+    }
+  },
+  "IOC": {
+    "symbol": "IOC",
+    "bull": {
+      "trades": 17,
+      "wins": 14,
+      "win_rate": 82.4,
+      "avg_pnl": 0.74,
+      "avg_mfe": 1.188,
+      "avg_mae": 0.209,
+      "total_pnl": 12.57,
+      "rr": 5.7
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 22,
+      "win_rate": 88.0,
+      "avg_pnl": 0.582,
+      "avg_mfe": 0.839,
+      "avg_mae": 0.147,
+      "total_pnl": 14.55,
+      "rr": 5.7
+    }
+  },
+  "IRFC": {
+    "symbol": "IRFC",
+    "bull": {
+      "trades": 11,
+      "wins": 10,
+      "win_rate": 90.9,
+      "avg_pnl": 0.788,
+      "avg_mfe": 1.129,
+      "avg_mae": 0.276,
+      "total_pnl": 8.67,
+      "rr": 4.1
+    },
+    "bear": {
+      "trades": 31,
+      "wins": 29,
+      "win_rate": 93.5,
+      "avg_pnl": 0.535,
+      "avg_mfe": 0.722,
+      "avg_mae": 0.16,
+      "total_pnl": 16.6,
+      "rr": 4.5
+    }
+  },
+  "IREDA": {
+    "symbol": "IREDA",
+    "bull": {
+      "trades": 6,
+      "wins": 5,
+      "win_rate": 83.3,
+      "avg_pnl": 1.304,
+      "avg_mfe": 1.674,
+      "avg_mae": 0.279,
+      "total_pnl": 7.82,
+      "rr": 6.0
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 22,
+      "win_rate": 88.0,
+      "avg_pnl": 0.601,
+      "avg_mfe": 0.889,
+      "avg_mae": 0.203,
+      "total_pnl": 15.04,
+      "rr": 4.4
+    }
+  },
+  "INDUSTOWER": {
+    "symbol": "INDUSTOWER",
+    "bull": {
+      "trades": 18,
+      "wins": 13,
+      "win_rate": 72.2,
+      "avg_pnl": 0.796,
+      "avg_mfe": 1.431,
+      "avg_mae": 0.498,
+      "total_pnl": 14.33,
+      "rr": 2.9
+    },
+    "bear": {
+      "trades": 15,
+      "wins": 13,
+      "win_rate": 86.7,
+      "avg_pnl": 0.93,
+      "avg_mfe": 1.232,
+      "avg_mae": 0.172,
+      "total_pnl": 13.96,
+      "rr": 7.2
+    }
+  },
+  "INDUSINDBK": {
+    "symbol": "INDUSINDBK",
+    "bull": {
+      "trades": 20,
+      "wins": 18,
+      "win_rate": 90.0,
+      "avg_pnl": 1.014,
+      "avg_mfe": 1.357,
+      "avg_mae": 0.283,
+      "total_pnl": 20.29,
+      "rr": 4.8
+    },
+    "bear": {
+      "trades": 18,
+      "wins": 17,
+      "win_rate": 94.4,
+      "avg_pnl": 0.985,
+      "avg_mfe": 1.259,
+      "avg_mae": 0.385,
+      "total_pnl": 17.74,
+      "rr": 3.3
+    }
+  },
+  "NAUKRI": {
+    "symbol": "NAUKRI",
+    "bull": {
+      "trades": 23,
+      "wins": 23,
+      "win_rate": 100.0,
+      "avg_pnl": 2.276,
+      "avg_mfe": 2.824,
+      "avg_mae": 0.373,
+      "total_pnl": 52.35,
+      "rr": 7.6
+    },
+    "bear": {
+      "trades": 12,
+      "wins": 10,
+      "win_rate": 83.3,
+      "avg_pnl": 0.848,
+      "avg_mfe": 1.116,
+      "avg_mae": 0.266,
+      "total_pnl": 10.18,
+      "rr": 4.2
+    }
+  },
+  "INFY": {
+    "symbol": "INFY",
+    "bull": {
+      "trades": 23,
+      "wins": 22,
+      "win_rate": 95.7,
+      "avg_pnl": 1.525,
+      "avg_mfe": 1.934,
+      "avg_mae": 0.306,
+      "total_pnl": 35.09,
+      "rr": 6.3
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 24,
+      "win_rate": 96.0,
+      "avg_pnl": 1.116,
+      "avg_mfe": 1.37,
+      "avg_mae": 0.257,
+      "total_pnl": 27.91,
+      "rr": 5.3
+    }
+  },
+  "INOXWIND": {
+    "symbol": "INOXWIND",
+    "bull": {
+      "trades": 15,
+      "wins": 14,
+      "win_rate": 93.3,
+      "avg_pnl": 1.453,
+      "avg_mfe": 1.925,
+      "avg_mae": 0.245,
+      "total_pnl": 21.79,
+      "rr": 7.9
+    },
+    "bear": {
+      "trades": 27,
+      "wins": 27,
+      "win_rate": 100.0,
+      "avg_pnl": 1.165,
+      "avg_mfe": 1.417,
+      "avg_mae": 0.163,
+      "total_pnl": 31.45,
+      "rr": 8.7
+    }
+  },
+  "INDIGO": {
+    "symbol": "INDIGO",
+    "bull": {
+      "trades": 28,
+      "wins": 23,
+      "win_rate": 82.1,
+      "avg_pnl": 1.101,
+      "avg_mfe": 1.423,
+      "avg_mae": 0.35,
+      "total_pnl": 30.82,
+      "rr": 4.1
+    },
+    "bear": {
+      "trades": 36,
+      "wins": 34,
+      "win_rate": 94.4,
+      "avg_pnl": 0.885,
+      "avg_mfe": 1.328,
+      "avg_mae": 0.173,
+      "total_pnl": 31.86,
+      "rr": 7.7
+    }
+  },
+  "JINDALSTEL": {
+    "symbol": "JINDALSTEL",
+    "bull": {
+      "trades": 24,
+      "wins": 22,
+      "win_rate": 91.7,
+      "avg_pnl": 1.23,
+      "avg_mfe": 1.551,
+      "avg_mae": 0.194,
+      "total_pnl": 29.53,
+      "rr": 8.0
+    },
+    "bear": {
+      "trades": 14,
+      "wins": 12,
+      "win_rate": 85.7,
+      "avg_pnl": 0.732,
+      "avg_mfe": 1.316,
+      "avg_mae": 0.244,
+      "total_pnl": 10.25,
+      "rr": 5.4
+    }
+  },
+  "JSWENERGY": {
+    "symbol": "JSWENERGY",
+    "bull": {
+      "trades": 18,
+      "wins": 18,
+      "win_rate": 100.0,
+      "avg_pnl": 1.246,
+      "avg_mfe": 1.542,
+      "avg_mae": 0.212,
+      "total_pnl": 22.43,
+      "rr": 7.3
+    },
+    "bear": {
+      "trades": 46,
+      "wins": 42,
+      "win_rate": 91.3,
+      "avg_pnl": 0.73,
+      "avg_mfe": 0.978,
+      "avg_mae": 0.127,
+      "total_pnl": 33.58,
+      "rr": 7.7
+    }
+  },
+  "JSWSTEEL": {
+    "symbol": "JSWSTEEL",
+    "bull": {
+      "trades": 20,
+      "wins": 20,
+      "win_rate": 100.0,
+      "avg_pnl": 1.057,
+      "avg_mfe": 1.367,
+      "avg_mae": 0.237,
+      "total_pnl": 21.14,
+      "rr": 5.8
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 22,
+      "win_rate": 88.0,
+      "avg_pnl": 0.547,
+      "avg_mfe": 0.845,
+      "avg_mae": 0.181,
+      "total_pnl": 13.68,
+      "rr": 4.7
+    }
+  },
+  "JIOFIN": {
+    "symbol": "JIOFIN",
+    "bull": {
+      "trades": 24,
+      "wins": 22,
+      "win_rate": 91.7,
+      "avg_pnl": 1.561,
+      "avg_mfe": 2.104,
+      "avg_mae": 0.234,
+      "total_pnl": 37.46,
+      "rr": 9.0
+    },
+    "bear": {
+      "trades": 48,
+      "wins": 46,
+      "win_rate": 95.8,
+      "avg_pnl": 0.665,
+      "avg_mfe": 0.9,
+      "avg_mae": 0.159,
+      "total_pnl": 31.9,
+      "rr": 5.7
+    }
+  },
+  "JUBLFOOD": {
+    "symbol": "JUBLFOOD",
+    "bull": {
+      "trades": 30,
+      "wins": 26,
+      "win_rate": 86.7,
+      "avg_pnl": 1.232,
+      "avg_mfe": 1.793,
+      "avg_mae": 0.272,
+      "total_pnl": 36.97,
+      "rr": 6.6
+    },
+    "bear": {
+      "trades": 21,
+      "wins": 20,
+      "win_rate": 95.2,
+      "avg_pnl": 0.978,
+      "avg_mfe": 1.23,
+      "avg_mae": 0.249,
+      "total_pnl": 20.54,
+      "rr": 4.9
+    }
+  },
+  "KEI": {
+    "symbol": "KEI",
+    "bull": {
+      "trades": 18,
+      "wins": 16,
+      "win_rate": 88.9,
+      "avg_pnl": 1.479,
+      "avg_mfe": 1.929,
+      "avg_mae": 0.424,
+      "total_pnl": 26.62,
+      "rr": 4.5
+    },
+    "bear": {
+      "trades": 20,
+      "wins": 19,
+      "win_rate": 95.0,
+      "avg_pnl": 1.112,
+      "avg_mfe": 1.478,
+      "avg_mae": 0.358,
+      "total_pnl": 22.25,
+      "rr": 4.1
+    }
+  },
+  "KPITTECH": {
+    "symbol": "KPITTECH",
+    "bull": {
+      "trades": 17,
+      "wins": 16,
+      "win_rate": 94.1,
+      "avg_pnl": 1.508,
+      "avg_mfe": 2.252,
+      "avg_mae": 0.4,
+      "total_pnl": 25.64,
+      "rr": 5.6
+    },
+    "bear": {
+      "trades": 47,
+      "wins": 44,
+      "win_rate": 93.6,
+      "avg_pnl": 2.035,
+      "avg_mfe": 2.387,
+      "avg_mae": 0.361,
+      "total_pnl": 95.63,
+      "rr": 6.6
+    }
+  },
+  "KALYANKJIL": {
+    "symbol": "KALYANKJIL",
+    "bull": {
+      "trades": 43,
+      "wins": 42,
+      "win_rate": 97.7,
+      "avg_pnl": 2.185,
+      "avg_mfe": 3.042,
+      "avg_mae": 0.602,
+      "total_pnl": 93.97,
+      "rr": 5.1
+    },
+    "bear": {
+      "trades": 21,
+      "wins": 18,
+      "win_rate": 85.7,
+      "avg_pnl": 1.708,
+      "avg_mfe": 2.476,
+      "avg_mae": 0.453,
+      "total_pnl": 35.87,
+      "rr": 5.5
+    }
+  },
+  "KAYNES": {
+    "symbol": "KAYNES",
+    "bull": {
+      "trades": 47,
+      "wins": 46,
+      "win_rate": 97.9,
+      "avg_pnl": 1.784,
+      "avg_mfe": 2.346,
+      "avg_mae": 0.365,
+      "total_pnl": 83.86,
+      "rr": 6.4
+    },
+    "bear": {
+      "trades": 22,
+      "wins": 20,
+      "win_rate": 90.9,
+      "avg_pnl": 1.167,
+      "avg_mfe": 1.426,
+      "avg_mae": 0.235,
+      "total_pnl": 25.68,
+      "rr": 6.1
+    }
+  },
+  "KFINTECH": {
+    "symbol": "KFINTECH",
+    "bull": {
+      "trades": 21,
+      "wins": 16,
+      "win_rate": 76.2,
+      "avg_pnl": 1.429,
+      "avg_mfe": 2.185,
+      "avg_mae": 0.548,
+      "total_pnl": 30.02,
+      "rr": 4.0
+    },
+    "bear": {
+      "trades": 15,
+      "wins": 14,
+      "win_rate": 93.3,
+      "avg_pnl": 1.251,
+      "avg_mfe": 1.515,
+      "avg_mae": 0.278,
+      "total_pnl": 18.77,
+      "rr": 5.4
+    }
+  },
+  "KOTAKBANK": {
+    "symbol": "KOTAKBANK",
+    "bull": {
+      "trades": 34,
+      "wins": 32,
+      "win_rate": 94.1,
+      "avg_pnl": 0.911,
+      "avg_mfe": 1.159,
+      "avg_mae": 0.195,
+      "total_pnl": 30.99,
+      "rr": 5.9
+    },
+    "bear": {
+      "trades": 17,
+      "wins": 17,
+      "win_rate": 100.0,
+      "avg_pnl": 0.837,
+      "avg_mfe": 1.062,
+      "avg_mae": 0.179,
+      "total_pnl": 14.22,
+      "rr": 5.9
+    }
+  },
+  "LTF": {
+    "symbol": "LTF",
+    "bull": {
+      "trades": 27,
+      "wins": 24,
+      "win_rate": 88.9,
+      "avg_pnl": 1.184,
+      "avg_mfe": 1.679,
+      "avg_mae": 0.374,
+      "total_pnl": 31.96,
+      "rr": 4.5
+    },
+    "bear": {
+      "trades": 21,
+      "wins": 19,
+      "win_rate": 90.5,
+      "avg_pnl": 1.127,
+      "avg_mfe": 1.446,
+      "avg_mae": 0.268,
+      "total_pnl": 23.66,
+      "rr": 5.4
+    }
+  },
+  "LICHSGFIN": {
+    "symbol": "LICHSGFIN",
+    "bull": {
+      "trades": 19,
+      "wins": 15,
+      "win_rate": 78.9,
+      "avg_pnl": 0.783,
+      "avg_mfe": 1.285,
+      "avg_mae": 0.273,
+      "total_pnl": 14.87,
+      "rr": 4.7
+    },
+    "bear": {
+      "trades": 36,
+      "wins": 30,
+      "win_rate": 83.3,
+      "avg_pnl": 0.529,
+      "avg_mfe": 0.87,
+      "avg_mae": 0.209,
+      "total_pnl": 19.03,
+      "rr": 4.2
+    }
+  },
+  "LTM": {
+    "symbol": "LTM",
+    "bull": {
+      "trades": 37,
+      "wins": 32,
+      "win_rate": 86.5,
+      "avg_pnl": 1.599,
+      "avg_mfe": 2.058,
+      "avg_mae": 0.354,
+      "total_pnl": 59.16,
+      "rr": 5.8
+    },
+    "bear": {
+      "trades": 21,
+      "wins": 18,
+      "win_rate": 85.7,
+      "avg_pnl": 0.736,
+      "avg_mfe": 1.217,
+      "avg_mae": 0.259,
+      "total_pnl": 15.46,
+      "rr": 4.7
+    }
+  },
+  "LT": {
+    "symbol": "LT",
+    "bull": {
+      "trades": 12,
+      "wins": 9,
+      "win_rate": 75.0,
+      "avg_pnl": 0.778,
+      "avg_mfe": 1.252,
+      "avg_mae": 0.173,
+      "total_pnl": 9.33,
+      "rr": 7.2
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 20,
+      "win_rate": 80.0,
+      "avg_pnl": 0.515,
+      "avg_mfe": 0.731,
+      "avg_mae": 0.168,
+      "total_pnl": 12.87,
+      "rr": 4.4
+    }
+  },
+  "LAURUSLABS": {
+    "symbol": "LAURUSLABS",
+    "bull": {
+      "trades": 40,
+      "wins": 38,
+      "win_rate": 95.0,
+      "avg_pnl": 1.011,
+      "avg_mfe": 1.408,
+      "avg_mae": 0.286,
+      "total_pnl": 40.43,
+      "rr": 4.9
+    },
+    "bear": {
+      "trades": 24,
+      "wins": 24,
+      "win_rate": 100.0,
+      "avg_pnl": 0.895,
+      "avg_mfe": 1.128,
+      "avg_mae": 0.244,
+      "total_pnl": 21.49,
+      "rr": 4.6
+    }
+  },
+  "LICI": {
+    "symbol": "LICI",
+    "bull": {
+      "trades": 13,
+      "wins": 13,
+      "win_rate": 100.0,
+      "avg_pnl": 1.024,
+      "avg_mfe": 1.355,
+      "avg_mae": 0.237,
+      "total_pnl": 13.31,
+      "rr": 5.7
+    },
+    "bear": {
+      "trades": 22,
+      "wins": 19,
+      "win_rate": 86.4,
+      "avg_pnl": 1.446,
+      "avg_mfe": 1.92,
+      "avg_mae": 0.22,
+      "total_pnl": 31.81,
+      "rr": 8.7
+    }
+  },
+  "LODHA": {
+    "symbol": "LODHA",
+    "bull": {
+      "trades": 43,
+      "wins": 41,
+      "win_rate": 95.3,
+      "avg_pnl": 1.579,
+      "avg_mfe": 2.196,
+      "avg_mae": 0.365,
+      "total_pnl": 67.92,
+      "rr": 6.0
+    },
+    "bear": {
+      "trades": 17,
+      "wins": 17,
+      "win_rate": 100.0,
+      "avg_pnl": 1.323,
+      "avg_mfe": 1.695,
+      "avg_mae": 0.286,
+      "total_pnl": 22.48,
+      "rr": 5.9
+    }
+  },
+  "LUPIN": {
+    "symbol": "LUPIN",
+    "bull": {
+      "trades": 10,
+      "wins": 9,
+      "win_rate": 90.0,
+      "avg_pnl": 0.818,
+      "avg_mfe": 1.157,
+      "avg_mae": 0.201,
+      "total_pnl": 8.18,
+      "rr": 5.8
+    },
+    "bear": {
+      "trades": 23,
+      "wins": 22,
+      "win_rate": 95.7,
+      "avg_pnl": 0.834,
+      "avg_mfe": 1.103,
+      "avg_mae": 0.27,
+      "total_pnl": 19.19,
+      "rr": 4.1
+    }
+  },
+  "M&M": {
+    "symbol": "M&M",
+    "bull": {
+      "trades": 29,
+      "wins": 26,
+      "win_rate": 89.7,
+      "avg_pnl": 0.693,
+      "avg_mfe": 1.013,
+      "avg_mae": 0.278,
+      "total_pnl": 20.1,
+      "rr": 3.6
+    },
+    "bear": {
+      "trades": 14,
+      "wins": 14,
+      "win_rate": 100.0,
+      "avg_pnl": 1.063,
+      "avg_mfe": 1.326,
+      "avg_mae": 0.179,
+      "total_pnl": 14.89,
+      "rr": 7.4
+    }
+  },
+  "MANAPPURAM": {
+    "symbol": "MANAPPURAM",
+    "bull": {
+      "trades": 21,
+      "wins": 20,
+      "win_rate": 95.2,
+      "avg_pnl": 1.311,
+      "avg_mfe": 1.834,
+      "avg_mae": 0.387,
+      "total_pnl": 27.54,
+      "rr": 4.7
+    },
+    "bear": {
+      "trades": 17,
+      "wins": 16,
+      "win_rate": 94.1,
+      "avg_pnl": 1.151,
+      "avg_mfe": 1.644,
+      "avg_mae": 0.628,
+      "total_pnl": 19.57,
+      "rr": 2.6
+    }
+  },
+  "MANKIND": {
+    "symbol": "MANKIND",
+    "bull": {
+      "trades": 15,
+      "wins": 15,
+      "win_rate": 100.0,
+      "avg_pnl": 1.198,
+      "avg_mfe": 1.518,
+      "avg_mae": 0.232,
+      "total_pnl": 17.96,
+      "rr": 6.5
+    },
+    "bear": {
+      "trades": 22,
+      "wins": 19,
+      "win_rate": 86.4,
+      "avg_pnl": 0.936,
+      "avg_mfe": 1.175,
+      "avg_mae": 0.265,
+      "total_pnl": 20.59,
+      "rr": 4.4
+    }
+  },
+  "MARICO": {
+    "symbol": "MARICO",
+    "bull": {
+      "trades": 20,
+      "wins": 18,
+      "win_rate": 90.0,
+      "avg_pnl": 0.683,
+      "avg_mfe": 1.057,
+      "avg_mae": 0.262,
+      "total_pnl": 13.67,
+      "rr": 4.0
+    },
+    "bear": {
+      "trades": 22,
+      "wins": 22,
+      "win_rate": 100.0,
+      "avg_pnl": 0.645,
+      "avg_mfe": 0.76,
+      "avg_mae": 0.078,
+      "total_pnl": 14.18,
+      "rr": 9.7
+    }
+  },
+  "MARUTI": {
+    "symbol": "MARUTI",
+    "bull": {
+      "trades": 27,
+      "wins": 26,
+      "win_rate": 96.3,
+      "avg_pnl": 0.886,
+      "avg_mfe": 1.251,
+      "avg_mae": 0.323,
+      "total_pnl": 23.92,
+      "rr": 3.9
+    },
+    "bear": {
+      "trades": 45,
+      "wins": 43,
+      "win_rate": 95.6,
+      "avg_pnl": 0.73,
+      "avg_mfe": 0.963,
+      "avg_mae": 0.191,
+      "total_pnl": 32.86,
+      "rr": 5.0
+    }
+  },
+  "MFSL": {
+    "symbol": "MFSL",
+    "bull": {
+      "trades": 20,
+      "wins": 19,
+      "win_rate": 95.0,
+      "avg_pnl": 1.082,
+      "avg_mfe": 1.63,
+      "avg_mae": 0.283,
+      "total_pnl": 21.64,
+      "rr": 5.8
+    },
+    "bear": {
+      "trades": 22,
+      "wins": 20,
+      "win_rate": 90.9,
+      "avg_pnl": 0.821,
+      "avg_mfe": 1.221,
+      "avg_mae": 0.226,
+      "total_pnl": 18.07,
+      "rr": 5.4
+    }
+  },
+  "MAXHEALTH": {
+    "symbol": "MAXHEALTH",
+    "bull": {
+      "trades": 12,
+      "wins": 10,
+      "win_rate": 83.3,
+      "avg_pnl": 0.666,
+      "avg_mfe": 1.09,
+      "avg_mae": 0.214,
+      "total_pnl": 8.0,
+      "rr": 5.1
+    },
+    "bear": {
+      "trades": 28,
+      "wins": 27,
+      "win_rate": 96.4,
+      "avg_pnl": 0.945,
+      "avg_mfe": 1.236,
+      "avg_mae": 0.204,
+      "total_pnl": 26.47,
+      "rr": 6.1
+    }
+  },
+  "MAZDOCK": {
+    "symbol": "MAZDOCK",
+    "bull": {
+      "trades": 14,
+      "wins": 14,
+      "win_rate": 100.0,
+      "avg_pnl": 1.478,
+      "avg_mfe": 1.963,
+      "avg_mae": 0.173,
+      "total_pnl": 20.69,
+      "rr": 11.3
+    },
+    "bear": {
+      "trades": 24,
+      "wins": 21,
+      "win_rate": 87.5,
+      "avg_pnl": 0.878,
+      "avg_mfe": 1.137,
+      "avg_mae": 0.267,
+      "total_pnl": 21.08,
+      "rr": 4.3
+    }
+  },
+  "MOTILALOFS": {
+    "symbol": "MOTILALOFS",
+    "bull": {
+      "trades": 26,
+      "wins": 25,
+      "win_rate": 96.2,
+      "avg_pnl": 1.57,
+      "avg_mfe": 1.986,
+      "avg_mae": 0.309,
+      "total_pnl": 40.82,
+      "rr": 6.4
+    },
+    "bear": {
+      "trades": 13,
+      "wins": 10,
+      "win_rate": 76.9,
+      "avg_pnl": 1.284,
+      "avg_mfe": 1.951,
+      "avg_mae": 0.288,
+      "total_pnl": 16.69,
+      "rr": 6.8
+    }
+  },
+  "MPHASIS": {
+    "symbol": "MPHASIS",
+    "bull": {
+      "trades": 42,
+      "wins": 40,
+      "win_rate": 95.2,
+      "avg_pnl": 1.651,
+      "avg_mfe": 2.096,
+      "avg_mae": 0.185,
+      "total_pnl": 69.34,
+      "rr": 11.3
+    },
+    "bear": {
+      "trades": 32,
+      "wins": 31,
+      "win_rate": 96.9,
+      "avg_pnl": 1.171,
+      "avg_mfe": 1.595,
+      "avg_mae": 0.317,
+      "total_pnl": 37.48,
+      "rr": 5.0
+    }
+  },
+  "MCX": {
+    "symbol": "MCX",
+    "bull": {
+      "trades": 44,
+      "wins": 40,
+      "win_rate": 90.9,
+      "avg_pnl": 1.311,
+      "avg_mfe": 1.847,
+      "avg_mae": 0.306,
+      "total_pnl": 57.7,
+      "rr": 6.0
+    },
+    "bear": {
+      "trades": 34,
+      "wins": 33,
+      "win_rate": 97.1,
+      "avg_pnl": 1.086,
+      "avg_mfe": 1.458,
+      "avg_mae": 0.303,
+      "total_pnl": 36.91,
+      "rr": 4.8
+    }
+  },
+  "MUTHOOTFIN": {
+    "symbol": "MUTHOOTFIN",
+    "bull": {
+      "trades": 22,
+      "wins": 20,
+      "win_rate": 90.9,
+      "avg_pnl": 1.532,
+      "avg_mfe": 1.968,
+      "avg_mae": 0.351,
+      "total_pnl": 33.71,
+      "rr": 5.6
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 23,
+      "win_rate": 92.0,
+      "avg_pnl": 1.684,
+      "avg_mfe": 2.168,
+      "avg_mae": 0.274,
+      "total_pnl": 42.11,
+      "rr": 7.9
+    }
+  },
+  "NBCC": {
+    "symbol": "NBCC",
+    "bull": {
+      "trades": 7,
+      "wins": 5,
+      "win_rate": 71.4,
+      "avg_pnl": 0.665,
+      "avg_mfe": 1.103,
+      "avg_mae": 0.274,
+      "total_pnl": 4.66,
+      "rr": 4.0
+    },
+    "bear": {
+      "trades": 38,
+      "wins": 37,
+      "win_rate": 97.4,
+      "avg_pnl": 0.93,
+      "avg_mfe": 1.19,
+      "avg_mae": 0.17,
+      "total_pnl": 35.33,
+      "rr": 7.0
+    }
+  },
+  "NHPC": {
+    "symbol": "NHPC",
+    "bull": {
+      "trades": 13,
+      "wins": 12,
+      "win_rate": 92.3,
+      "avg_pnl": 0.818,
+      "avg_mfe": 1.182,
+      "avg_mae": 0.146,
+      "total_pnl": 10.64,
+      "rr": 8.1
+    },
+    "bear": {
+      "trades": 31,
+      "wins": 28,
+      "win_rate": 90.3,
+      "avg_pnl": 0.685,
+      "avg_mfe": 0.912,
+      "avg_mae": 0.218,
+      "total_pnl": 21.23,
+      "rr": 4.2
+    }
+  },
+  "NMDC": {
+    "symbol": "NMDC",
+    "bull": {
+      "trades": 13,
+      "wins": 13,
+      "win_rate": 100.0,
+      "avg_pnl": 1.269,
+      "avg_mfe": 1.622,
+      "avg_mae": 0.2,
+      "total_pnl": 16.5,
+      "rr": 8.1
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 25,
+      "win_rate": 100.0,
+      "avg_pnl": 0.794,
+      "avg_mfe": 1.069,
+      "avg_mae": 0.208,
+      "total_pnl": 19.84,
+      "rr": 5.1
+    }
+  },
+  "NTPC": {
+    "symbol": "NTPC",
+    "bull": {
+      "trades": 5,
+      "wins": 5,
+      "win_rate": 100.0,
+      "avg_pnl": 0.805,
+      "avg_mfe": 1.086,
+      "avg_mae": 0.145,
+      "total_pnl": 4.02,
+      "rr": 7.5
+    },
+    "bear": {
+      "trades": 20,
+      "wins": 19,
+      "win_rate": 95.0,
+      "avg_pnl": 0.732,
+      "avg_mfe": 0.958,
+      "avg_mae": 0.123,
+      "total_pnl": 14.65,
+      "rr": 7.8
+    }
+  },
+  "NATIONALUM": {
+    "symbol": "NATIONALUM",
+    "bull": {
+      "trades": 37,
+      "wins": 35,
+      "win_rate": 94.6,
+      "avg_pnl": 1.709,
+      "avg_mfe": 2.245,
+      "avg_mae": 0.343,
+      "total_pnl": 63.25,
+      "rr": 6.5
+    },
+    "bear": {
+      "trades": 31,
+      "wins": 28,
+      "win_rate": 90.3,
+      "avg_pnl": 0.994,
+      "avg_mfe": 1.343,
+      "avg_mae": 0.264,
+      "total_pnl": 30.82,
+      "rr": 5.1
+    }
+  },
+  "NESTLEIND": {
+    "symbol": "NESTLEIND",
+    "bull": {
+      "trades": 11,
+      "wins": 11,
+      "win_rate": 100.0,
+      "avg_pnl": 1.066,
+      "avg_mfe": 1.423,
+      "avg_mae": 0.278,
+      "total_pnl": 11.73,
+      "rr": 5.1
+    },
+    "bear": {
+      "trades": 14,
+      "wins": 13,
+      "win_rate": 92.9,
+      "avg_pnl": 0.708,
+      "avg_mfe": 0.986,
+      "avg_mae": 0.219,
+      "total_pnl": 9.92,
+      "rr": 4.5
+    }
+  },
+  "NAM-INDIA": {
+    "symbol": "NAM-INDIA",
+    "bull": {
+      "trades": 21,
+      "wins": 19,
+      "win_rate": 90.5,
+      "avg_pnl": 1.174,
+      "avg_mfe": 1.555,
+      "avg_mae": 0.404,
+      "total_pnl": 24.66,
+      "rr": 3.8
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 25,
+      "win_rate": 100.0,
+      "avg_pnl": 1.223,
+      "avg_mfe": 1.688,
+      "avg_mae": 0.325,
+      "total_pnl": 30.58,
+      "rr": 5.2
+    }
+  },
+  "OBEROIRLTY": {
+    "symbol": "OBEROIRLTY",
+    "bull": {
+      "trades": 16,
+      "wins": 16,
+      "win_rate": 100.0,
+      "avg_pnl": 1.291,
+      "avg_mfe": 1.719,
+      "avg_mae": 0.319,
+      "total_pnl": 20.65,
+      "rr": 5.4
+    },
+    "bear": {
+      "trades": 24,
+      "wins": 22,
+      "win_rate": 91.7,
+      "avg_pnl": 0.802,
+      "avg_mfe": 1.093,
+      "avg_mae": 0.225,
+      "total_pnl": 19.26,
+      "rr": 4.9
+    }
+  },
+  "ONGC": {
+    "symbol": "ONGC",
+    "bull": {
+      "trades": 12,
+      "wins": 11,
+      "win_rate": 91.7,
+      "avg_pnl": 0.794,
+      "avg_mfe": 1.202,
+      "avg_mae": 0.133,
+      "total_pnl": 9.52,
+      "rr": 9.0
+    },
+    "bear": {
+      "trades": 24,
+      "wins": 22,
+      "win_rate": 91.7,
+      "avg_pnl": 0.713,
+      "avg_mfe": 0.839,
+      "avg_mae": 0.187,
+      "total_pnl": 17.1,
+      "rr": 4.5
+    }
+  },
+  "OIL": {
+    "symbol": "OIL",
+    "bull": {
+      "trades": 29,
+      "wins": 27,
+      "win_rate": 93.1,
+      "avg_pnl": 1.057,
+      "avg_mfe": 1.459,
+      "avg_mae": 0.24,
+      "total_pnl": 30.64,
+      "rr": 6.1
+    },
+    "bear": {
+      "trades": 22,
+      "wins": 22,
+      "win_rate": 100.0,
+      "avg_pnl": 1.23,
+      "avg_mfe": 1.421,
+      "avg_mae": 0.144,
+      "total_pnl": 27.05,
+      "rr": 9.9
+    }
+  },
+  "PAYTM": {
+    "symbol": "PAYTM",
+    "bull": {
+      "trades": 40,
+      "wins": 35,
+      "win_rate": 87.5,
+      "avg_pnl": 1.344,
+      "avg_mfe": 1.901,
+      "avg_mae": 0.451,
+      "total_pnl": 53.75,
+      "rr": 4.2
+    },
+    "bear": {
+      "trades": 28,
+      "wins": 25,
+      "win_rate": 89.3,
+      "avg_pnl": 0.853,
+      "avg_mfe": 1.301,
+      "avg_mae": 0.218,
+      "total_pnl": 23.88,
+      "rr": 6.0
+    }
+  },
+  "OFSS": {
+    "symbol": "OFSS",
+    "bull": {
+      "trades": 30,
+      "wins": 28,
+      "win_rate": 93.3,
+      "avg_pnl": 1.438,
+      "avg_mfe": 1.986,
+      "avg_mae": 0.352,
+      "total_pnl": 43.15,
+      "rr": 5.6
+    },
+    "bear": {
+      "trades": 17,
+      "wins": 15,
+      "win_rate": 88.2,
+      "avg_pnl": 1.261,
+      "avg_mfe": 1.587,
+      "avg_mae": 0.393,
+      "total_pnl": 21.43,
+      "rr": 4.0
+    }
+  },
+  "POLICYBZR": {
+    "symbol": "POLICYBZR",
+    "bull": {
+      "trades": 28,
+      "wins": 23,
+      "win_rate": 82.1,
+      "avg_pnl": 1.192,
+      "avg_mfe": 1.575,
+      "avg_mae": 0.293,
+      "total_pnl": 33.37,
+      "rr": 5.4
+    },
+    "bear": {
+      "trades": 11,
+      "wins": 11,
+      "win_rate": 100.0,
+      "avg_pnl": 1.555,
+      "avg_mfe": 1.961,
+      "avg_mae": 0.154,
+      "total_pnl": 17.11,
+      "rr": 12.7
+    }
+  },
+  "PGEL": {
+    "symbol": "PGEL",
+    "bull": {
+      "trades": 28,
+      "wins": 24,
+      "win_rate": 85.7,
+      "avg_pnl": 1.089,
+      "avg_mfe": 1.716,
+      "avg_mae": 0.336,
+      "total_pnl": 30.49,
+      "rr": 5.1
+    },
+    "bear": {
+      "trades": 9,
+      "wins": 8,
+      "win_rate": 88.9,
+      "avg_pnl": 1.007,
+      "avg_mfe": 1.351,
+      "avg_mae": 0.402,
+      "total_pnl": 9.07,
+      "rr": 3.4
+    }
+  },
+  "PIIND": {
+    "symbol": "PIIND",
+    "bull": {
+      "trades": 19,
+      "wins": 18,
+      "win_rate": 94.7,
+      "avg_pnl": 1.226,
+      "avg_mfe": 1.467,
+      "avg_mae": 0.126,
+      "total_pnl": 23.29,
+      "rr": 11.6
+    },
+    "bear": {
+      "trades": 32,
+      "wins": 28,
+      "win_rate": 87.5,
+      "avg_pnl": 0.954,
+      "avg_mfe": 1.217,
+      "avg_mae": 0.22,
+      "total_pnl": 30.52,
+      "rr": 5.5
+    }
+  },
+  "PNBHOUSING": {
+    "symbol": "PNBHOUSING",
+    "bull": {
+      "trades": 27,
+      "wins": 27,
+      "win_rate": 100.0,
+      "avg_pnl": 1.511,
+      "avg_mfe": 1.997,
+      "avg_mae": 0.389,
+      "total_pnl": 40.8,
+      "rr": 5.1
+    },
+    "bear": {
+      "trades": 12,
+      "wins": 11,
+      "win_rate": 91.7,
+      "avg_pnl": 1.046,
+      "avg_mfe": 1.479,
+      "avg_mae": 0.349,
+      "total_pnl": 12.56,
+      "rr": 4.2
+    }
+  },
+  "PAGEIND": {
+    "symbol": "PAGEIND",
+    "bull": {
+      "trades": 14,
+      "wins": 14,
+      "win_rate": 100.0,
+      "avg_pnl": 1.644,
+      "avg_mfe": 2.075,
+      "avg_mae": 0.302,
+      "total_pnl": 23.01,
+      "rr": 6.9
+    },
+    "bear": {
+      "trades": 36,
+      "wins": 36,
+      "win_rate": 100.0,
+      "avg_pnl": 1.009,
+      "avg_mfe": 1.324,
+      "avg_mae": 0.261,
+      "total_pnl": 36.32,
+      "rr": 5.1
+    }
+  },
+  "PATANJALI": {
+    "symbol": "PATANJALI",
+    "bull": {
+      "trades": 8,
+      "wins": 7,
+      "win_rate": 87.5,
+      "avg_pnl": 1.121,
+      "avg_mfe": 1.708,
+      "avg_mae": 0.202,
+      "total_pnl": 8.97,
+      "rr": 8.5
+    },
+    "bear": {
+      "trades": 10,
+      "wins": 10,
+      "win_rate": 100.0,
+      "avg_pnl": 1.44,
+      "avg_mfe": 1.875,
+      "avg_mae": 0.262,
+      "total_pnl": 14.4,
+      "rr": 7.2
+    }
+  },
+  "PERSISTENT": {
+    "symbol": "PERSISTENT",
+    "bull": {
+      "trades": 49,
+      "wins": 42,
+      "win_rate": 85.7,
+      "avg_pnl": 1.196,
+      "avg_mfe": 1.685,
+      "avg_mae": 0.287,
+      "total_pnl": 58.62,
+      "rr": 5.9
+    },
+    "bear": {
+      "trades": 12,
+      "wins": 11,
+      "win_rate": 91.7,
+      "avg_pnl": 0.758,
+      "avg_mfe": 1.219,
+      "avg_mae": 0.235,
+      "total_pnl": 9.09,
+      "rr": 5.2
+    }
+  },
+  "PETRONET": {
+    "symbol": "PETRONET",
+    "bull": {
+      "trades": 11,
+      "wins": 9,
+      "win_rate": 81.8,
+      "avg_pnl": 0.503,
+      "avg_mfe": 0.794,
+      "avg_mae": 0.239,
+      "total_pnl": 5.53,
+      "rr": 3.3
+    },
+    "bear": {
+      "trades": 11,
+      "wins": 10,
+      "win_rate": 90.9,
+      "avg_pnl": 0.734,
+      "avg_mfe": 0.938,
+      "avg_mae": 0.182,
+      "total_pnl": 8.08,
+      "rr": 5.2
+    }
+  },
+  "PIDILITIND": {
+    "symbol": "PIDILITIND",
+    "bull": {
+      "trades": 20,
+      "wins": 17,
+      "win_rate": 85.0,
+      "avg_pnl": 0.76,
+      "avg_mfe": 1.064,
+      "avg_mae": 0.24,
+      "total_pnl": 15.21,
+      "rr": 4.4
+    },
+    "bear": {
+      "trades": 18,
+      "wins": 15,
+      "win_rate": 83.3,
+      "avg_pnl": 0.622,
+      "avg_mfe": 0.849,
+      "avg_mae": 0.199,
+      "total_pnl": 11.19,
+      "rr": 4.3
+    }
+  },
+  "POLYCAB": {
+    "symbol": "POLYCAB",
+    "bull": {
+      "trades": 21,
+      "wins": 17,
+      "win_rate": 81.0,
+      "avg_pnl": 0.745,
+      "avg_mfe": 1.047,
+      "avg_mae": 0.171,
+      "total_pnl": 15.65,
+      "rr": 6.1
+    },
+    "bear": {
+      "trades": 33,
+      "wins": 32,
+      "win_rate": 97.0,
+      "avg_pnl": 1.014,
+      "avg_mfe": 1.346,
+      "avg_mae": 0.331,
+      "total_pnl": 33.45,
+      "rr": 4.1
+    }
+  },
+  "PFC": {
+    "symbol": "PFC",
+    "bull": {
+      "trades": 11,
+      "wins": 11,
+      "win_rate": 100.0,
+      "avg_pnl": 0.754,
+      "avg_mfe": 0.968,
+      "avg_mae": 0.283,
+      "total_pnl": 8.29,
+      "rr": 3.4
+    },
+    "bear": {
+      "trades": 32,
+      "wins": 30,
+      "win_rate": 93.8,
+      "avg_pnl": 0.83,
+      "avg_mfe": 1.094,
+      "avg_mae": 0.238,
+      "total_pnl": 26.56,
+      "rr": 4.6
+    }
+  },
+  "POWERGRID": {
+    "symbol": "POWERGRID",
+    "bull": {
+      "trades": 12,
+      "wins": 11,
+      "win_rate": 91.7,
+      "avg_pnl": 0.858,
+      "avg_mfe": 1.169,
+      "avg_mae": 0.097,
+      "total_pnl": 10.29,
+      "rr": 12.1
+    },
+    "bear": {
+      "trades": 22,
+      "wins": 20,
+      "win_rate": 90.9,
+      "avg_pnl": 0.715,
+      "avg_mfe": 0.982,
+      "avg_mae": 0.211,
+      "total_pnl": 15.73,
+      "rr": 4.7
+    }
+  },
+  "PREMIERENE": {
+    "symbol": "PREMIERENE",
+    "bull": {
+      "trades": 18,
+      "wins": 18,
+      "win_rate": 100.0,
+      "avg_pnl": 1.199,
+      "avg_mfe": 1.756,
+      "avg_mae": 0.316,
+      "total_pnl": 21.59,
+      "rr": 5.6
+    },
+    "bear": {
+      "trades": 37,
+      "wins": 34,
+      "win_rate": 91.9,
+      "avg_pnl": 1.287,
+      "avg_mfe": 1.703,
+      "avg_mae": 0.361,
+      "total_pnl": 47.6,
+      "rr": 4.7
+    }
+  },
+  "PRESTIGE": {
+    "symbol": "PRESTIGE",
+    "bull": {
+      "trades": 49,
+      "wins": 44,
+      "win_rate": 89.8,
+      "avg_pnl": 1.079,
+      "avg_mfe": 1.414,
+      "avg_mae": 0.328,
+      "total_pnl": 52.87,
+      "rr": 4.3
+    },
+    "bear": {
+      "trades": 32,
+      "wins": 29,
+      "win_rate": 90.6,
+      "avg_pnl": 1.189,
+      "avg_mfe": 1.622,
+      "avg_mae": 0.327,
+      "total_pnl": 38.06,
+      "rr": 5.0
+    }
+  },
+  "PNB": {
+    "symbol": "PNB",
+    "bull": {
+      "trades": 22,
+      "wins": 21,
+      "win_rate": 95.5,
+      "avg_pnl": 1.29,
+      "avg_mfe": 1.801,
+      "avg_mae": 0.179,
+      "total_pnl": 28.39,
+      "rr": 10.1
+    },
+    "bear": {
+      "trades": 13,
+      "wins": 13,
+      "win_rate": 100.0,
+      "avg_pnl": 0.822,
+      "avg_mfe": 1.063,
+      "avg_mae": 0.155,
+      "total_pnl": 10.68,
+      "rr": 6.9
+    }
+  },
+  "RBLBANK": {
+    "symbol": "RBLBANK",
+    "bull": {
+      "trades": 29,
+      "wins": 26,
+      "win_rate": 89.7,
+      "avg_pnl": 1.04,
+      "avg_mfe": 1.575,
+      "avg_mae": 0.312,
+      "total_pnl": 30.15,
+      "rr": 5.0
+    },
+    "bear": {
+      "trades": 11,
+      "wins": 10,
+      "win_rate": 90.9,
+      "avg_pnl": 0.893,
+      "avg_mfe": 1.254,
+      "avg_mae": 0.268,
+      "total_pnl": 9.83,
+      "rr": 4.7
+    }
+  },
+  "RECLTD": {
+    "symbol": "RECLTD",
+    "bull": {
+      "trades": 14,
+      "wins": 13,
+      "win_rate": 92.9,
+      "avg_pnl": 0.6,
+      "avg_mfe": 0.964,
+      "avg_mae": 0.283,
+      "total_pnl": 8.4,
+      "rr": 3.4
+    },
+    "bear": {
+      "trades": 38,
+      "wins": 34,
+      "win_rate": 89.5,
+      "avg_pnl": 0.805,
+      "avg_mfe": 1.032,
+      "avg_mae": 0.289,
+      "total_pnl": 30.6,
+      "rr": 3.6
+    }
+  },
+  "RADICO": {
+    "symbol": "RADICO",
+    "bull": {
+      "trades": 17,
+      "wins": 15,
+      "win_rate": 88.2,
+      "avg_pnl": 1.333,
+      "avg_mfe": 1.701,
+      "avg_mae": 0.286,
+      "total_pnl": 22.65,
+      "rr": 5.9
+    },
+    "bear": {
+      "trades": 10,
+      "wins": 10,
+      "win_rate": 100.0,
+      "avg_pnl": 0.662,
+      "avg_mfe": 0.89,
+      "avg_mae": 0.151,
+      "total_pnl": 6.62,
+      "rr": 5.9
+    }
+  },
+  "RVNL": {
+    "symbol": "RVNL",
+    "bull": {
+      "trades": 18,
+      "wins": 16,
+      "win_rate": 88.9,
+      "avg_pnl": 1.214,
+      "avg_mfe": 1.57,
+      "avg_mae": 0.216,
+      "total_pnl": 21.86,
+      "rr": 7.3
+    },
+    "bear": {
+      "trades": 35,
+      "wins": 34,
+      "win_rate": 97.1,
+      "avg_pnl": 0.629,
+      "avg_mfe": 0.837,
+      "avg_mae": 0.212,
+      "total_pnl": 22.03,
+      "rr": 3.9
+    }
+  },
+  "RELIANCE": {
+    "symbol": "RELIANCE",
+    "bull": {
+      "trades": 15,
+      "wins": 14,
+      "win_rate": 93.3,
+      "avg_pnl": 0.88,
+      "avg_mfe": 1.154,
+      "avg_mae": 0.274,
+      "total_pnl": 13.21,
+      "rr": 4.2
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 24,
+      "win_rate": 96.0,
+      "avg_pnl": 0.631,
+      "avg_mfe": 0.812,
+      "avg_mae": 0.098,
+      "total_pnl": 15.77,
+      "rr": 8.3
+    }
+  },
+  "SAGILITY": {
+    "symbol": "SAGILITY",
+    "bull": {
+      "trades": 16,
+      "wins": 16,
+      "win_rate": 100.0,
+      "avg_pnl": 1.885,
+      "avg_mfe": 2.354,
+      "avg_mae": 0.345,
+      "total_pnl": 30.16,
+      "rr": 6.8
+    },
+    "bear": {
+      "trades": 30,
+      "wins": 27,
+      "win_rate": 90.0,
+      "avg_pnl": 0.727,
+      "avg_mfe": 1.056,
+      "avg_mae": 0.341,
+      "total_pnl": 21.8,
+      "rr": 3.1
+    }
+  },
+  "SBICARD": {
+    "symbol": "SBICARD",
+    "bull": {
+      "trades": 32,
+      "wins": 30,
+      "win_rate": 93.8,
+      "avg_pnl": 1.37,
+      "avg_mfe": 1.977,
+      "avg_mae": 0.32,
+      "total_pnl": 43.85,
+      "rr": 6.2
+    },
+    "bear": {
+      "trades": 17,
+      "wins": 16,
+      "win_rate": 94.1,
+      "avg_pnl": 0.982,
+      "avg_mfe": 1.352,
+      "avg_mae": 0.249,
+      "total_pnl": 16.7,
+      "rr": 5.4
+    }
+  },
+  "SBILIFE": {
+    "symbol": "SBILIFE",
+    "bull": {
+      "trades": 24,
+      "wins": 21,
+      "win_rate": 87.5,
+      "avg_pnl": 0.966,
+      "avg_mfe": 1.202,
+      "avg_mae": 0.198,
+      "total_pnl": 23.17,
+      "rr": 6.1
+    },
+    "bear": {
+      "trades": 23,
+      "wins": 21,
+      "win_rate": 91.3,
+      "avg_pnl": 0.894,
+      "avg_mfe": 1.213,
+      "avg_mae": 0.17,
+      "total_pnl": 20.56,
+      "rr": 7.1
+    }
+  },
+  "SHREECEM": {
+    "symbol": "SHREECEM",
+    "bull": {
+      "trades": 21,
+      "wins": 19,
+      "win_rate": 90.5,
+      "avg_pnl": 1.014,
+      "avg_mfe": 1.375,
+      "avg_mae": 0.203,
+      "total_pnl": 21.3,
+      "rr": 6.8
+    },
+    "bear": {
+      "trades": 33,
+      "wins": 30,
+      "win_rate": 90.9,
+      "avg_pnl": 0.738,
+      "avg_mfe": 1.082,
+      "avg_mae": 0.233,
+      "total_pnl": 24.35,
+      "rr": 4.6
+    }
+  },
+  "SRF": {
+    "symbol": "SRF",
+    "bull": {
+      "trades": 15,
+      "wins": 14,
+      "win_rate": 93.3,
+      "avg_pnl": 1.211,
+      "avg_mfe": 1.812,
+      "avg_mae": 0.19,
+      "total_pnl": 18.16,
+      "rr": 9.5
+    },
+    "bear": {
+      "trades": 34,
+      "wins": 33,
+      "win_rate": 97.1,
+      "avg_pnl": 1.021,
+      "avg_mfe": 1.234,
+      "avg_mae": 0.309,
+      "total_pnl": 34.73,
+      "rr": 4.0
+    }
+  },
+  "MOTHERSON": {
+    "symbol": "MOTHERSON",
+    "bull": {
+      "trades": 14,
+      "wins": 13,
+      "win_rate": 92.9,
+      "avg_pnl": 1.647,
+      "avg_mfe": 1.998,
+      "avg_mae": 0.235,
+      "total_pnl": 23.05,
+      "rr": 8.5
+    },
+    "bear": {
+      "trades": 18,
+      "wins": 17,
+      "win_rate": 94.4,
+      "avg_pnl": 0.818,
+      "avg_mfe": 1.138,
+      "avg_mae": 0.311,
+      "total_pnl": 14.73,
+      "rr": 3.7
+    }
+  },
+  "SHRIRAMFIN": {
+    "symbol": "SHRIRAMFIN",
+    "bull": {
+      "trades": 25,
+      "wins": 25,
+      "win_rate": 100.0,
+      "avg_pnl": 1.217,
+      "avg_mfe": 1.508,
+      "avg_mae": 0.209,
+      "total_pnl": 30.43,
+      "rr": 7.2
+    },
+    "bear": {
+      "trades": 27,
+      "wins": 24,
+      "win_rate": 88.9,
+      "avg_pnl": 1.254,
+      "avg_mfe": 1.567,
+      "avg_mae": 0.244,
+      "total_pnl": 33.86,
+      "rr": 6.4
+    }
+  },
+  "SIEMENS": {
+    "symbol": "SIEMENS",
+    "bull": {
+      "trades": 20,
+      "wins": 20,
+      "win_rate": 100.0,
+      "avg_pnl": 1.641,
+      "avg_mfe": 1.995,
+      "avg_mae": 0.266,
+      "total_pnl": 32.81,
+      "rr": 7.5
+    },
+    "bear": {
+      "trades": 6,
+      "wins": 6,
+      "win_rate": 100.0,
+      "avg_pnl": 1.033,
+      "avg_mfe": 1.621,
+      "avg_mae": 0.183,
+      "total_pnl": 6.2,
+      "rr": 8.9
+    }
+  },
+  "SOLARINDS": {
+    "symbol": "SOLARINDS",
+    "bull": {
+      "trades": 24,
+      "wins": 22,
+      "win_rate": 91.7,
+      "avg_pnl": 0.906,
+      "avg_mfe": 1.407,
+      "avg_mae": 0.232,
+      "total_pnl": 21.75,
+      "rr": 6.1
+    },
+    "bear": {
+      "trades": 10,
+      "wins": 10,
+      "win_rate": 100.0,
+      "avg_pnl": 1.199,
+      "avg_mfe": 1.507,
+      "avg_mae": 0.358,
+      "total_pnl": 11.99,
+      "rr": 4.2
+    }
+  },
+  "SONACOMS": {
+    "symbol": "SONACOMS",
+    "bull": {
+      "trades": 34,
+      "wins": 32,
+      "win_rate": 94.1,
+      "avg_pnl": 1.218,
+      "avg_mfe": 1.68,
+      "avg_mae": 0.318,
+      "total_pnl": 41.43,
+      "rr": 5.3
+    },
+    "bear": {
+      "trades": 4,
+      "wins": 4,
+      "win_rate": 100.0,
+      "avg_pnl": 1.21,
+      "avg_mfe": 1.425,
+      "avg_mae": 0.327,
+      "total_pnl": 4.84,
+      "rr": 4.4
+    }
+  },
+  "SBIN": {
+    "symbol": "SBIN",
+    "bull": {
+      "trades": 25,
+      "wins": 24,
+      "win_rate": 96.0,
+      "avg_pnl": 0.842,
+      "avg_mfe": 1.086,
+      "avg_mae": 0.119,
+      "total_pnl": 21.04,
+      "rr": 9.1
+    },
+    "bear": {
+      "trades": 18,
+      "wins": 15,
+      "win_rate": 83.3,
+      "avg_pnl": 0.733,
+      "avg_mfe": 0.926,
+      "avg_mae": 0.186,
+      "total_pnl": 13.19,
+      "rr": 5.0
+    }
+  },
+  "SAIL": {
+    "symbol": "SAIL",
+    "bull": {
+      "trades": 25,
+      "wins": 22,
+      "win_rate": 88.0,
+      "avg_pnl": 1.776,
+      "avg_mfe": 2.316,
+      "avg_mae": 0.254,
+      "total_pnl": 44.41,
+      "rr": 9.1
+    },
+    "bear": {
+      "trades": 34,
+      "wins": 31,
+      "win_rate": 91.2,
+      "avg_pnl": 0.938,
+      "avg_mfe": 1.342,
+      "avg_mae": 0.211,
+      "total_pnl": 31.91,
+      "rr": 6.4
+    }
+  },
+  "SUNPHARMA": {
+    "symbol": "SUNPHARMA",
+    "bull": {
+      "trades": 18,
+      "wins": 17,
+      "win_rate": 94.4,
+      "avg_pnl": 0.771,
+      "avg_mfe": 1.041,
+      "avg_mae": 0.212,
+      "total_pnl": 13.88,
+      "rr": 4.9
+    },
+    "bear": {
+      "trades": 13,
+      "wins": 10,
+      "win_rate": 76.9,
+      "avg_pnl": 0.445,
+      "avg_mfe": 0.689,
+      "avg_mae": 0.207,
+      "total_pnl": 5.79,
+      "rr": 3.3
+    }
+  },
+  "SUPREMEIND": {
+    "symbol": "SUPREMEIND",
+    "bull": {
+      "trades": 38,
+      "wins": 37,
+      "win_rate": 97.4,
+      "avg_pnl": 1.071,
+      "avg_mfe": 1.439,
+      "avg_mae": 0.31,
+      "total_pnl": 40.71,
+      "rr": 4.6
+    },
+    "bear": {
+      "trades": 16,
+      "wins": 15,
+      "win_rate": 93.8,
+      "avg_pnl": 0.997,
+      "avg_mfe": 1.356,
+      "avg_mae": 0.373,
+      "total_pnl": 15.95,
+      "rr": 3.6
+    }
+  },
+  "SUZLON": {
+    "symbol": "SUZLON",
+    "bull": {
+      "trades": 14,
+      "wins": 13,
+      "win_rate": 92.9,
+      "avg_pnl": 1.202,
+      "avg_mfe": 1.613,
+      "avg_mae": 0.173,
+      "total_pnl": 16.83,
+      "rr": 9.3
+    },
+    "bear": {
+      "trades": 45,
+      "wins": 43,
+      "win_rate": 95.6,
+      "avg_pnl": 0.957,
+      "avg_mfe": 1.229,
+      "avg_mae": 0.246,
+      "total_pnl": 43.06,
+      "rr": 5.0
+    }
+  },
+  "SWIGGY": {
+    "symbol": "SWIGGY",
+    "bull": {
+      "trades": 29,
+      "wins": 25,
+      "win_rate": 86.2,
+      "avg_pnl": 1.726,
+      "avg_mfe": 2.229,
+      "avg_mae": 0.33,
+      "total_pnl": 50.07,
+      "rr": 6.8
+    },
+    "bear": {
+      "trades": 42,
+      "wins": 41,
+      "win_rate": 97.6,
+      "avg_pnl": 1.491,
+      "avg_mfe": 1.822,
+      "avg_mae": 0.206,
+      "total_pnl": 62.64,
+      "rr": 8.8
+    }
+  },
+  "TATACONSUM": {
+    "symbol": "TATACONSUM",
+    "bull": {
+      "trades": 19,
+      "wins": 17,
+      "win_rate": 89.5,
+      "avg_pnl": 0.691,
+      "avg_mfe": 1.007,
+      "avg_mae": 0.229,
+      "total_pnl": 13.12,
+      "rr": 4.4
+    },
+    "bear": {
+      "trades": 34,
+      "wins": 31,
+      "win_rate": 91.2,
+      "avg_pnl": 0.649,
+      "avg_mfe": 0.974,
+      "avg_mae": 0.162,
+      "total_pnl": 22.07,
+      "rr": 6.0
+    }
+  },
+  "TVSMOTOR": {
+    "symbol": "TVSMOTOR",
+    "bull": {
+      "trades": 39,
+      "wins": 38,
+      "win_rate": 97.4,
+      "avg_pnl": 1.24,
+      "avg_mfe": 1.552,
+      "avg_mae": 0.224,
+      "total_pnl": 48.34,
+      "rr": 6.9
+    },
+    "bear": {
+      "trades": 8,
+      "wins": 8,
+      "win_rate": 100.0,
+      "avg_pnl": 0.626,
+      "avg_mfe": 0.893,
+      "avg_mae": 0.176,
+      "total_pnl": 5.0,
+      "rr": 5.1
+    }
+  },
+  "TCS": {
+    "symbol": "TCS",
+    "bull": {
+      "trades": 34,
+      "wins": 34,
+      "win_rate": 100.0,
+      "avg_pnl": 1.284,
+      "avg_mfe": 1.651,
+      "avg_mae": 0.249,
+      "total_pnl": 43.66,
+      "rr": 6.6
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 23,
+      "win_rate": 92.0,
+      "avg_pnl": 1.006,
+      "avg_mfe": 1.298,
+      "avg_mae": 0.176,
+      "total_pnl": 25.15,
+      "rr": 7.4
+    }
+  },
+  "TATAELXSI": {
+    "symbol": "TATAELXSI",
+    "bull": {
+      "trades": 14,
+      "wins": 13,
+      "win_rate": 92.9,
+      "avg_pnl": 1.473,
+      "avg_mfe": 1.956,
+      "avg_mae": 0.202,
+      "total_pnl": 20.62,
+      "rr": 9.7
+    },
+    "bear": {
+      "trades": 44,
+      "wins": 43,
+      "win_rate": 97.7,
+      "avg_pnl": 1.012,
+      "avg_mfe": 1.274,
+      "avg_mae": 0.222,
+      "total_pnl": 44.53,
+      "rr": 5.7
+    }
+  },
+  "TMPV": {
+    "symbol": "TMPV",
+    "bull": {
+      "trades": 24,
+      "wins": 23,
+      "win_rate": 95.8,
+      "avg_pnl": 0.734,
+      "avg_mfe": 1.158,
+      "avg_mae": 0.129,
+      "total_pnl": 17.61,
+      "rr": 9.0
+    },
+    "bear": {
+      "trades": 30,
+      "wins": 28,
+      "win_rate": 93.3,
+      "avg_pnl": 0.999,
+      "avg_mfe": 1.203,
+      "avg_mae": 0.186,
+      "total_pnl": 29.96,
+      "rr": 6.5
+    }
+  },
+  "TATAPOWER": {
+    "symbol": "TATAPOWER",
+    "bull": {
+      "trades": 8,
+      "wins": 8,
+      "win_rate": 100.0,
+      "avg_pnl": 0.836,
+      "avg_mfe": 1.084,
+      "avg_mae": 0.122,
+      "total_pnl": 6.69,
+      "rr": 8.9
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 23,
+      "win_rate": 92.0,
+      "avg_pnl": 0.916,
+      "avg_mfe": 1.178,
+      "avg_mae": 0.239,
+      "total_pnl": 22.91,
+      "rr": 4.9
+    }
+  },
+  "TATASTEEL": {
+    "symbol": "TATASTEEL",
+    "bull": {
+      "trades": 10,
+      "wins": 10,
+      "win_rate": 100.0,
+      "avg_pnl": 1.504,
+      "avg_mfe": 1.861,
+      "avg_mae": 0.11,
+      "total_pnl": 15.04,
+      "rr": 16.9
+    },
+    "bear": {
+      "trades": 21,
+      "wins": 20,
+      "win_rate": 95.2,
+      "avg_pnl": 0.678,
+      "avg_mfe": 0.974,
+      "avg_mae": 0.142,
+      "total_pnl": 14.24,
+      "rr": 6.9
+    }
+  },
+  "TECHM": {
+    "symbol": "TECHM",
+    "bull": {
+      "trades": 35,
+      "wins": 32,
+      "win_rate": 91.4,
+      "avg_pnl": 1.222,
+      "avg_mfe": 1.638,
+      "avg_mae": 0.288,
+      "total_pnl": 42.78,
+      "rr": 5.7
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 24,
+      "win_rate": 96.0,
+      "avg_pnl": 0.749,
+      "avg_mfe": 0.957,
+      "avg_mae": 0.216,
+      "total_pnl": 18.72,
+      "rr": 4.4
+    }
+  },
+  "FEDERALBNK": {
+    "symbol": "FEDERALBNK",
+    "bull": {
+      "trades": 17,
+      "wins": 15,
+      "win_rate": 88.2,
+      "avg_pnl": 1.013,
+      "avg_mfe": 1.487,
+      "avg_mae": 0.471,
+      "total_pnl": 17.22,
+      "rr": 3.2
+    },
+    "bear": {
+      "trades": 16,
+      "wins": 16,
+      "win_rate": 100.0,
+      "avg_pnl": 1.232,
+      "avg_mfe": 1.491,
+      "avg_mae": 0.12,
+      "total_pnl": 19.71,
+      "rr": 12.4
+    }
+  },
+  "INDHOTEL": {
+    "symbol": "INDHOTEL",
+    "bull": {
+      "trades": 10,
+      "wins": 10,
+      "win_rate": 100.0,
+      "avg_pnl": 0.717,
+      "avg_mfe": 1.028,
+      "avg_mae": 0.172,
+      "total_pnl": 7.17,
+      "rr": 6.0
+    },
+    "bear": {
+      "trades": 18,
+      "wins": 16,
+      "win_rate": 88.9,
+      "avg_pnl": 0.707,
+      "avg_mfe": 0.872,
+      "avg_mae": 0.154,
+      "total_pnl": 12.72,
+      "rr": 5.7
+    }
+  },
+  "PHOENIXLTD": {
+    "symbol": "PHOENIXLTD",
+    "bull": {
+      "trades": 19,
+      "wins": 18,
+      "win_rate": 94.7,
+      "avg_pnl": 1.011,
+      "avg_mfe": 1.328,
+      "avg_mae": 0.226,
+      "total_pnl": 19.21,
+      "rr": 5.9
+    },
+    "bear": {
+      "trades": 22,
+      "wins": 20,
+      "win_rate": 90.9,
+      "avg_pnl": 0.951,
+      "avg_mfe": 1.272,
+      "avg_mae": 0.271,
+      "total_pnl": 20.93,
+      "rr": 4.7
+    }
+  },
+  "TITAN": {
+    "symbol": "TITAN",
+    "bull": {
+      "trades": 24,
+      "wins": 20,
+      "win_rate": 83.3,
+      "avg_pnl": 0.695,
+      "avg_mfe": 1.022,
+      "avg_mae": 0.202,
+      "total_pnl": 16.69,
+      "rr": 5.1
+    },
+    "bear": {
+      "trades": 5,
+      "wins": 4,
+      "win_rate": 80.0,
+      "avg_pnl": 0.473,
+      "avg_mfe": 0.656,
+      "avg_mae": 0.143,
+      "total_pnl": 2.36,
+      "rr": 4.6
+    }
+  },
+  "TORNTPHARM": {
+    "symbol": "TORNTPHARM",
+    "bull": {
+      "trades": 36,
+      "wins": 31,
+      "win_rate": 86.1,
+      "avg_pnl": 0.937,
+      "avg_mfe": 1.211,
+      "avg_mae": 0.247,
+      "total_pnl": 33.74,
+      "rr": 4.9
+    },
+    "bear": {
+      "trades": 16,
+      "wins": 16,
+      "win_rate": 100.0,
+      "avg_pnl": 0.955,
+      "avg_mfe": 1.189,
+      "avg_mae": 0.646,
+      "total_pnl": 15.28,
+      "rr": 1.8
+    }
+  },
+  "TRENT": {
+    "symbol": "TRENT",
+    "bull": {
+      "trades": 21,
+      "wins": 20,
+      "win_rate": 95.2,
+      "avg_pnl": 1.709,
+      "avg_mfe": 2.025,
+      "avg_mae": 0.218,
+      "total_pnl": 35.88,
+      "rr": 9.3
+    },
+    "bear": {
+      "trades": 22,
+      "wins": 20,
+      "win_rate": 90.9,
+      "avg_pnl": 1.31,
+      "avg_mfe": 1.575,
+      "avg_mae": 0.113,
+      "total_pnl": 28.82,
+      "rr": 13.9
+    }
+  },
+  "TIINDIA": {
+    "symbol": "TIINDIA",
+    "bull": {
+      "trades": 9,
+      "wins": 7,
+      "win_rate": 77.8,
+      "avg_pnl": 1.276,
+      "avg_mfe": 1.844,
+      "avg_mae": 0.202,
+      "total_pnl": 11.48,
+      "rr": 9.1
+    },
+    "bear": {
+      "trades": 17,
+      "wins": 14,
+      "win_rate": 82.4,
+      "avg_pnl": 0.963,
+      "avg_mfe": 1.275,
+      "avg_mae": 0.413,
+      "total_pnl": 16.37,
+      "rr": 3.1
+    }
+  },
+  "UNOMINDA": {
+    "symbol": "UNOMINDA",
+    "bull": {
+      "trades": 26,
+      "wins": 23,
+      "win_rate": 88.5,
+      "avg_pnl": 1.152,
+      "avg_mfe": 1.574,
+      "avg_mae": 0.31,
+      "total_pnl": 29.96,
+      "rr": 5.1
+    },
+    "bear": {
+      "trades": 12,
+      "wins": 11,
+      "win_rate": 91.7,
+      "avg_pnl": 1.231,
+      "avg_mfe": 1.524,
+      "avg_mae": 0.299,
+      "total_pnl": 14.78,
+      "rr": 5.1
+    }
+  },
+  "UPL": {
+    "symbol": "UPL",
+    "bull": {
+      "trades": 26,
+      "wins": 25,
+      "win_rate": 96.2,
+      "avg_pnl": 1.267,
+      "avg_mfe": 1.559,
+      "avg_mae": 0.285,
+      "total_pnl": 32.95,
+      "rr": 5.5
+    },
+    "bear": {
+      "trades": 25,
+      "wins": 23,
+      "win_rate": 92.0,
+      "avg_pnl": 0.891,
+      "avg_mfe": 1.204,
+      "avg_mae": 0.228,
+      "total_pnl": 22.28,
+      "rr": 5.3
+    }
+  },
+  "ULTRACEMCO": {
+    "symbol": "ULTRACEMCO",
+    "bull": {
+      "trades": 26,
+      "wins": 26,
+      "win_rate": 100.0,
+      "avg_pnl": 0.781,
+      "avg_mfe": 1.022,
+      "avg_mae": 0.147,
+      "total_pnl": 20.32,
+      "rr": 7.0
+    },
+    "bear": {
+      "trades": 19,
+      "wins": 17,
+      "win_rate": 89.5,
+      "avg_pnl": 0.668,
+      "avg_mfe": 0.955,
+      "avg_mae": 0.188,
+      "total_pnl": 12.69,
+      "rr": 5.1
+    }
+  },
+  "UNIONBANK": {
+    "symbol": "UNIONBANK",
+    "bull": {
+      "trades": 32,
+      "wins": 31,
+      "win_rate": 96.9,
+      "avg_pnl": 1.17,
+      "avg_mfe": 1.661,
+      "avg_mae": 0.291,
+      "total_pnl": 37.45,
+      "rr": 5.7
+    },
+    "bear": {
+      "trades": 24,
+      "wins": 20,
+      "win_rate": 83.3,
+      "avg_pnl": 0.913,
+      "avg_mfe": 1.241,
+      "avg_mae": 0.194,
+      "total_pnl": 21.91,
+      "rr": 6.4
+    }
+  },
+  "UNITDSPR": {
+    "symbol": "UNITDSPR",
+    "bull": {
+      "trades": 23,
+      "wins": 23,
+      "win_rate": 100.0,
+      "avg_pnl": 1.186,
+      "avg_mfe": 1.403,
+      "avg_mae": 0.172,
+      "total_pnl": 27.27,
+      "rr": 8.2
+    },
+    "bear": {
+      "trades": 12,
+      "wins": 12,
+      "win_rate": 100.0,
+      "avg_pnl": 0.633,
+      "avg_mfe": 0.828,
+      "avg_mae": 0.222,
+      "total_pnl": 7.6,
+      "rr": 3.7
+    }
+  },
+  "VBL": {
+    "symbol": "VBL",
+    "bull": {
+      "trades": 8,
+      "wins": 8,
+      "win_rate": 100.0,
+      "avg_pnl": 1.108,
+      "avg_mfe": 1.336,
+      "avg_mae": 0.213,
+      "total_pnl": 8.86,
+      "rr": 6.3
+    },
+    "bear": {
+      "trades": 36,
+      "wins": 31,
+      "win_rate": 86.1,
+      "avg_pnl": 1.001,
+      "avg_mfe": 1.269,
+      "avg_mae": 0.229,
+      "total_pnl": 36.03,
+      "rr": 5.5
+    }
+  },
+  "VEDL": {
+    "symbol": "VEDL",
+    "bull": {
+      "trades": 28,
+      "wins": 26,
+      "win_rate": 92.9,
+      "avg_pnl": 1.709,
+      "avg_mfe": 2.207,
+      "avg_mae": 0.148,
+      "total_pnl": 47.85,
+      "rr": 14.9
+    },
+    "bear": {
+      "trades": 26,
+      "wins": 25,
+      "win_rate": 96.2,
+      "avg_pnl": 0.837,
+      "avg_mfe": 1.072,
+      "avg_mae": 0.192,
+      "total_pnl": 21.77,
+      "rr": 5.6
+    }
+  },
+  "VMM": {
+    "symbol": "VMM",
+    "bull": {
+      "trades": 13,
+      "wins": 12,
+      "win_rate": 92.3,
+      "avg_pnl": 1.683,
+      "avg_mfe": 2.173,
+      "avg_mae": 0.299,
+      "total_pnl": 21.88,
+      "rr": 7.3
+    },
+    "bear": {
+      "trades": 54,
+      "wins": 52,
+      "win_rate": 96.3,
+      "avg_pnl": 0.685,
+      "avg_mfe": 0.89,
+      "avg_mae": 0.216,
+      "total_pnl": 37.0,
+      "rr": 4.1
+    }
+  },
+  "IDEA": {
+    "symbol": "IDEA",
+    "bull": {
+      "trades": 23,
+      "wins": 23,
+      "win_rate": 100.0,
+      "avg_pnl": 1.969,
+      "avg_mfe": 2.502,
+      "avg_mae": 0.337,
+      "total_pnl": 45.29,
+      "rr": 7.4
+    },
+    "bear": {
+      "trades": 35,
+      "wins": 35,
+      "win_rate": 100.0,
+      "avg_pnl": 1.101,
+      "avg_mfe": 1.531,
+      "avg_mae": 0.251,
+      "total_pnl": 38.53,
+      "rr": 6.1
+    }
+  },
+  "VOLTAS": {
+    "symbol": "VOLTAS",
+    "bull": {
+      "trades": 23,
+      "wins": 21,
+      "win_rate": 91.3,
+      "avg_pnl": 0.96,
+      "avg_mfe": 1.456,
+      "avg_mae": 0.307,
+      "total_pnl": 22.08,
+      "rr": 4.7
+    },
+    "bear": {
+      "trades": 15,
+      "wins": 15,
+      "win_rate": 100.0,
+      "avg_pnl": 1.169,
+      "avg_mfe": 1.552,
+      "avg_mae": 0.534,
+      "total_pnl": 17.54,
+      "rr": 2.9
+    }
+  },
+  "WAAREEENER": {
+    "symbol": "WAAREEENER",
+    "bull": {
+      "trades": 7,
+      "wins": 7,
+      "win_rate": 100.0,
+      "avg_pnl": 1.019,
+      "avg_mfe": 1.376,
+      "avg_mae": 0.167,
+      "total_pnl": 7.13,
+      "rr": 8.2
+    },
+    "bear": {
+      "trades": 30,
+      "wins": 27,
+      "win_rate": 90.0,
+      "avg_pnl": 0.995,
+      "avg_mfe": 1.266,
+      "avg_mae": 0.215,
+      "total_pnl": 29.86,
+      "rr": 5.9
+    }
+  },
+  "WIPRO": {
+    "symbol": "WIPRO",
+    "bull": {
+      "trades": 22,
+      "wins": 19,
+      "win_rate": 86.4,
+      "avg_pnl": 0.886,
+      "avg_mfe": 1.216,
+      "avg_mae": 0.255,
+      "total_pnl": 19.5,
+      "rr": 4.8
+    },
+    "bear": {
+      "trades": 19,
+      "wins": 16,
+      "win_rate": 84.2,
+      "avg_pnl": 0.651,
+      "avg_mfe": 0.914,
+      "avg_mae": 0.18,
+      "total_pnl": 12.36,
+      "rr": 5.1
+    }
+  },
+  "YESBANK": {
+    "symbol": "YESBANK",
+    "bull": {
+      "trades": 12,
+      "wins": 10,
+      "win_rate": 83.3,
+      "avg_pnl": 0.822,
+      "avg_mfe": 1.378,
+      "avg_mae": 0.279,
+      "total_pnl": 9.87,
+      "rr": 4.9
+    },
+    "bear": {
+      "trades": 50,
+      "wins": 44,
+      "win_rate": 88.0,
+      "avg_pnl": 0.703,
+      "avg_mfe": 0.955,
+      "avg_mae": 0.171,
+      "total_pnl": 35.17,
+      "rr": 5.6
+    }
+  },
+  "ZYDUSLIFE": {
+    "symbol": "ZYDUSLIFE",
+    "bull": {
+      "trades": 34,
+      "wins": 32,
+      "win_rate": 94.1,
+      "avg_pnl": 1.112,
+      "avg_mfe": 1.619,
+      "avg_mae": 0.262,
+      "total_pnl": 37.82,
+      "rr": 6.2
+    },
+    "bear": {
+      "trades": 39,
+      "wins": 37,
+      "win_rate": 94.9,
+      "avg_pnl": 0.726,
+      "avg_mfe": 0.977,
+      "avg_mae": 0.268,
+      "total_pnl": 28.31,
+      "rr": 3.6
+    }
+  }
+}

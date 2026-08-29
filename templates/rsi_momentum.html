@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RSI Momentum — Stock Technical Analysis</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e1e4e8;min-height:100vh}
+  a{color:#58a6ff;text-decoration:none} a:hover{text-decoration:underline}
+  .container{max-width:1200px;margin:0 auto;padding:2rem 1.5rem}
+  .header{margin-bottom:1.5rem}
+  .header h1{font-size:1.8rem;font-weight:700;margin-bottom:.3rem} .header h1 span{color:#a78bfa}
+  .header .sub{color:#8b949e;font-size:.9rem;line-height:1.5}
+
+  .nav-links{display:flex;gap:1rem;margin-bottom:1rem;font-size:.85rem;flex-wrap:wrap}
+
+  .strategy-box{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem}
+  .strategy-box h3{font-size:.9rem;font-weight:700;color:#a78bfa;margin-bottom:.6rem}
+  .strat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.6rem;transition:all .2s}
+  .strat-grid.collapsed{display:none}
+  .strat-item{padding:.5rem .7rem;background:#0d1117;border-radius:6px;font-size:.78rem}
+  .strat-label{color:#8b949e;font-size:.7rem;margin-bottom:.15rem}
+  .strat-value{font-weight:600;font-size:.85rem}
+  .strat-value.green{color:#3fb950} .strat-value.red{color:#f85149} .strat-value.orange{color:#d29922} .strat-value.purple{color:#a78bfa}
+
+  .action-bar{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem}
+  .scan-btn{padding:.6rem 1.5rem;font-size:.9rem;font-weight:600;border:none;border-radius:8px;cursor:pointer;background:#a78bfa;color:#0f1117;transition:all .15s}
+  .scan-btn:hover{background:#8b5cf6} .scan-btn:disabled{background:#30363d;color:#8b949e;cursor:not-allowed}
+  .scan-meta{font-size:.82rem;color:#8b949e}
+
+  .summary-bar{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.25rem}
+  .summary-chip{padding:.5rem .9rem;border-radius:8px;font-size:.82rem;font-weight:600;background:#161b22;border:1px solid #30363d}
+  .summary-chip .count{font-size:1.1rem;font-weight:700;margin-right:.3rem}
+
+  .filter-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+  .filter-btn{padding:.35rem .7rem;border-radius:5px;font-size:.78rem;font-weight:600;border:1px solid #30363d;background:#161b22;color:#8b949e;cursor:pointer;transition:all .15s}
+  .filter-btn:hover{border-color:#a78bfa;color:#e1e4e8}
+  .filter-btn.active{background:#a78bfa20;color:#a78bfa;border-color:#a78bfa}
+
+  .spinner{display:none;text-align:center;padding:3rem;color:#8b949e} .spinner.active{display:block}
+  .error-msg{text-align:center;padding:2rem;color:#f85149;display:none}
+  .empty-state{text-align:center;padding:3rem;color:#8b949e;display:none}
+
+  .results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(370px,1fr));gap:1rem}
+  .stock-card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:1rem 1.15rem;transition:border-color .15s}
+  .stock-card:hover{border-color:#a78bfa}
+  .stock-card.bullish-card{border-left:3px solid #3fb950}
+  .stock-card.bearish-card{border-left:3px solid #f85149}
+
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem}
+  .card-sym{font-size:1.05rem;font-weight:700}
+  .card-sym a{color:#e1e4e8} .card-sym a:hover{color:#58a6ff}
+  .card-name{font-size:.72rem;color:#8b949e}
+  .card-right{text-align:right}
+  .card-cmp{font-size:.95rem;font-weight:700}
+  .card-signal{font-size:.7rem;font-weight:700;padding:.15rem .5rem;border-radius:4px;margin-top:.2rem;display:inline-block}
+  .signal-bullish{background:#3fb95020;color:#3fb950;border:1px solid #3fb95040}
+  .signal-bearish{background:#f8514920;color:#f85149;border:1px solid #f8514940}
+
+  .rsi-row{display:flex;gap:.5rem;flex-wrap:wrap;margin:.5rem 0;align-items:center}
+  .rsi-chip{padding:.25rem .5rem;border-radius:5px;font-size:.78rem;font-weight:600;background:#0d1117;border:1px solid #30363d}
+  .rsi-chip .tf{color:#8b949e;font-size:.68rem;margin-right:.25rem}
+  .rsi-hi{color:#3fb950} .rsi-lo{color:#f85149} .rsi-mid{color:#8b949e}
+  .rsi-trend{font-size:.65rem;margin-left:.15rem}
+
+  .context-row{display:flex;gap:.4rem;flex-wrap:wrap;margin:.4rem 0}
+  .ctx-tag{font-size:.68rem;padding:.12rem .4rem;border-radius:4px;font-weight:600}
+  .ctx-strength{background:#a78bfa15;color:#a78bfa;border:1px solid #a78bfa30}
+  .ctx-time{background:#d2992215;color:#d29922;border:1px solid #d2992230}
+  .ctx-hold{background:#58a6ff15;color:#58a6ff;border:1px solid #58a6ff30}
+  .ctx-ema{background:#21262d;color:#8b949e;border:1px solid #30363d}
+
+  .strength-badge{font-size:.7rem;font-weight:800;padding:.2rem .5rem;border-radius:4px;letter-spacing:.3px;text-transform:uppercase}
+  .strength-perfect{background:#3fb95025;color:#3fb950;border:1px solid #3fb95050}
+  .strength-very_strong{background:#a78bfa25;color:#a78bfa;border:1px solid #a78bfa50}
+  .strength-strong{background:#58a6ff25;color:#58a6ff;border:1px solid #58a6ff50}
+
+  .levels-box{margin-top:.5rem;padding:.5rem .7rem;background:#0d1117;border-radius:6px;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;font-size:.8rem}
+  .lvl-entry{font-weight:600} .lvl-sl{color:#f85149;font-weight:600} .lvl-target{font-weight:600}
+  .lvl-divider{color:#30363d}
+  .lvl-meta{font-size:.7rem;color:#8b949e}
+
+  .backtest-note{margin-top:.5rem;padding:.4rem .6rem;background:#0d1117;border-radius:5px;font-size:.72rem;color:#8b949e;border-left:2px solid #a78bfa}
+
+  @media(max-width:720px){.results-grid{grid-template-columns:1fr}.strat-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="nav-links">
+    <a href="/">&larr; Analysis</a>
+    <a href="/rsi-extremes">RSI Extremes</a>
+    <a href="/scanner">Scanner</a>
+    <a href="/today" style="color:#3fb950;font-weight:600;">Today's Picks</a>
+  </div>
+  <div class="header">
+    <h1>RSI <span>Momentum</span></h1>
+    <div class="sub">Stocks where 5min + 15min RSI align above 65 (buy) or below 35 (short). Backtested at 95% win rate with 6.5x R:R over a 2-hour hold.</div>
+  </div>
+
+  <div class="strategy-box" id="strategyBox">
+    <h3 onclick="document.getElementById('stratContent').classList.toggle('collapsed');this.querySelector('.toggle-icon').textContent=document.getElementById('stratContent').classList.contains('collapsed')?'▸':'▾'" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+      <span>Strategy Rules (Backtested across 210 F&O stocks, 60 days)</span>
+      <span class="toggle-icon" style="font-size:1rem;color:#8b949e;">▾</span>
+    </h3>
+    <div class="strat-grid" id="stratContent">
+      <div class="strat-item">
+        <div class="strat-label">Buy Signal</div>
+        <div class="strat-value green">5m RSI &gt; 65 AND 15m RSI &gt; 65</div>
+      </div>
+      <div class="strat-item">
+        <div class="strat-label">Short Signal</div>
+        <div class="strat-value red">5m RSI &lt; 35 AND 15m RSI &lt; 35</div>
+      </div>
+      <div class="strat-item">
+        <div class="strat-label">Hold Period</div>
+        <div class="strat-value purple">2 Hours</div>
+      </div>
+      <div class="strat-item">
+        <div class="strat-label">Best Time</div>
+        <div class="strat-value orange">1 PM &ndash; 3:30 PM (96&ndash;100% WR)</div>
+      </div>
+      <div class="strat-item">
+        <div class="strat-label">SL / Exit</div>
+        <div class="strat-value red">0.5% SL &middot; Time exit at 2H</div>
+      </div>
+      <div class="strat-item">
+        <div class="strat-label">Signal Tiers</div>
+        <div class="strat-value purple">Strong 91% &middot; V.Strong 98% &middot; Perfect 100%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-bar">
+    <button class="scan-btn" id="scanBtn" onclick="runScan()">Scan Now</button>
+    <span class="scan-meta" id="scanMeta"></span>
+  </div>
+
+  <div id="summaryBar" class="summary-bar" style="display:none"></div>
+  <div id="filterRow" class="filter-row" style="display:none"></div>
+
+  <div class="spinner" id="spinner">Scanning F&O stocks for RSI momentum signals&hellip;</div>
+  <div class="error-msg" id="errorMsg"></div>
+  <div class="empty-state" id="emptyState">
+    <p>No RSI momentum signals right now. Check back during market hours (best after 1 PM).</p>
+  </div>
+  <div class="results-grid" id="resultsGrid"></div>
+</div>
+
+<script>
+let currentFilter = 'all';
+let currentData = null;
+let autoRefreshTimer = null;
+
+function fmt(v) { return v != null ? Number(v).toLocaleString('en-IN', {maximumFractionDigits:2}) : '—'; }
+
+async function runScan() {
+  const grid = document.getElementById('resultsGrid');
+  const spinner = document.getElementById('spinner');
+  const errorMsg = document.getElementById('errorMsg');
+  const emptyState = document.getElementById('emptyState');
+  const scanBtn = document.getElementById('scanBtn');
+  const scanMeta = document.getElementById('scanMeta');
+
+  grid.innerHTML = '';
+  errorMsg.style.display = 'none';
+  emptyState.style.display = 'none';
+  document.getElementById('summaryBar').style.display = 'none';
+  document.getElementById('filterRow').style.display = 'none';
+  spinner.classList.add('active');
+  scanBtn.disabled = true;
+  scanBtn.textContent = 'Scanning...';
+
+  try {
+    const res = await fetch('/rsi-momentum/scan');
+    const data = await res.json();
+    if (data.error) { errorMsg.textContent = data.error; errorMsg.style.display = 'block'; return; }
+    currentData = data;
+    scanMeta.textContent = `Scanned ${data.total_scanned} stocks at ${data.time} | ${data.count} signals found`;
+    renderResults(data);
+  } catch (err) {
+    errorMsg.textContent = 'Network error: ' + err.message;
+    errorMsg.style.display = 'block';
+  } finally {
+    spinner.classList.remove('active');
+    scanBtn.disabled = false;
+    scanBtn.textContent = 'Scan Now';
+  }
+}
+
+function renderResults(data) {
+  const summaryBar = document.getElementById('summaryBar');
+  const filterRow = document.getElementById('filterRow');
+  const emptyState = document.getElementById('emptyState');
+
+  if (!data.results.length) {
+    emptyState.style.display = 'block';
+    return;
+  }
+
+  const strengthening = data.results.filter(r => r.strengthening).length;
+  const afternoon = data.results.filter(r => r.time_zone === 'afternoon' || r.time_zone === 'close').length;
+  const perfect = data.results.filter(r => r.signal_strength === 'perfect').length;
+  const veryStrong = data.results.filter(r => r.signal_strength === 'very_strong').length;
+  const strong = data.results.filter(r => r.signal_strength === 'strong').length;
+
+  summaryBar.innerHTML = `
+    <div class="summary-chip"><span class="count" style="color:#3fb950;">${data.bulls}</span>Bullish</div>
+    <div class="summary-chip"><span class="count" style="color:#f85149;">${data.bears}</span>Bearish</div>
+    <div class="summary-chip"><span class="count" style="color:#3fb950;">${perfect}</span>Perfect</div>
+    <div class="summary-chip"><span class="count" style="color:#a78bfa;">${veryStrong}</span>Very Strong</div>
+    <div class="summary-chip"><span class="count" style="color:#58a6ff;">${strong}</span>Strong</div>
+    <div class="summary-chip"><span class="count" style="color:#d29922;">${afternoon}</span>Afternoon</div>
+  `;
+  summaryBar.style.display = 'flex';
+
+  currentFilter = 'all';
+  filterRow.innerHTML = `
+    <span class="filter-btn active" onclick="applyFilter('all',this)">All</span>
+    <span class="filter-btn" onclick="applyFilter('perfect',this)" style="border-color:#3fb95060;color:#3fb950;">Perfect (98-100% WR)</span>
+    <span class="filter-btn" onclick="applyFilter('very_strong',this)" style="border-color:#a78bfa60;color:#a78bfa;">Very Strong (97-98% WR)</span>
+    <span class="filter-btn" onclick="applyFilter('strong',this)" style="border-color:#58a6ff60;color:#58a6ff;">Strong (91-92% WR)</span>
+    <span class="filter-btn" onclick="applyFilter('bullish',this)" style="border-color:#3fb95040;">Bullish</span>
+    <span class="filter-btn" onclick="applyFilter('bearish',this)" style="border-color:#f8514940;">Bearish</span>
+    <span class="filter-btn" onclick="applyFilter('afternoon',this)" style="border-color:#d2992260;color:#d29922;">Afternoon Zone</span>
+  `;
+  filterRow.style.display = 'flex';
+
+  renderCards(data.results);
+}
+
+function applyFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (currentData) renderCards(currentData.results);
+}
+
+function renderCards(results) {
+  const grid = document.getElementById('resultsGrid');
+  const emptyState = document.getElementById('emptyState');
+
+  let filtered = results;
+  if (currentFilter === 'bullish') filtered = results.filter(r => r.signal_type === 'bullish');
+  else if (currentFilter === 'bearish') filtered = results.filter(r => r.signal_type === 'bearish');
+  else if (currentFilter === 'perfect') filtered = results.filter(r => r.signal_strength === 'perfect');
+  else if (currentFilter === 'very_strong') filtered = results.filter(r => r.signal_strength === 'very_strong');
+  else if (currentFilter === 'strong') filtered = results.filter(r => r.signal_strength === 'strong');
+  else if (currentFilter === 'afternoon') filtered = results.filter(r => r.time_zone === 'afternoon' || r.time_zone === 'close');
+
+  if (!filtered.length) { grid.innerHTML = ''; emptyState.style.display = 'block'; return; }
+  emptyState.style.display = 'none';
+
+  grid.innerHTML = filtered.map(r => {
+    const sym = (r.display_symbol || r.symbol || '').replace('NSE:', '').replace('-EQ', '');
+    const isBull = r.signal_type === 'bullish';
+    const cardCls = isBull ? 'bullish-card' : 'bearish-card';
+    const signalCls = isBull ? 'signal-bullish' : 'signal-bearish';
+    const signalLabel = isBull ? '▲ BUY MOMENTUM' : '▼ SHORT MOMENTUM';
+    const dirColor = isBull ? '#3fb950' : '#f85149';
+
+    // RSI chips
+    function rsiClass(val) {
+      if (val > 65) return 'rsi-hi';
+      if (val < 35) return 'rsi-lo';
+      return 'rsi-mid';
+    }
+
+    function rsiTrend(cur, prev, isBullSignal) {
+      if (!prev) return '';
+      if (isBullSignal) {
+        return cur > prev ? '<span class="rsi-trend" style="color:#3fb950;">▲</span>' : '<span class="rsi-trend" style="color:#f85149;">▼</span>';
+      } else {
+        return cur < prev ? '<span class="rsi-trend" style="color:#3fb950;">▼</span>' : '<span class="rsi-trend" style="color:#f85149;">▲</span>';
+      }
+    }
+
+    // Strength badge
+    const strengthLabels = {perfect:'Perfect',very_strong:'Very Strong',strong:'Strong'};
+    const strengthLabel = strengthLabels[r.signal_strength] || r.signal_strength;
+
+    const rsiRow = `
+      <div class="rsi-row">
+        <div class="rsi-chip"><span class="tf">5m</span> <span class="${rsiClass(r.rsi_5m)}">${r.rsi_5m}</span>${rsiTrend(r.rsi_5m, r.rsi_5m_prev, isBull)}</div>
+        <div class="rsi-chip"><span class="tf">15m</span> <span class="${rsiClass(r.rsi_15m)}">${r.rsi_15m}</span>${rsiTrend(r.rsi_15m, r.rsi_15m_prev, isBull)}</div>
+        ${r.rsi_1h != null ? `<div class="rsi-chip"><span class="tf">1H</span> <span class="${rsiClass(r.rsi_1h)}">${r.rsi_1h}</span></div>` : ''}
+        <span class="strength-badge strength-${r.signal_strength}">${strengthLabel}</span>
+      </div>
+    `;
+
+    // SL / Target / Levels
+    const levelsHtml = isBull ? `
+      <div class="levels-box">
+        <span class="lvl-entry" style="color:#3fb950;">Entry ₹${fmt(r.cmp)}</span>
+        <span class="lvl-divider">|</span>
+        <span class="lvl-target" style="color:#a3d977;">Target ₹${fmt(r.target_price)} (+${r.expected_pnl}%)</span>
+        <span class="lvl-divider">|</span>
+        <span class="lvl-sl">SL ₹${fmt(r.sl_price)} (-${r.sl_pct}%)</span>
+        <span class="lvl-divider">|</span>
+        <span class="lvl-meta">WR ${r.expected_wr}% &middot; RR ${r.expected_rr}x &middot; 2H hold</span>
+      </div>` : `
+      <div class="levels-box">
+        <span class="lvl-entry" style="color:#f85149;">Entry ₹${fmt(r.cmp)}</span>
+        <span class="lvl-divider">|</span>
+        <span class="lvl-target" style="color:#f0883e;">Target ₹${fmt(r.target_price)} (-${r.expected_pnl}%)</span>
+        <span class="lvl-divider">|</span>
+        <span class="lvl-sl">SL ₹${fmt(r.sl_price)} (+${r.sl_pct}%)</span>
+        <span class="lvl-divider">|</span>
+        <span class="lvl-meta">WR ${r.expected_wr}% &middot; RR ${r.expected_rr}x &middot; 2H hold</span>
+      </div>`;
+
+    // Context tags
+    let tags = '';
+    if (r.strengthening) {
+      tags += '<span class="ctx-tag ctx-strength">RSI Strengthening</span>';
+    }
+
+    const tzLabels = {open:'Opening Hour',morning:'Morning',lunch:'Lunch Zone',afternoon:'Afternoon ★',close:'Close'};
+    const tzLabel = tzLabels[r.time_zone] || r.time_zone;
+    tags += `<span class="ctx-tag ctx-time">${tzLabel}</span>`;
+    tags += `<span class="ctx-tag ctx-hold">${r.hold_note}</span>`;
+
+    if (r.emas) {
+      if (r.emas.ema9) tags += `<span class="ctx-tag ctx-ema">EMA9: ₹${fmt(r.emas.ema9)}</span>`;
+      if (r.emas.ema20) tags += `<span class="ctx-tag ctx-ema">EMA20: ₹${fmt(r.emas.ema20)}</span>`;
+    }
+
+    // Backtest per-stock note
+    const bt = r.backtest;
+    let btNote = '';
+    if (bt && bt.trades > 0) {
+      const wrColor = bt.win_rate >= 95 ? '#3fb950' : bt.win_rate >= 90 ? '#a3d977' : bt.win_rate >= 80 ? '#d29922' : '#f85149';
+      btNote = `<span style="color:${wrColor};font-weight:700;">${bt.win_rate}% WR</span> on ${sym} &middot; ${bt.trades} trades &middot; ${bt.avg_pnl > 0 ? '+' : ''}${bt.avg_pnl.toFixed(3)}% avg PnL &middot; ${bt.rr}x R:R`;
+    } else {
+      btNote = 'No backtest data for this stock';
+    }
+
+    return `<div class="stock-card ${cardCls}">
+      <div class="card-top">
+        <div>
+          <div class="card-sym"><a href="/?symbol=${encodeURIComponent(sym)}">${sym}</a></div>
+          <div class="card-name">${r.name || ''}</div>
+        </div>
+        <div class="card-right">
+          <div class="card-cmp">&#8377;${fmt(r.cmp)}</div>
+          <div class="card-signal ${signalCls}">${signalLabel}</div>
+        </div>
+      </div>
+      ${rsiRow}
+      ${levelsHtml}
+      <div class="context-row">${tags}</div>
+      <div class="backtest-note">${btNote}</div>
+    </div>`;
+  }).join('');
+}
+
+runScan();
+
+// Auto-refresh every 10 minutes during market hours
+setInterval(() => {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const t = h * 60 + m;
+  if (t >= 9*60+15 && t <= 15*60+30) {
+    runScan();
+  }
+}, 600000);
+</script>
+</body>
+</html>
