@@ -541,10 +541,14 @@ def cache_status():
         except Exception as e:
             caches[key] = {"exists": True, "error": str(e)}
 
+    daily_types = {"patterns", "sr_breakout"}
     return jsonify({
         "server_time": now.strftime("%H:%M:%S"),
         "market_open": _is_market_open(),
-        "cache_ttl_sec": _scan_cache_ttl(),
+        "strategy": {
+            "live_pages": "TTL=0 during market, 4h after close",
+            "daily_pages": "Fetch after close, serve cache during market",
+        },
         "caches": caches,
     })
 
@@ -1037,9 +1041,9 @@ def patterns_scan():
     tf = request.args.get("timeframe", "daily").strip()
     if tf not in ("daily", "weekly", "monthly"):
         tf = "daily"
-    return _serve_or_scan("patterns", _do_patterns_scan, args=(tf,), extra=f"_{tf}",
-                          empty_response={"results": [], "total_scanned": 0, "stocks_with_patterns": 0,
-                                          "pattern_summary": {}, "timeframe": tf})
+    return _serve_or_scan_daily("patterns", _do_patterns_scan, args=(tf,), extra=f"_{tf}",
+                               empty_response={"results": [], "total_scanned": 0, "stocks_with_patterns": 0,
+                                               "pattern_summary": {}, "timeframe": tf})
 
 
 @app.route("/results")
@@ -1633,8 +1637,6 @@ def today_backtest():
 # Background scan cache (shared by all scanner endpoints)
 # ---------------------------------------------------------------------------
 SCAN_CACHE_DIR = CACHE_DIR / "scan_cache"
-SCAN_CACHE_TTL_MARKET_OPEN = 0       # always refresh during market hours
-SCAN_CACHE_TTL_MARKET_CLOSED = 14400  # 4 hours after market close
 
 _bg_scan_locks = {
     "rsi_today": threading.Lock(),
@@ -1656,16 +1658,11 @@ def _is_market_open() -> bool:
     return 9 * 60 + 15 <= market_mins <= 15 * 60 + 30
 
 
-def _scan_cache_ttl() -> int:
-    return SCAN_CACHE_TTL_MARKET_OPEN if _is_market_open() else SCAN_CACHE_TTL_MARKET_CLOSED
-
-
 def _scan_cache_path(scan_type: str, extra: str = "") -> Path:
     return SCAN_CACHE_DIR / f"{scan_type}{extra}.json"
 
 
-def _scan_cache_fresh(scan_type: str, extra: str = "") -> dict | None:
-    ttl = _scan_cache_ttl()
+def _scan_cache_fresh(scan_type: str, ttl: int, extra: str = "") -> dict | None:
     if ttl == 0:
         return None
     path = _scan_cache_path(scan_type, extra)
@@ -1689,7 +1686,7 @@ def _save_scan_cache(scan_type: str, data: dict, extra: str = "") -> None:
 
 
 def _start_bg_scan(scan_type: str, target, args=()):
-    """Start a background scan if not already running. Returns True if started or already running."""
+    """Start a background scan if not already running."""
     if _bg_scan_running[scan_type]:
         return True
     with _bg_scan_locks[scan_type]:
@@ -1700,13 +1697,9 @@ def _start_bg_scan(scan_type: str, target, args=()):
     return True
 
 
-def _serve_or_scan(scan_type: str, target, args=(), extra: str = "", empty_response: dict | None = None):
-    """Serve from cache or trigger background scan.
-
-    Market open: always triggers a fresh scan. Serves last completed result while it runs.
-    Market closed: serves cache if under 4 hours old, otherwise triggers refresh.
-    """
-    cached = _scan_cache_fresh(scan_type, extra=extra)
+def _serve_cached_or_stale(scan_type: str, target, args=(), extra: str = "", ttl: int = 0, empty_response: dict | None = None):
+    """Core serve logic: check cache, trigger scan if needed, serve best available data."""
+    cached = _scan_cache_fresh(scan_type, ttl=ttl, extra=extra)
     if cached:
         cached.pop("_cached_at", None)
         return jsonify(cached)
@@ -1726,6 +1719,62 @@ def _serve_or_scan(scan_type: str, target, args=(), extra: str = "", empty_respo
     fallback = empty_response or {"scanning": True, "results": []}
     fallback["scanning"] = True
     return jsonify(fallback)
+
+
+def _serve_or_scan(scan_type: str, target, args=(), extra: str = "", empty_response: dict | None = None):
+    """Group 1: Live market pages (RSI, Intraday, Momentum).
+
+    Market open → TTL=0, always trigger fresh scan, serve last result while refreshing.
+    Market closed → TTL=4h, serve from cache.
+    """
+    ttl = 0 if _is_market_open() else 14400
+    return _serve_cached_or_stale(scan_type, target, args, extra, ttl, empty_response)
+
+
+def _serve_or_scan_daily(scan_type: str, target, args=(), extra: str = "", empty_response: dict | None = None):
+    """Group 2: Daily candle pages (Chart Patterns, S/R Breakout).
+
+    Market open → serve from cache (daily candle incomplete, no point scanning).
+    Market closed → check if cache has today's post-close data, if not trigger fresh scan.
+    Cache valid until next day's market close.
+    """
+    now = datetime.now(IST)
+    path = _scan_cache_path(scan_type, extra=extra)
+
+    if _is_market_open():
+        # During market hours, always serve from cache — don't refresh
+        if path.exists():
+            try:
+                data = json.loads(path.read_text())
+                data.pop("_cached_at", None)
+                return jsonify(data)
+            except Exception:
+                pass
+        fallback = empty_response or {"results": []}
+        fallback["_note"] = "Daily scan runs after market close"
+        return jsonify(fallback)
+
+    # Market closed — check if we have a post-close scan for today
+    today_str = now.strftime("%Y-%m-%d")
+    if path.exists():
+        try:
+            data = json.loads(path.read_text())
+            cached_at = datetime.fromisoformat(data.get("_cached_at", ""))
+            cached_date = cached_at.strftime("%Y-%m-%d")
+            cached_hour = cached_at.hour
+            # Fresh if cached today after 15:30 (post market close)
+            if cached_date == today_str and cached_hour >= 15:
+                data.pop("_cached_at", None)
+                return jsonify(data)
+            # Also fresh if it's a weekend and cache is from Friday post-close
+            if now.weekday() >= 5 and cached_hour >= 15:
+                data.pop("_cached_at", None)
+                return jsonify(data)
+        except Exception:
+            pass
+
+    # Need a fresh scan — trigger it
+    return _serve_cached_or_stale(scan_type, target, args, extra, 0, empty_response)
 
 
 @app.route("/rsi-extremes")
@@ -3011,8 +3060,9 @@ def _do_sr_breakout_scan():
 
     try:
         stocks = get_fno_stocks()
-    except Exception as e:
-        return jsonify({"error": f"Failed to fetch F&O list: {e}", "results": []})
+    except Exception:
+        _bg_scan_running["sr_breakout"] = False
+        return
 
     CONFLUENCE_THRESHOLD_PCT = 1.5
     TRUSTED_PATTERNS = {"Cup & Handle", "Ascending Triangle", "Descending Triangle"}
@@ -3230,8 +3280,8 @@ def _do_sr_breakout_scan():
 
 @app.route("/sr-breakout/scan")
 def sr_breakout_scan():
-    return _serve_or_scan("sr_breakout", _do_sr_breakout_scan,
-                          empty_response={"results": [], "total_scanned": 0, "total_with_setups": 0, "summary": {}})
+    return _serve_or_scan_daily("sr_breakout", _do_sr_breakout_scan,
+                               empty_response={"results": [], "total_scanned": 0, "total_with_setups": 0, "summary": {}})
 
 
 # ---------------------------------------------------------------------------
