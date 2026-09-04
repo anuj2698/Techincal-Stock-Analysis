@@ -94,7 +94,7 @@
   .common-row{padding:.4rem 0;border-bottom:1px solid #f0883e15;font-size:.78rem} .common-row:last-child{border-bottom:none}
   .common-top{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.3rem}
   .rsi-chip{padding:.1rem .3rem;border-radius:3px;font-weight:700;font-size:.7rem}
-  .rsi-chip-5m{background:#8b5cf620;color:#a78bfa} .rsi-chip-15m{background:#58a6ff20;color:#79c0ff}
+  .rsi-chip-5m{background:#8b5cf620;color:#a78bfa} .rsi-chip-15m{background:#58a6ff20;color:#79c0ff} .rsi-chip-1h{background:#f0883e20;color:#f0883e}
   .move-box{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;padding:.25rem .45rem;background:#21262d;border-radius:4px;margin-top:.15rem;font-size:.72rem}
   .move-pill{font-size:.65rem;padding:.12rem .4rem;border-radius:4px;font-weight:800}
   .move-pill.reversed{background:#3fb95025;color:#3fb950;border:1px solid #3fb95050}
@@ -368,7 +368,8 @@ function renderResults(data){
           const tags=[{n:'8 EMA',v:ea.ema8,r:ea.reached_8},{n:'9 EMA',v:ea.ema9,r:ea.reached_9},{n:'20 EMA',v:ea.ema20,r:ea.reached_20}].map(t=>t.v!=null?`<span class="ema-tag ${t.r?'reached':'missed'}">${t.n} &#8377;${fmt(t.v)} ${t.r?'&#10003;':'&#10007;'}</span>`:'').join('');
           emaHtml=`<div class="ema-ctx">${tags}<span style="margin-left:.3rem">max move ${ea.max_fav_pct}% to &#8377;${fmt(ea.max_fav)}</span></div>`;
         }
-        return `<div class="common-row"><div class="common-top"><span style="color:#8b949e">${e.date}</span><span style="font-weight:600">${e.time}</span><span class="rsi-chip rsi-chip-5m">5m:${e.rsi_5m}</span><span class="rsi-chip rsi-chip-15m">15m:${e.rsi_15m}</span><span style="color:${tc};font-weight:700;font-size:.72rem">${tl}</span><span style="color:#8b949e;font-size:.72rem">@&#8377;${fmt(e.price)}</span></div>${moveHtml}${n30Html}${e8Html}${emaHtml}</div>`;
+        const r1hChip=e.rsi_1h!=null?`<span class="rsi-chip rsi-chip-1h">1h:${e.rsi_1h}</span>`:'';
+        return `<div class="common-row"><div class="common-top"><span style="color:#8b949e">${e.date}</span><span style="font-weight:600">${e.time}</span><span class="rsi-chip rsi-chip-5m">5m:${e.rsi_5m}</span><span class="rsi-chip rsi-chip-15m">15m:${e.rsi_15m}</span>${r1hChip}<span style="color:${tc};font-weight:700;font-size:.72rem">${tl}</span><span style="color:#8b949e;font-size:.72rem">@&#8377;${fmt(e.price)}</span></div>${moveHtml}${n30Html}${e8Html}${emaHtml}</div>`;
       }).join('');
       commonSection=`<div class="common-section"><div class="common-title">&#9889; Trade Signals</div>${rows}</div>`;
     }
