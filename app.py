@@ -543,7 +543,8 @@ def cache_status():
 
     return jsonify({
         "server_time": now.strftime("%H:%M:%S"),
-        "cache_ttl_sec": SCAN_CACHE_MAX_AGE_SEC,
+        "market_open": _is_market_open(),
+        "cache_ttl_sec": _scan_cache_ttl(),
         "caches": caches,
     })
 
@@ -1632,7 +1633,8 @@ def today_backtest():
 # Background scan cache (shared by all scanner endpoints)
 # ---------------------------------------------------------------------------
 SCAN_CACHE_DIR = CACHE_DIR / "scan_cache"
-SCAN_CACHE_MAX_AGE_SEC = 300  # 5 minutes
+SCAN_CACHE_TTL_MARKET_OPEN = 0       # always refresh during market hours
+SCAN_CACHE_TTL_MARKET_CLOSED = 14400  # 4 hours after market close
 
 _bg_scan_locks = {
     "rsi_today": threading.Lock(),
@@ -1646,11 +1648,26 @@ _bg_scan_locks = {
 _bg_scan_running = {k: False for k in _bg_scan_locks}
 
 
+def _is_market_open() -> bool:
+    now = datetime.now(IST)
+    if now.weekday() >= 5:
+        return False
+    market_mins = now.hour * 60 + now.minute
+    return 9 * 60 + 15 <= market_mins <= 15 * 60 + 30
+
+
+def _scan_cache_ttl() -> int:
+    return SCAN_CACHE_TTL_MARKET_OPEN if _is_market_open() else SCAN_CACHE_TTL_MARKET_CLOSED
+
+
 def _scan_cache_path(scan_type: str, extra: str = "") -> Path:
     return SCAN_CACHE_DIR / f"{scan_type}{extra}.json"
 
 
 def _scan_cache_fresh(scan_type: str, extra: str = "") -> dict | None:
+    ttl = _scan_cache_ttl()
+    if ttl == 0:
+        return None
     path = _scan_cache_path(scan_type, extra)
     if not path.exists():
         return None
@@ -1658,7 +1675,7 @@ def _scan_cache_fresh(scan_type: str, extra: str = "") -> dict | None:
         data = json.loads(path.read_text())
         cached_at = datetime.fromisoformat(data.get("_cached_at", ""))
         age = (datetime.now(IST) - cached_at).total_seconds()
-        if age < SCAN_CACHE_MAX_AGE_SEC:
+        if age < ttl:
             return data
     except Exception:
         pass
@@ -1684,7 +1701,11 @@ def _start_bg_scan(scan_type: str, target, args=()):
 
 
 def _serve_or_scan(scan_type: str, target, args=(), extra: str = "", empty_response: dict | None = None):
-    """Serve from cache, or trigger background scan and return scanning/stale response."""
+    """Serve from cache or trigger background scan.
+
+    Market open: always triggers a fresh scan. Serves last completed result while it runs.
+    Market closed: serves cache if under 4 hours old, otherwise triggers refresh.
+    """
     cached = _scan_cache_fresh(scan_type, extra=extra)
     if cached:
         cached.pop("_cached_at", None)
@@ -1697,7 +1718,7 @@ def _serve_or_scan(scan_type: str, target, args=(), extra: str = "", empty_respo
         try:
             stale = json.loads(path.read_text())
             stale.pop("_cached_at", None)
-            stale["_stale"] = True
+            stale["_refreshing"] = True
             return jsonify(stale)
         except Exception:
             pass
