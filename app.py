@@ -501,6 +501,53 @@ def health():
     return jsonify({"status": "ok"})
 
 
+@app.route("/cache-status")
+def cache_status():
+    """Show age and freshness of all scan caches."""
+    now = datetime.now(IST)
+    scan_types = [
+        ("intraday_levels", ""),
+        ("rsi_today", ""),
+        ("rsi_historical", "_10d"),
+        ("rsi_historical", "_30d"),
+        ("rsi_momentum", ""),
+        ("patterns", "_daily"),
+        ("patterns", "_weekly"),
+        ("sr_breakout", ""),
+        ("today_picks", "_short_term"),
+        ("today_picks", "_intraday"),
+    ]
+    caches = {}
+    for scan_type, extra in scan_types:
+        key = f"{scan_type}{extra}"
+        path = _scan_cache_path(scan_type, extra)
+        if not path.exists():
+            caches[key] = {"exists": False, "running": _bg_scan_running.get(scan_type, False)}
+            continue
+        try:
+            data = json.loads(path.read_text())
+            cached_at = datetime.fromisoformat(data.get("_cached_at", ""))
+            age_sec = (now - cached_at).total_seconds()
+            fresh = age_sec < SCAN_CACHE_MAX_AGE_SEC
+            result_count = len(data.get("results", data.get("stocks", data.get("picks", []))))
+            caches[key] = {
+                "exists": True,
+                "cached_at": cached_at.strftime("%H:%M:%S"),
+                "age_sec": int(age_sec),
+                "fresh": fresh,
+                "results": result_count,
+                "running": _bg_scan_running.get(scan_type, False),
+            }
+        except Exception as e:
+            caches[key] = {"exists": True, "error": str(e)}
+
+    return jsonify({
+        "server_time": now.strftime("%H:%M:%S"),
+        "cache_ttl_sec": SCAN_CACHE_MAX_AGE_SEC,
+        "caches": caches,
+    })
+
+
 _stock_list_cache: list[dict] | None = None
 
 
