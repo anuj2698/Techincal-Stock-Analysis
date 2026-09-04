@@ -3107,7 +3107,7 @@ def _do_sr_breakout_scan():
             for z in sr_zones:
                 all_levels.append({
                     "price": z["level"],
-                    "source": f"S/R ({z['touches']} touches)",
+                    "source": f"S/R ₹{z['level']} ({z['touches']} touches, {z['type']})",
                     "strength": z["touches"] * 2 + z["recency_score"],
                     "touches": z["touches"],
                 })
@@ -3260,11 +3260,15 @@ def _do_sr_breakout_scan():
         results_raw = list(pool.map(_scan_stock, stocks))
 
     results = [r for r in results_raw if r is not None]
-    results.sort(key=lambda r: r["score"], reverse=True)
+    confirmed = [r for r in results if r["top_status"] == "Breakout Confirmed"]
+    approaching = [r for r in results if r["top_status"] == "Approaching"]
+    confirmed.sort(key=lambda r: r["score"], reverse=True)
+    approaching.sort(key=lambda r: r["setups"][0]["distance_pct"] if r.get("setups") else 999)
+    results = confirmed + approaching
 
     summary = {
-        "total_approaching": sum(1 for r in results if r["top_status"] == "Approaching"),
-        "total_confirmed": sum(1 for r in results if r["top_status"] == "Breakout Confirmed"),
+        "total_approaching": len(approaching),
+        "total_confirmed": len(confirmed),
         "total_bullish": sum(1 for r in results if r["top_direction"] == "bullish"),
         "total_bearish": sum(1 for r in results if r["top_direction"] == "bearish"),
     }
