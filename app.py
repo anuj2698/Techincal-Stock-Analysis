@@ -889,10 +889,11 @@ def patterns_page():
 
 def _do_patterns_scan(tf: str):
     """Run chart patterns scan in background, save to cache."""
+    scan_key = f"patterns_{tf}"
     try:
         stocks = get_fno_stocks()
     except Exception:
-        _bg_scan_running["patterns"] = False
+        _bg_scan_running[scan_key] = False
         return
 
     interval_map = {"daily": ("1d", "1y"), "weekly": ("1d", "1y"), "monthly": ("1d", "1y")}
@@ -1033,7 +1034,7 @@ def _do_patterns_scan(tf: str):
         "pattern_summary": pattern_summary,
         "timeframe": tf,
     }, extra=f"_{tf}")
-    _bg_scan_running["patterns"] = False
+    _bg_scan_running[scan_key] = False
 
 
 @app.route("/patterns/scan")
@@ -1084,10 +1085,11 @@ def today_page():
 
 def _do_today_picks(timeframe: str):
     """Run today's picks analysis in background, save to cache."""
+    scan_key = f"today_picks_{timeframe}"
     cache_path = Path(__file__).resolve().parent / "scanner_cache" / "backtest_results.json"
     has_cache = _ensure_scan_cache()
     if not has_cache:
-        _bg_scan_running["today_picks"] = False
+        _bg_scan_running[scan_key] = False
         return
 
     cache = json.loads(cache_path.read_text())
@@ -1111,7 +1113,7 @@ def _do_today_picks(timeframe: str):
 
     if not qualifying:
         _save_scan_cache("today_picks", {"picks": [], "timestamp": timestamp, "qualifying_count": 0}, extra=f"_{timeframe}")
-        _bg_scan_running["today_picks"] = False
+        _bg_scan_running[scan_key] = False
         return
 
     cfg = TIMEFRAME_CONFIG.get(timeframe, TIMEFRAME_CONFIG["short_term"])
@@ -1404,7 +1406,7 @@ def _do_today_picks(timeframe: str):
         "qualifying_count": len(qualifying),
         "max_distance_pct": max_distance_pct,
     }, extra=f"_{timeframe}")
-    _bg_scan_running["today_picks"] = False
+    _bg_scan_running[scan_key] = False
 
 
 @app.route("/today/picks")
@@ -1685,12 +1687,20 @@ def _save_scan_cache(scan_type: str, data: dict, extra: str = "") -> None:
     _scan_cache_path(scan_type, extra).write_text(json.dumps(data))
 
 
+_bg_scan_meta_lock = threading.Lock()
+
+
 def _start_bg_scan(scan_type: str, target, args=()):
-    """Start a background scan if not already running."""
-    if _bg_scan_running[scan_type]:
+    """Start a background scan if not already running. Supports dynamic keys."""
+    if scan_type not in _bg_scan_locks:
+        with _bg_scan_meta_lock:
+            if scan_type not in _bg_scan_locks:
+                _bg_scan_locks[scan_type] = threading.Lock()
+                _bg_scan_running[scan_type] = False
+    if _bg_scan_running.get(scan_type):
         return True
     with _bg_scan_locks[scan_type]:
-        if _bg_scan_running[scan_type]:
+        if _bg_scan_running.get(scan_type):
             return True
         _bg_scan_running[scan_type] = True
     threading.Thread(target=target, args=args, daemon=True).start()
@@ -1704,7 +1714,8 @@ def _serve_cached_or_stale(scan_type: str, target, args=(), extra: str = "", ttl
         cached.pop("_cached_at", None)
         return jsonify(cached)
 
-    _start_bg_scan(scan_type, target, args)
+    scan_key = f"{scan_type}{extra}" if extra else scan_type
+    _start_bg_scan(scan_key, target, args)
 
     path = _scan_cache_path(scan_type, extra=extra)
     if path.exists():
@@ -1885,12 +1896,13 @@ def rsi_extremes_today():
 
 def _do_rsi_extremes_scan(scan_days: int):
     """Run RSI extremes historical scan in background, save to cache."""
+    scan_key = f"rsi_historical_{scan_days}d"
     candle_period = "2mo" if scan_days > 15 else "1mo"
 
     try:
         stocks = get_fno_stocks()
     except Exception:
-        _bg_scan_running["rsi_historical"] = False
+        _bg_scan_running[scan_key] = False
         return
 
     def _find_daily_extremes(candles, last_10_days):
@@ -2394,7 +2406,7 @@ def _do_rsi_extremes_scan(scan_days: int):
             "long": _e8_stats(e8_trades["long"]),
         },
     }, extra=f"_{scan_days}d")
-    _bg_scan_running["rsi_historical"] = False
+    _bg_scan_running[scan_key] = False
 
 
 @app.route("/rsi-extremes/scan")
