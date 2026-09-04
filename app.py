@@ -1564,17 +1564,56 @@ def today_backtest():
     })
 
 
+# ---------------------------------------------------------------------------
+# Background RSI scan cache
+# ---------------------------------------------------------------------------
+RSI_CACHE_DIR = CACHE_DIR / "rsi_scans"
+RSI_CACHE_MAX_AGE_SEC = 300  # 5 minutes during market hours
+
+_rsi_scan_locks = {
+    "today": threading.Lock(),
+    "historical": threading.Lock(),
+    "momentum": threading.Lock(),
+}
+_rsi_scan_running = {"today": False, "historical": False, "momentum": False}
+
+
+def _rsi_cache_path(scan_type: str, extra: str = "") -> Path:
+    return RSI_CACHE_DIR / f"{scan_type}{extra}.json"
+
+
+def _rsi_cache_fresh(scan_type: str, extra: str = "") -> dict | None:
+    path = _rsi_cache_path(scan_type, extra)
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text())
+        cached_at = datetime.fromisoformat(data.get("_cached_at", ""))
+        age = (datetime.now(IST) - cached_at).total_seconds()
+        if age < RSI_CACHE_MAX_AGE_SEC:
+            return data
+    except Exception:
+        pass
+    return None
+
+
+def _save_rsi_cache(scan_type: str, data: dict, extra: str = "") -> None:
+    RSI_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    data["_cached_at"] = datetime.now(IST).isoformat()
+    _rsi_cache_path(scan_type, extra).write_text(json.dumps(data))
+
+
 @app.route("/rsi-extremes")
 def rsi_extremes_page():
     return render_template("rsi_extremes.html")
 
 
-@app.route("/rsi-extremes/today")
-def rsi_extremes_today():
+def _do_rsi_extremes_today():
+    """Run RSI extremes live scan in background, save to cache."""
     try:
         stocks = get_fno_stocks()
-    except Exception as e:
-        return jsonify({"error": str(e), "results": []})
+    except Exception:
+        return
 
     def _scan_current(stock):
         sym = stock["symbol"]
@@ -1614,7 +1653,6 @@ def rsi_extremes_today():
             if r5 is None or r15 is None:
                 return None
 
-            # Both 5m and 15m RSI must be < 20 or > 80
             both_ob = r5 > 80 and r15 > 80
             both_os = r5 < 20 and r15 < 20
             if not (both_ob or both_os):
@@ -1636,7 +1674,7 @@ def rsi_extremes_today():
         except Exception:
             return None
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=10) as pool:
         results_raw = list(pool.map(_scan_current, stocks))
 
     results = [r for r in results_raw if r is not None]
@@ -1650,30 +1688,57 @@ def rsi_extremes_today():
 
     results.sort(key=_sort_key, reverse=True)
 
-    # Attach stored all-time performance
     summary = load_rsi_summary()
     for r in results:
         sp = summary.get(r["symbol"])
         if sp:
             r["stored_perf"] = sp
 
-    return jsonify({
+    _save_rsi_cache("today", {
         "results": results,
         "total_scanned": len(stocks),
         "count": len(results),
         "time": datetime.now(IST).strftime("%H:%M:%S"),
     })
+    _rsi_scan_running["today"] = False
 
 
-@app.route("/rsi-extremes/scan")
-def rsi_extremes_scan():
-    scan_days = min(int(request.args.get("days", "10")), 30) if request.args.get("days", "").isdigit() else 10
+@app.route("/rsi-extremes/today")
+def rsi_extremes_today():
+    cached = _rsi_cache_fresh("today")
+    if cached:
+        cached.pop("_cached_at", None)
+        return jsonify(cached)
+
+    if not _rsi_scan_running["today"]:
+        with _rsi_scan_locks["today"]:
+            if not _rsi_scan_running["today"]:
+                _rsi_scan_running["today"] = True
+                threading.Thread(target=_do_rsi_extremes_today, daemon=True).start()
+
+    stale = None
+    path = _rsi_cache_path("today")
+    if path.exists():
+        try:
+            stale = json.loads(path.read_text())
+            stale.pop("_cached_at", None)
+            stale["_stale"] = True
+            return jsonify(stale)
+        except Exception:
+            pass
+
+    return jsonify({"scanning": True, "results": [], "count": 0, "time": datetime.now(IST).strftime("%H:%M:%S")})
+
+
+def _do_rsi_extremes_scan(scan_days: int):
+    """Run RSI extremes historical scan in background, save to cache."""
     candle_period = "2mo" if scan_days > 15 else "1mo"
 
     try:
         stocks = get_fno_stocks()
-    except Exception as e:
-        return jsonify({"error": f"Failed to fetch F&O list: {e}", "results": []})
+    except Exception:
+        _rsi_scan_running["historical"] = False
+        return
 
     def _find_daily_extremes(candles, last_10_days):
         closes = [float(c[4]) for c in candles]
@@ -2047,7 +2112,7 @@ def rsi_extremes_scan():
         except Exception:
             return None
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=10) as pool:
         results_raw = list(pool.map(_scan_stock, stocks))
 
     results = [r for r in results_raw if r is not None]
@@ -2158,7 +2223,7 @@ def rsi_extremes_scan():
         if sp:
             r["stored_perf"] = sp
 
-    return jsonify({
+    _save_rsi_cache("historical", {
         "results": results,
         "total_scanned": len(stocks),
         "stocks_with_extremes": len(results),
@@ -2175,7 +2240,37 @@ def rsi_extremes_scan():
             "short": _e8_stats(e8_trades["short"]),
             "long": _e8_stats(e8_trades["long"]),
         },
-    })
+    }, extra=f"_{scan_days}d")
+    _rsi_scan_running["historical"] = False
+
+
+@app.route("/rsi-extremes/scan")
+def rsi_extremes_scan():
+    scan_days = min(int(request.args.get("days", "10")), 30) if request.args.get("days", "").isdigit() else 10
+
+    cached = _rsi_cache_fresh("historical", extra=f"_{scan_days}d")
+    if cached:
+        cached.pop("_cached_at", None)
+        return jsonify(cached)
+
+    if not _rsi_scan_running["historical"]:
+        with _rsi_scan_locks["historical"]:
+            if not _rsi_scan_running["historical"]:
+                _rsi_scan_running["historical"] = True
+                threading.Thread(target=_do_rsi_extremes_scan, args=(scan_days,), daemon=True).start()
+
+    stale = None
+    path = _rsi_cache_path("historical", extra=f"_{scan_days}d")
+    if path.exists():
+        try:
+            stale = json.loads(path.read_text())
+            stale.pop("_cached_at", None)
+            stale["_stale"] = True
+            return jsonify(stale)
+        except Exception:
+            pass
+
+    return jsonify({"scanning": True, "results": [], "stocks_with_extremes": 0, "scan_days": scan_days})
 
 
 # ---------------------------------------------------------------------------
@@ -3048,15 +3143,16 @@ def rsi_momentum_page():
     return render_template("rsi_momentum.html")
 
 
-@app.route("/rsi-momentum/scan")
-def rsi_momentum_scan():
+def _do_rsi_momentum_scan():
+    """Run RSI momentum scan in background, save to cache."""
     RSI_BULL_THRESH = 65
     RSI_BEAR_THRESH = 35
 
     try:
         stocks = get_fno_stocks()
-    except Exception as e:
-        return jsonify({"error": str(e), "results": []})
+    except Exception:
+        _rsi_scan_running["momentum"] = False
+        return
 
     now = datetime.now(IST)
     market_hour = now.hour
@@ -3255,7 +3351,7 @@ def rsi_momentum_scan():
         except Exception:
             return None
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=10) as pool:
         results_raw = list(pool.map(_scan_stock, stocks))
 
     results = [r for r in results_raw if r is not None]
@@ -3284,7 +3380,7 @@ def rsi_momentum_scan():
     bulls = [r for r in results if r["signal_type"] == "bullish"]
     bears = [r for r in results if r["signal_type"] == "bearish"]
 
-    return jsonify({
+    _save_rsi_cache("momentum", {
         "results": results,
         "total_scanned": len(stocks),
         "count": len(results),
@@ -3293,6 +3389,35 @@ def rsi_momentum_scan():
         "time": now.strftime("%H:%M:%S"),
         "thresholds": {"bull": RSI_BULL_THRESH, "bear": RSI_BEAR_THRESH},
     })
+    _rsi_scan_running["momentum"] = False
+
+
+@app.route("/rsi-momentum/scan")
+def rsi_momentum_scan():
+    cached = _rsi_cache_fresh("momentum")
+    if cached:
+        cached.pop("_cached_at", None)
+        return jsonify(cached)
+
+    if not _rsi_scan_running["momentum"]:
+        with _rsi_scan_locks["momentum"]:
+            if not _rsi_scan_running["momentum"]:
+                _rsi_scan_running["momentum"] = True
+                threading.Thread(target=_do_rsi_momentum_scan, daemon=True).start()
+
+    stale = None
+    path = _rsi_cache_path("momentum")
+    if path.exists():
+        try:
+            stale = json.loads(path.read_text())
+            stale.pop("_cached_at", None)
+            stale["_stale"] = True
+            return jsonify(stale)
+        except Exception:
+            pass
+
+    return jsonify({"scanning": True, "results": [], "count": 0, "bulls": 0, "bears": 0,
+                    "time": datetime.now(IST).strftime("%H:%M:%S"), "thresholds": {"bull": 65, "bear": 35}})
 
 
 if __name__ == "__main__":
