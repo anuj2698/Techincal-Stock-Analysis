@@ -1979,10 +1979,12 @@ def _do_rsi_extremes_scan(scan_days: int):
             rsi_lookups = {}
             candles_by_tf = {}
 
-            for interval in ["5m", "15m"]:
+            for interval in ["5m", "15m", "1h"]:
                 candles = fetch_candles(yahoo_sym, period=candle_period, interval=interval, canonical=canonical)
                 if not candles or len(candles) < 20:
                     result[interval] = {"extremes": [], "current_rsi": None, "overbought_count": 0, "oversold_count": 0}
+                    if interval in ("5m", "15m", "1h"):
+                        return None
                     continue
 
                 candles_by_tf[interval] = candles
@@ -2013,12 +2015,13 @@ def _do_rsi_extremes_scan(scan_days: int):
             if not has_any:
                 return None
 
-            # Find common extremes: both 5m and 15m extreme at overlapping times
+            # Find common extremes: all 3 timeframes (5m, 15m, 1h) extreme at overlapping times
             common_extremes = []
             rsi_5m = rsi_lookups.get("5m", {})
             rsi_15m = rsi_lookups.get("15m", {})
+            rsi_1h = rsi_lookups.get("1h", {})
 
-            if rsi_5m and rsi_15m:
+            if rsi_5m and rsi_15m and rsi_1h:
                 for ts_15m, (rv_15m, price_15m, dt_15m) in sorted(rsi_15m.items()):
                     if 20 <= rv_15m <= 80:
                         continue
@@ -2026,6 +2029,20 @@ def _do_rsi_extremes_scan(scan_days: int):
                     if hhmm < 9 * 60 + 20 or hhmm >= 15 * 60:
                         continue
                     extreme_type = "overbought" if rv_15m > 80 else "oversold"
+
+                    # Check 1H RSI is also extreme at this time
+                    rv_1h_match = None
+                    for h_offset in range(0, 60 * 60, 5 * 60):
+                        ts_1h_check = ts_15m - (ts_15m % 3600) + h_offset
+                        if abs(ts_1h_check - ts_15m) <= 3600 and ts_1h_check in rsi_1h:
+                            rv_1h, _, _ = rsi_1h[ts_1h_check]
+                            h_match = (extreme_type == "overbought" and rv_1h > 80) or \
+                                      (extreme_type == "oversold" and rv_1h < 20)
+                            if h_match:
+                                rv_1h_match = round(rv_1h, 1)
+                                break
+                    if rv_1h_match is None:
+                        continue
 
                     for offset_sec in range(0, 15 * 60, 5 * 60):
                         ts_5m = ts_15m + offset_sec
@@ -2041,6 +2058,7 @@ def _do_rsi_extremes_scan(scan_days: int):
                                 "time": dt_5m.strftime("%H:%M"),
                                 "rsi_5m": round(rv_5m, 1),
                                 "rsi_15m": round(rv_15m, 1),
+                                "rsi_1h": rv_1h_match,
                                 "price": price_5m,
                                 "type": extreme_type,
                                 "_ts_5m": ts_5m,
