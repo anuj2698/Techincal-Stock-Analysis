@@ -164,6 +164,15 @@ def exchange_auth_code(auth_code: str) -> str:
     except Exception:
         print("  Token saved to env (no .env file write on cloud)")
 
+    try:
+        from render_env import update_render_env_var
+        if update_render_env_var("FYERS_ACCESS_TOKEN", access_token):
+            print("  Token persisted to Render env vars")
+        else:
+            print("  Render persistence skipped (not configured or failed)")
+    except Exception:
+        pass
+
     return access_token
 
 

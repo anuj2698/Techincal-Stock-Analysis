@@ -159,6 +159,19 @@ from performance import analyze_performance, analyze_attribution
 
 app = Flask(__name__)
 
+ADMIN_SECRET = os.environ.get("ADMIN_SECRET")
+
+
+def _check_admin(req):
+    """Check admin secret from header or query param. Returns error response or None if OK."""
+    if not ADMIN_SECRET:
+        return None
+    token = req.headers.get("X-Admin-Secret") or req.args.get("admin_secret")
+    if token != ADMIN_SECRET:
+        return jsonify({"error": "Unauthorized"}), 401
+    return None
+
+
 IST = timezone(timedelta(hours=5, minutes=30))
 MARKET_OPEN = (9, 15)
 MARKET_CLOSE = (15, 30)
@@ -2393,6 +2406,9 @@ def fyers_status():
 @app.route("/api/refresh-fyers-token", methods=["POST"])
 def refresh_fyers_token():
     """Initiate Fyers token refresh. Returns auth URL for the browser to redirect to."""
+    auth_err = _check_admin(request)
+    if auth_err:
+        return auth_err
     global _fyers_client
     today = datetime.now(IST).strftime("%Y-%m-%d")
 
@@ -2498,8 +2514,12 @@ def fyers_callback():
 def intraday_pick():
     """Scan all F&O stocks and return today's top intraday candidates."""
     force = request.args.get("force", "0") == "1"
-    if force and INTRADAY_PICK_CACHE_FILE.exists():
-        INTRADAY_PICK_CACHE_FILE.unlink()
+    if force:
+        auth_err = _check_admin(request)
+        if auth_err:
+            return auth_err
+        if INTRADAY_PICK_CACHE_FILE.exists():
+            INTRADAY_PICK_CACHE_FILE.unlink()
 
     picks = pick_intraday_stocks()
     return jsonify({
@@ -2529,6 +2549,9 @@ def intraday_rotation_status():
 @app.route("/intraday/rotate", methods=["POST"])
 def intraday_force_rotate():
     """Force a core stock rotation now (ignores the monthly interval)."""
+    auth_err = _check_admin(request)
+    if auth_err:
+        return auth_err
     global _core_rotation_running
     if _core_rotation_running:
         return jsonify({"status": "already_running"})

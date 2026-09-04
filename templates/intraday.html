@@ -415,12 +415,23 @@ function startAutoRefresh() {
   }, 60000);
 }
 
+function getAdminSecret() {
+  let secret = sessionStorage.getItem('admin_secret');
+  if (!secret) {
+    secret = prompt('Enter admin secret:');
+    if (secret) sessionStorage.setItem('admin_secret', secret);
+  }
+  return secret;
+}
+
 async function rescan() {
+  const secret = getAdminSecret();
+  if (!secret) return;
   const spinner = document.getElementById('spinner');
   spinner.textContent = 'Rescanning all F&O stocks...';
   spinner.classList.add('active');
-  try { await fetch('/intraday/pick?force=1'); await loadData(); }
-  catch(e) { alert('Rescan failed: ' + e.message); }
+  try { await fetch('/intraday/pick?force=1&admin_secret=' + encodeURIComponent(secret)); await loadData(); }
+  catch(e) { alert('Rescan failed: ' + e.message); sessionStorage.removeItem('admin_secret'); }
   finally { spinner.textContent = 'Loading PDH/PDL levels...'; spinner.classList.remove('active'); }
 }
 

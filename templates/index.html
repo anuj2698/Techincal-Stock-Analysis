@@ -1211,11 +1211,27 @@
       } catch(e) {}
     }
 
+    function getAdminSecret() {
+      let secret = sessionStorage.getItem('admin_secret');
+      if (!secret) {
+        secret = prompt('Enter admin secret:');
+        if (secret) sessionStorage.setItem('admin_secret', secret);
+      }
+      return secret;
+    }
+
     async function refreshFyers() {
+      const secret = getAdminSecret();
+      if (!secret) return;
       const btn = document.getElementById('fyersBtn');
       btn.textContent = 'Connecting...'; btn.disabled = true;
       try {
-        const resp = await fetch('/api/refresh-fyers-token', {method: 'POST'});
+        const resp = await fetch('/api/refresh-fyers-token', {method: 'POST', headers: {'X-Admin-Secret': secret}});
+        if (resp.status === 401) {
+          sessionStorage.removeItem('admin_secret');
+          btn.textContent = 'Unauthorized'; btn.style.color = '#f85149'; btn.disabled = false;
+          return;
+        }
         const d = await resp.json();
         if (d.success && d.status === 'active') {
           btn.innerHTML = '&#10003; Fyers Connected';
