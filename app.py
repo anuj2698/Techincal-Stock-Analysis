@@ -95,12 +95,6 @@ def _get_fyers():
     global _fyers_client
     if _fyers_client is not None:
         return _fyers_client
-    # Auto-refresh expired token on first use
-    try:
-        from fyers_auth import refresh_token_if_needed
-        refresh_token_if_needed()
-    except Exception:
-        pass
     app_id = os.environ.get("FYERS_APP_ID")
     token = os.environ.get("FYERS_ACCESS_TOKEN")
     if not app_id or not token:
@@ -2175,29 +2169,48 @@ def rsi_extremes_scan():
 # Intraday Strategies — ORB & PDH/PDL Breakout
 # ---------------------------------------------------------------------------
 
-INTRADAY_CORE_STOCKS = [
-    "KALYANKJIL", "MCX", "BHEL", "COFORGE", "PAYTM", "ADANIPOWER", "DIXON",
-    "ETERNAL", "VEDL", "TATASTEEL", "HDFCBANK", "SAIL", "NATIONALUM", "IDEA", "KAYNES",
-]
+from core_rotation import load_config as _load_core_config, needs_rotation as _needs_core_rotation, run_rotation as _run_core_rotation
 
-# Backtest win rates from our analysis (PDH/PDL 1:1 RR, 60-day backtest)
-BACKTEST_STATS = {
-    "KALYANKJIL": {"wr": 69.4, "pnl": 29.06},
-    "MCX":        {"wr": 59.2, "pnl": 16.53},
-    "BHEL":       {"wr": 63.8, "pnl": 6.36},
-    "COFORGE":    {"wr": 66.7, "pnl": 16.73},
-    "PAYTM":      {"wr": 60.8, "pnl": 16.06},
-    "ADANIPOWER": {"wr": 38.6, "pnl": -9.71},
-    "DIXON":      {"wr": 56.2, "pnl": 2.48},
-    "ETERNAL":    {"wr": 67.9, "pnl": 13.64},
-    "VEDL":       {"wr": 66.7, "pnl": 7.78},
-    "TATASTEEL":  {"wr": 71.4, "pnl": 11.71},
-    "HDFCBANK":   {"wr": 65.3, "pnl": 8.32},
-    "SAIL":       {"wr": 56.6, "pnl": 11.05},
-    "NATIONALUM": {"wr": 77.6, "pnl": 19.69},
-    "IDEA":       {"wr": 53.1, "pnl": 1.41},
-    "KAYNES":     {"wr": 55.1, "pnl": 2.46},
-}
+_core_rotation_running = False
+_core_rotation_progress = {"step": "idle", "done": 0, "total": 0}
+
+
+def _get_core_stocks() -> list[str]:
+    return _load_core_config().get("core_stocks", [])
+
+
+def _get_backtest_stats() -> dict:
+    return _load_core_config().get("backtest_stats", {})
+
+
+def _rotation_progress_cb(step, done, total):
+    global _core_rotation_progress
+    _core_rotation_progress = {"step": step, "done": done, "total": total}
+
+
+def _run_background_rotation():
+    global _core_rotation_running
+    try:
+        _run_core_rotation(fetch_candles, resolve_yahoo_ticker, get_fno_stocks, progress_cb=_rotation_progress_cb)
+    except Exception as e:
+        _core_rotation_progress["step"] = f"error: {e}"
+    finally:
+        _core_rotation_running = False
+
+
+def _ensure_core_rotation():
+    """Trigger background core stock rotation if due (monthly). Non-blocking."""
+    global _core_rotation_running
+    if _core_rotation_running:
+        return
+    if not _needs_core_rotation():
+        return
+    with _scan_lock:
+        if _core_rotation_running:
+            return
+        _core_rotation_running = True
+    t = threading.Thread(target=_run_background_rotation, daemon=True)
+    t.start()
 
 PDHL_BUFFER_PCT = 0.1
 PDHL_SL_RATIO = 0.3
@@ -2258,8 +2271,8 @@ def _score_stock_for_intraday(sym, candles_daily):
         liquidity * 0.15
     )
 
-    is_core = sym in INTRADAY_CORE_STOCKS
-    backtest = BACKTEST_STATS.get(sym)
+    is_core = sym in _get_core_stocks()
+    backtest = _get_backtest_stats().get(sym)
 
     return {
         "symbol": sym,
@@ -2292,7 +2305,8 @@ def pick_intraday_stocks() -> list[dict]:
     try:
         stocks = get_fno_stocks()
     except Exception:
-        return [{"symbol": s, "score": 0, "is_core": True, "backtest": BACKTEST_STATS.get(s)} for s in INTRADAY_CORE_STOCKS]
+        _bt = _get_backtest_stats()
+        return [{"symbol": s, "score": 0, "is_core": True, "backtest": _bt.get(s)} for s in _get_core_stocks()]
 
     scored = []
 
@@ -2392,11 +2406,34 @@ def refresh_fyers_token():
             pass
 
     try:
-        from fyers_auth import get_auth_url
+        from fyers_auth import get_auth_url, exchange_auth_code
 
-        # Use the app's own callback URL so it works on both local and cloud
         callback_uri = request.host_url.rstrip("/") + "/fyers/callback"
-        auth_url = get_auth_url(redirect_uri_override=callback_uri)
+        auth_code, auth_url = get_auth_url(redirect_uri_override=callback_uri)
+
+        if auth_code:
+            # Auth code captured directly — no browser redirect needed
+            access_token = exchange_auth_code(auth_code)
+            _fyers_client = None
+
+            name = "Unknown"
+            try:
+                from fyers_apiv3 import fyersModel
+                client = fyersModel.FyersModel(client_id=os.environ.get("FYERS_APP_ID"),
+                                                token=access_token, is_async=False, log_path="logs/")
+                resp = client.get_profile()
+                if resp.get("s") == "ok":
+                    name = resp["data"]["name"]
+            except Exception:
+                pass
+
+            CACHE_DIR.mkdir(exist_ok=True)
+            FYERS_TOKEN_REFRESH_FILE.write_text(json.dumps({
+                "date": today, "time": datetime.now(IST).strftime("%H:%M:%S"), "name": name,
+            }))
+
+            return jsonify({"success": True, "status": "active", "name": name,
+                            "message": f"Token active — {name}"})
 
         return jsonify({"success": True, "status": "redirect", "auth_url": auth_url})
     except Exception as e:
@@ -2476,8 +2513,37 @@ def intraday_pick():
 INTRADAY_EOD_CACHE_FILE = CACHE_DIR / "intraday_eod.json"
 
 
+@app.route("/intraday/rotation-status")
+def intraday_rotation_status():
+    cfg = _load_core_config()
+    return jsonify({
+        "running": _core_rotation_running,
+        "progress": _core_rotation_progress,
+        "last_rotation": cfg.get("last_rotation"),
+        "core_stocks": cfg.get("core_stocks", []),
+        "core_count": len(cfg.get("core_stocks", [])),
+        "last_log": cfg.get("rotation_log", [])[-1] if cfg.get("rotation_log") else None,
+    })
+
+
+@app.route("/intraday/rotate", methods=["POST"])
+def intraday_force_rotate():
+    """Force a core stock rotation now (ignores the monthly interval)."""
+    global _core_rotation_running
+    if _core_rotation_running:
+        return jsonify({"status": "already_running"})
+    from core_rotation import save_config as _save_core_config
+    cfg = _load_core_config()
+    cfg["last_rotation"] = None
+    _save_core_config(cfg)
+    _ensure_core_rotation()
+    return jsonify({"status": "started"})
+
+
 @app.route("/intraday/levels")
 def intraday_levels():
+    _ensure_core_rotation()
+
     now = datetime.now(IST)
     mkt_open_time = now.replace(hour=9, minute=15, second=0, microsecond=0)
     mkt_close_time = now.replace(hour=15, minute=30, second=0, microsecond=0)
@@ -2581,43 +2647,57 @@ def intraday_levels():
 
                         post_15 = [c for c in today_candles
                                    if (datetime.fromtimestamp(int(c[0]), tz=IST).hour - 9) * 60 +
-                                      (datetime.fromtimestamp(int(c[0]), tz=IST).minute - 15) >= 15]
+                                      (datetime.fromtimestamp(int(c[0]), tz=IST).minute - 15) >= 0]
 
                         long_triggered = False
                         short_triggered = False
+                        long_trigger_time = None
+                        short_trigger_time = None
+                        long_exit_time = None
+                        short_exit_time = None
                         for c in post_15:
                             h, l, cl = c[2], c[3], c[4]
+                            c_dt = datetime.fromtimestamp(int(c[0]), tz=IST)
+                            c_time = c_dt.strftime("%H:%M")
                             if not long_triggered and h >= long_entry:
                                 long_triggered = True
                                 long_status = "triggered"
+                                long_trigger_time = c_time
                             if long_triggered and long_status == "triggered":
                                 if l <= long_sl:
                                     long_status = "sl"
                                     long_pnl_pct = round((long_sl - long_entry) / long_entry * 100, 2)
+                                    long_exit_time = c_time
                                 elif h >= long_target:
                                     long_status = "target"
                                     long_pnl_pct = round((long_target - long_entry) / long_entry * 100, 2)
+                                    long_exit_time = c_time
 
                             if not short_triggered and l <= short_entry:
                                 short_triggered = True
                                 short_status = "triggered"
+                                short_trigger_time = c_time
                             if short_triggered and short_status == "triggered":
                                 if h >= short_sl:
                                     short_status = "sl"
                                     short_pnl_pct = round((short_entry - short_sl) / short_entry * 100, 2)
+                                    short_exit_time = c_time
                                 elif l <= short_target:
                                     short_status = "target"
                                     short_pnl_pct = round((short_entry - short_target) / short_entry * 100, 2)
+                                    short_exit_time = c_time
 
                         eod_closed = market_status == "closed"
                         if long_status == "triggered":
                             long_pnl_pct = round((cmp - long_entry) / long_entry * 100, 2)
                             if eod_closed:
                                 long_status = "eod"
+                                long_exit_time = "15:30"
                         if short_status == "triggered":
                             short_pnl_pct = round((short_entry - cmp) / short_entry * 100, 2)
                             if eod_closed:
                                 short_status = "eod"
+                                short_exit_time = "15:30"
 
                         pdhl_data = {
                             "pdh": pdh, "pdl": pdl, "prev_date": prev_day,
@@ -2628,6 +2708,8 @@ def intraday_levels():
                             "range_pct": round(pd_range / pdl * 100, 2) if pdl > 0 else 0,
                             "long_status": long_status, "short_status": short_status,
                             "long_pnl_pct": long_pnl_pct, "short_pnl_pct": short_pnl_pct,
+                            "long_trigger_time": long_trigger_time, "short_trigger_time": short_trigger_time,
+                            "long_exit_time": long_exit_time, "short_exit_time": short_exit_time,
                         }
 
             result["pdhl"] = pdhl_data
@@ -2652,7 +2734,7 @@ def intraday_levels():
             result["avg_range_5d"] = pd.get("avg_range_5d")
             result["vol_spike"] = pd.get("vol_spike")
             result["avg_value_cr"] = pd.get("avg_value_cr")
-            result["backtest"] = pd.get("backtest") or BACKTEST_STATS.get(sym)
+            result["backtest"] = pd.get("backtest") or _get_backtest_stats().get(sym)
             return result
 
         except Exception as e:

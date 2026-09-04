@@ -1,0 +1,242 @@
+{
+  "last_rotation": "2026-09-04T10:58:33.483698+05:30",
+  "rotation_interval_days": 30,
+  "core_stocks": [
+    "ADANIENSOL",
+    "ADANIGREEN",
+    "ADANIPOWER",
+    "ASHOKLEY",
+    "BHEL",
+    "BSE",
+    "GVT&D",
+    "KALYANKJIL",
+    "KAYNES",
+    "MCX",
+    "NATIONALUM",
+    "PERSISTENT",
+    "SAIL",
+    "SWIGGY",
+    "VEDL"
+  ],
+  "backtest_stats": {
+    "BSE": {
+      "wr": 75.0,
+      "pnl": 10.71
+    },
+    "ADANIGREEN": {
+      "wr": 61.1,
+      "pnl": 3.01
+    },
+    "KALYANKJIL": {
+      "wr": 65.0,
+      "pnl": 2.1
+    },
+    "GVT&D": {
+      "wr": 66.7,
+      "pnl": 7.7
+    },
+    "VEDL": {
+      "wr": 66.7,
+      "pnl": 3.9
+    },
+    "NATIONALUM": {
+      "wr": 81.2,
+      "pnl": 6.9
+    },
+    "ASHOKLEY": {
+      "wr": 52.9,
+      "pnl": 2.25
+    },
+    "BHEL": {
+      "wr": 63.2,
+      "pnl": 2.5
+    },
+    "PERSISTENT": {
+      "wr": 60.0,
+      "pnl": 0.7
+    },
+    "SAIL": {
+      "wr": 65.0,
+      "pnl": 6.13
+    },
+    "MCX": {
+      "wr": 66.7,
+      "pnl": 7.11
+    },
+    "KAYNES": {
+      "wr": 55.0,
+      "pnl": 1.59
+    },
+    "ADANIENSOL": {
+      "wr": 71.4,
+      "pnl": 6.11
+    },
+    "SWIGGY": {
+      "wr": 57.1,
+      "pnl": 2.9
+    },
+    "ADANIPOWER": {
+      "wr": 62.5,
+      "pnl": 3.89
+    }
+  },
+  "promotion_history": {
+    "ATHERENERG": [
+      "2026-09"
+    ],
+    "GVT&D": [
+      "2026-09"
+    ],
+    "ADANIENSOL": [
+      "2026-09"
+    ],
+    "KALYANKJIL": [
+      "2026-09"
+    ],
+    "KAYNES": [
+      "2026-09"
+    ],
+    "SWIGGY": [
+      "2026-09"
+    ],
+    "ADANIGREEN": [
+      "2026-09"
+    ],
+    "PAYTM": [
+      "2026-09"
+    ],
+    "MCX": [
+      "2026-09"
+    ],
+    "BHEL": [
+      "2026-09"
+    ],
+    "COFORGE": [
+      "2026-09"
+    ],
+    "SAIL": [
+      "2026-09"
+    ],
+    "ADANIPOWER": [
+      "2026-09"
+    ],
+    "NATIONALUM": [
+      "2026-09"
+    ],
+    "VEDL": [
+      "2026-09"
+    ]
+  },
+  "rotation_log": [
+    {
+      "date": "2026-09-04T10:54:15.809279+05:30",
+      "stocks_analyzed": 168,
+      "candidates_in_overlap": 19,
+      "backtested": 23,
+      "demoted": [
+        {
+          "symbol": "COFORGE",
+          "reason": "WR=52.9%, PnL=-1.41%"
+        },
+        {
+          "symbol": "ETERNAL",
+          "reason": "WR=50.0%, PnL=-0.22%"
+        },
+        {
+          "symbol": "PAYTM",
+          "reason": "WR=47.4%, PnL=1.36%"
+        },
+        {
+          "symbol": "HDFCBANK",
+          "reason": "WR=50.0%, PnL=-0.8%"
+        },
+        {
+          "symbol": "DIXON",
+          "reason": "WR=31.8%, PnL=-5.72%"
+        },
+        {
+          "symbol": "IDEA",
+          "reason": "WR=50.0%, PnL=-1.22%"
+        }
+      ],
+      "promoted": [
+        {
+          "symbol": "GVT&D",
+          "reason": "WR=66.7%, PnL=7.7%, months_in_top=1"
+        },
+        {
+          "symbol": "ADANIENSOL",
+          "reason": "WR=71.4%, PnL=6.11%, months_in_top=1"
+        },
+        {
+          "symbol": "SWIGGY",
+          "reason": "WR=57.1%, PnL=2.9%, months_in_top=1"
+        },
+        {
+          "symbol": "ADANIGREEN",
+          "reason": "WR=61.1%, PnL=3.01%, months_in_top=1"
+        },
+        {
+          "symbol": "PERSISTENT",
+          "reason": "WR=60.0%, PnL=0.7%, months_in_top=0"
+        },
+        {
+          "symbol": "BSE",
+          "reason": "WR=75.0%, PnL=10.71%, months_in_top=0"
+        }
+      ],
+      "final_core": [
+        "ADANIENSOL",
+        "ADANIGREEN",
+        "ADANIPOWER",
+        "BHEL",
+        "BSE",
+        "GVT&D",
+        "KALYANKJIL",
+        "KAYNES",
+        "MCX",
+        "NATIONALUM",
+        "PERSISTENT",
+        "SAIL",
+        "SWIGGY",
+        "TATASTEEL",
+        "VEDL"
+      ]
+    },
+    {
+      "date": "2026-09-04T10:58:33.483698+05:30",
+      "stocks_analyzed": 168,
+      "candidates_in_overlap": 19,
+      "backtested": 20,
+      "demoted": [
+        {
+          "symbol": "TATASTEEL",
+          "reason": "Range compressed: 2.1% (not in top-50 range)"
+        }
+      ],
+      "promoted": [
+        {
+          "symbol": "ASHOKLEY",
+          "reason": "WR=52.9%, PnL=2.25%, months_in_top=0"
+        }
+      ],
+      "final_core": [
+        "ADANIENSOL",
+        "ADANIGREEN",
+        "ADANIPOWER",
+        "ASHOKLEY",
+        "BHEL",
+        "BSE",
+        "GVT&D",
+        "KALYANKJIL",
+        "KAYNES",
+        "MCX",
+        "NATIONALUM",
+        "PERSISTENT",
+        "SAIL",
+        "SWIGGY",
+        "VEDL"
+      ]
+    }
+  ]
+}

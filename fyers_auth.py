@@ -64,8 +64,9 @@ def _do_login():
 
     print("  Step 1: Logging in (OTP + TOTP + PIN)...")
     r1 = requests.post(f"{BASE_URL}/send_login_otp", json={"fy_id": fy_id, "app_id": "2"})
-    r1.raise_for_status()
     d1 = r1.json()
+    if r1.status_code == 429:
+        raise Exception("Fyers rate limit — too many requests. Wait 15-30 minutes and try again.")
     if d1.get("s") != "ok":
         raise Exception(f"send_login_otp failed: {d1}")
 
@@ -92,26 +93,40 @@ def _do_login():
         "appType": "100", "code_challenge": "", "state": "None",
         "scope": "", "nonce": "", "response_type": "code", "create_cookie": True,
     }, headers={"Authorization": f"Bearer {bearer}"})
-    r4.raise_for_status()
+
     d4 = r4.json()
-    if d4.get("s") != "ok":
+
+    # Fyers returns 308 with Url containing auth_code directly
+    auth_code_from_url = None
+    url_val = d4.get("Url", "")
+    if url_val:
+        code = parse_qs(urlparse(url_val).query).get("auth_code", [None])[0]
+        if code:
+            auth_code_from_url = code
+            print("  Auth code captured directly from /token response")
+
+    if not auth_code_from_url and d4.get("s") != "ok":
         raise Exception(f"token request failed: {d4}")
 
-    return bearer
+    return bearer, auth_code_from_url
 
 
 def get_auth_url(redirect_uri_override=None):
-    """Do the login and return the Fyers authorization URL the user must visit.
-    Used by the web app to redirect the user's browser to Fyers for auth.
+    """Do the login and return either (auth_code, None) if captured directly,
+    or (None, auth_url) if browser redirect is needed.
     """
-    _do_login()
+    bearer, auth_code = _do_login()
+    if auth_code:
+        return auth_code, None
+
     app_id = os.environ.get("FYERS_APP_ID")
     redirect_uri = redirect_uri_override or os.environ.get("FYERS_REDIRECT_URI")
-    return (
+    auth_url = (
         f"{TOKEN_URL}/generate-authcode"
         f"?client_id={app_id}&redirect_uri={redirect_uri}"
         f"&response_type=code&state=None"
     )
+    return None, auth_url
 
 
 def exchange_auth_code(auth_code: str) -> str:
@@ -153,10 +168,14 @@ def exchange_auth_code(auth_code: str) -> str:
 
 
 def generate_access_token() -> str:
-    """Full token generation — login + browser/local server + exchange.
-    Used when running locally. On cloud, use get_auth_url() + exchange_auth_code() instead.
+    """Full token generation — tries headless first, falls back to browser.
+    Works on both local and cloud.
     """
-    _do_login()
+    bearer, auth_code = _do_login()
+
+    if auth_code:
+        print("  Token obtained headlessly (no browser needed)")
+        return exchange_auth_code(auth_code)
 
     app_id = os.environ.get("FYERS_APP_ID")
     redirect_uri = os.environ.get("FYERS_REDIRECT_URI")

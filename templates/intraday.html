@@ -90,6 +90,14 @@
     text-transform: uppercase; white-space: nowrap;
   }
   .sig-wait { background: #30363d; color: #8b949e; }
+  .trigger-time { opacity: 0.7; font-weight: 500; margin-left: 0.15rem; }
+  .entry-levels { display: flex; gap: 0.4rem; margin-bottom: 0.3rem; }
+  .entry-long, .entry-short {
+    font-size: 0.68rem; padding: 0.12rem 0.45rem; border-radius: 4px; font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+  .entry-long { background: #3fb95012; color: #3fb950; border: 1px solid #3fb95035; }
+  .entry-short { background: #f8514910; color: #f85149; border: 1px solid #f8514935; }
   .sig-long { background: #3fb95025; color: #3fb950; border: 1px solid #3fb95050; }
   .sig-short { background: #f8514925; color: #f85149; border: 1px solid #f8514950; }
   .sig-target { background: #3fb95030; color: #3fb950; border: 1px solid #3fb95060; }
@@ -227,12 +235,13 @@ function renderSummary(d) {
     </div>`;
 }
 
-function sigBadge(status, dir, pnl) {
+function sigBadge(status, dir, pnl, trigTime) {
   const p = pnl != null ? ` ${pnl>=0?'+':''}${pnl.toFixed(2)}%` : '';
+  const tt = trigTime ? `<span class="trigger-time">@${trigTime}</span>` : '';
   if (status === 'target') return `<span class="strat-signal sig-target">${dir} TGT${p}</span>`;
   if (status === 'sl') return `<span class="strat-signal sig-sl">${dir} SL${p}</span>`;
   if (status === 'eod') return `<span class="strat-signal ${pnl>=0?'sig-target':'sig-sl'}">${dir} EOD${p}</span>`;
-  if (status === 'triggered') return `<span class="strat-signal ${dir==='L'?'sig-long':'sig-short'}">${dir}${p}</span>`;
+  if (status === 'triggered') return `<span class="strat-signal ${dir==='L'?'sig-long':'sig-short'}">${dir}${p} ${tt}</span>`;
   return '';
 }
 
@@ -246,7 +255,9 @@ function openModal(sym) {
   const sp = st.short_pnl_pct;
 
   const chg = s.change_pct != null ? `<span class="${pctClass(s.change_pct)}" style="font-size:0.85rem;margin-left:0.5rem;">${s.change_pct>=0?'+':''}${s.change_pct.toFixed(2)}%</span>` : '';
-  const sigs = [sigBadge(ls,'LONG',lp), sigBadge(ss,'SHORT',sp)].filter(Boolean).join(' ') || '<span class="strat-signal sig-wait">WAITING</span>';
+  const lt = st.long_trigger_time;
+  const sht = st.short_trigger_time;
+  const sigs = [sigBadge(ls,'LONG',lp,lt), sigBadge(ss,'SHORT',sp,sht)].filter(Boolean).join(' ') || '<span class="strat-signal sig-wait">WAITING</span>';
 
   const bt = s.backtest;
   const btHtml = bt ? `<div class="detail-section"><div class="detail-section-title">Backtest (60-day)</div>
@@ -276,6 +287,12 @@ function openModal(sym) {
       <div class="detail-item"><span class="detail-lbl">PDH</span><span class="detail-val">${fmt(st.pdh)}</span></div>
       <div class="detail-item"><span class="detail-lbl">PDL</span><span class="detail-val">${fmt(st.pdl)}</span></div>
     </div>
+    ${(ls !== 'waiting' || ss !== 'waiting') ? `<div class="detail-section"><div class="detail-section-title">Trade Timing</div><div class="detail-grid">
+      ${ls !== 'waiting' ? `<div class="detail-item"><span class="detail-lbl">Long Entry</span><span class="detail-val green">${st.long_trigger_time || '—'}</span></div>` : ''}
+      ${ls !== 'waiting' && ls !== 'triggered' ? `<div class="detail-item"><span class="detail-lbl">Long ${ls === 'target' ? 'Target Hit' : ls === 'sl' ? 'SL Hit' : 'EOD Exit'}</span><span class="detail-val ${ls === 'target' ? 'green' : 'red'}">${st.long_exit_time || '—'}</span></div>` : ''}
+      ${ss !== 'waiting' ? `<div class="detail-item"><span class="detail-lbl">Short Entry</span><span class="detail-val red">${st.short_trigger_time || '—'}</span></div>` : ''}
+      ${ss !== 'waiting' && ss !== 'triggered' ? `<div class="detail-item"><span class="detail-lbl">Short ${ss === 'target' ? 'Target Hit' : ss === 'sl' ? 'SL Hit' : 'EOD Exit'}</span><span class="detail-val ${ss === 'target' ? 'green' : 'red'}">${st.short_exit_time || '—'}</span></div>` : ''}
+    </div></div>` : ''}
     ${btHtml}
     <div class="detail-section">
       <div class="detail-section-title">Stock Info</div>
@@ -331,8 +348,16 @@ function renderCards(d) {
     const rsiBadge = s.rsi_5m != null ? `<span class="pick-badge" style="background:${rsiColor(s.rsi_5m)}15;color:${rsiColor(s.rsi_5m)};border:1px solid ${rsiColor(s.rsi_5m)}40;">RSI: ${s.rsi_5m}</span>` : '';
 
     // Signals
-    const sigs = [sigBadge(ls,'L',lp), sigBadge(ss,'S',sp)].filter(Boolean).join(' ');
+    const lt = st ? st.long_trigger_time : null;
+    const sht = st ? st.short_trigger_time : null;
+    const sigs = [sigBadge(ls,'L',lp,lt), sigBadge(ss,'S',sp,sht)].filter(Boolean).join(' ');
     const waitBadge = !sigs ? '<span class="strat-signal sig-wait">WAITING</span>' : '';
+
+    // Entry levels (only when neither side has triggered)
+    let entryRow = '';
+    if (st && st.long_entry != null && st.short_entry != null && ls === 'waiting' && ss === 'waiting') {
+      entryRow = `<div class="entry-levels"><span class="entry-long">L: ₹${fmt(st.long_entry)}</span><span class="entry-short">S: ₹${fmt(st.short_entry)}</span></div>`;
+    }
 
     // CMP
     const chg = s.change_pct != null ? `<span class="tile-chg ${pctClass(s.change_pct)}">${s.change_pct>=0?'+':''}${s.change_pct.toFixed(1)}%</span>` : '';
@@ -343,6 +368,7 @@ function renderCards(d) {
         <span class="tile-score">${s.score || '—'}</span>
       </div>
       <div class="tile-price">₹${fmt(s.cmp)}${chg}</div>
+      ${entryRow}
       <div class="tile-badges">${coreBadge}${volBadge}${rangeBadge}${btBadge}${rsiBadge}</div>
       <div class="tile-signals">${sigs}${waitBadge}</div>
     </div>`;
