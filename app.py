@@ -2514,12 +2514,8 @@ def fyers_callback():
 def intraday_pick():
     """Scan all F&O stocks and return today's top intraday candidates."""
     force = request.args.get("force", "0") == "1"
-    if force:
-        auth_err = _check_admin(request)
-        if auth_err:
-            return auth_err
-        if INTRADAY_PICK_CACHE_FILE.exists():
-            INTRADAY_PICK_CACHE_FILE.unlink()
+    if force and INTRADAY_PICK_CACHE_FILE.exists():
+        INTRADAY_PICK_CACHE_FILE.unlink()
 
     picks = pick_intraday_stocks()
     return jsonify({
@@ -2549,9 +2545,6 @@ def intraday_rotation_status():
 @app.route("/intraday/rotate", methods=["POST"])
 def intraday_force_rotate():
     """Force a core stock rotation now (ignores the monthly interval)."""
-    auth_err = _check_admin(request)
-    if auth_err:
-        return auth_err
     global _core_rotation_running
     if _core_rotation_running:
         return jsonify({"status": "already_running"})
