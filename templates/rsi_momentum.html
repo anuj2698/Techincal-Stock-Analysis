@@ -175,6 +175,11 @@ async function runScan() {
   try {
     const res = await fetch('/rsi-momentum/scan');
     const data = await res.json();
+    if (data.scanning && (!data.results || data.results.length === 0)) {
+      spinner.textContent = 'Scanning all F&O stocks... will auto-refresh in 10s';
+      setTimeout(() => scanNow(), 10000);
+      return;
+    }
     if (data.error) { errorMsg.textContent = data.error; errorMsg.style.display = 'block'; return; }
     currentData = data;
     scanMeta.textContent = `Scanned ${data.total_scanned} stocks at ${data.time} | ${data.count} signals found`;

@@ -193,7 +193,12 @@ async function runLive(){
     meta=document.getElementById('liveMeta');
   btn.disabled=true;btn.textContent='Scanning...';grid.innerHTML='';empty.style.display='none';sp.classList.add('active');
   try{
-    const res=await fetch('/rsi-extremes/today');const d=await res.json();sp.classList.remove('active');
+    const res=await fetch('/rsi-extremes/today');const d=await res.json();
+    if(d.scanning && (!d.results || d.results.length===0)){
+      sp.textContent='Scanning all F&O stocks... will auto-refresh in 10s';
+      setTimeout(()=>scanToday(),10000);return;
+    }
+    sp.classList.remove('active');
     if(d.error){empty.textContent=d.error;empty.style.display='block';return}
     meta.textContent=`${d.count} stocks | ${d.time} | ${d.total_scanned} scanned`;
     if(!d.results.length){empty.textContent='No stocks matching right now. (Both 5m & 15m RSI <20 or >80)';empty.style.display='block';return}
@@ -252,7 +257,12 @@ async function runScan(days){
   const activeBtn=days>15?btn30:btn10;activeBtn.textContent='Scanning...';
   grid.innerHTML='';err.style.display='none';es.style.display='none';
   mb.style.display='none';fb.style.display='none';sb.style.display='none';sp.classList.add('active');
-  try{const res=await fetch(`/rsi-extremes/scan?days=${days}`);const data=await res.json();sp.classList.remove('active');
+  try{const res=await fetch(`/rsi-extremes/scan?days=${days}`);const data=await res.json();
+    if(data.scanning && (!data.results || data.results.length===0)){
+      sp.textContent='Scanning all F&O stocks... will auto-refresh in 10s';
+      setTimeout(()=>runScan(days),10000);return;
+    }
+    sp.classList.remove('active');
     if(data.error){err.textContent=data.error;err.style.display='block'}
     else{scanData=data;fb.style.display='flex';renderStats(data);renderResults(data);}
   }catch(e){sp.classList.remove('active');err.textContent='Error: '+e.message;err.style.display='block'}

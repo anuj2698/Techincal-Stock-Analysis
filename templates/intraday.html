@@ -397,6 +397,11 @@ async function loadData() {
   try {
     const resp = await fetch('/intraday/levels');
     data = await resp.json();
+    if (data.scanning && (!data.stocks || data.stocks.length === 0)) {
+      spinner.textContent = 'Loading stock data... will auto-refresh in 10s';
+      setTimeout(() => loadData(), 10000);
+      return;
+    }
     updateStatus(data);
     renderSummary(data);
     renderCards(data);
