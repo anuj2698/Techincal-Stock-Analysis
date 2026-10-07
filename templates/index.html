@@ -1229,10 +1229,12 @@
     }
 
     // Fyers token
+    let adminAuthRequired = true;
     async function checkFyersStatus() {
       try {
         const resp = await fetch('/api/fyers-status');
         const d = await resp.json();
+        adminAuthRequired = d.admin_auth_required !== false;
         const btn = document.getElementById('fyersBtn');
         if (d.status === 'active') {
           btn.innerHTML = '&#10003; Fyers Connected';
@@ -1252,6 +1254,7 @@
     }
 
     function getAdminSecret() {
+      if (!adminAuthRequired) return '';
       let secret = sessionStorage.getItem('admin_secret');
       if (!secret) {
         secret = prompt('Enter admin secret:');
@@ -1262,11 +1265,12 @@
 
     async function refreshFyers() {
       const secret = getAdminSecret();
-      if (!secret) return;
+      if (adminAuthRequired && !secret) return;
       const btn = document.getElementById('fyersBtn');
       btn.textContent = 'Connecting...'; btn.disabled = true;
       try {
-        const resp = await fetch('/api/refresh-fyers-token', {method: 'POST', headers: {'X-Admin-Secret': secret}});
+        const headers = secret ? {'X-Admin-Secret': secret} : {};
+        const resp = await fetch('/api/refresh-fyers-token', {method: 'POST', headers});
         if (resp.status === 401) {
           sessionStorage.removeItem('admin_secret');
           btn.textContent = 'Unauthorized'; btn.style.color = '#f85149'; btn.disabled = false;
@@ -1289,7 +1293,7 @@
           btn.style.borderColor = '#3fb950'; btn.style.cursor = 'default';
           btn.onclick = null; btn.disabled = false;
         } else {
-          btn.textContent = d.message || 'Failed';
+          btn.textContent = d.message || d.error || 'Failed';
           btn.style.color = '#f85149'; btn.style.borderColor = '#f85149';
           btn.disabled = false;
         }

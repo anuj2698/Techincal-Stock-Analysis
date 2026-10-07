@@ -7,9 +7,11 @@ class AppTests(unittest.TestCase):
     def setUp(self):
         self.client = application.app.test_client()
         self.original_admin_secret = application.ADMIN_SECRET
+        self.original_is_production = application.IS_PRODUCTION
 
     def tearDown(self):
         application.ADMIN_SECRET = self.original_admin_secret
+        application.IS_PRODUCTION = self.original_is_production
 
     def test_health_includes_security_headers(self):
         response = self.client.get("/health")
@@ -19,9 +21,10 @@ class AppTests(unittest.TestCase):
 
     def test_readiness_fails_when_admin_secret_is_missing(self):
         application.ADMIN_SECRET = None
+        application.IS_PRODUCTION = True
         response = self.client.get("/ready")
         self.assertEqual(response.status_code, 503)
-        self.assertFalse(response.get_json()["checks"]["admin_secret_configured"])
+        self.assertFalse(response.get_json()["checks"]["admin_auth_configured"])
 
     def test_analyze_rejects_invalid_entry_before_fetching_market_data(self):
         response = self.client.get("/analyze?symbol=RELIANCE&entry_price=not-a-number")
@@ -35,7 +38,14 @@ class AppTests(unittest.TestCase):
 
     def test_admin_actions_fail_closed_without_secret(self):
         application.ADMIN_SECRET = None
+        application.IS_PRODUCTION = True
         self.assertEqual(self.client.post("/results/refresh").status_code, 503)
+
+    def test_admin_check_allows_local_development_without_secret(self):
+        application.ADMIN_SECRET = None
+        application.IS_PRODUCTION = False
+        with application.app.test_request_context("/results/refresh", method="POST"):
+            self.assertIsNone(application._check_admin(application.request))
 
     def test_admin_actions_reject_wrong_secret(self):
         application.ADMIN_SECRET = "correct-secret"

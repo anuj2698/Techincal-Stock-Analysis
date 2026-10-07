@@ -191,6 +191,8 @@ def add_security_headers(response):
 def _check_admin(req):
     """Require the admin secret for operational or mutating endpoints."""
     if not ADMIN_SECRET:
+        if not IS_PRODUCTION:
+            return None
         return jsonify({"error": "Administrative actions are disabled until ADMIN_SECRET is configured"}), 503
     token = req.headers.get("X-Admin-Secret", "")
     if not hmac.compare_digest(token, ADMIN_SECRET):
@@ -548,7 +550,7 @@ def health():
 @app.route("/ready")
 def ready():
     checks = {
-        "admin_secret_configured": bool(ADMIN_SECRET),
+        "admin_auth_configured": bool(ADMIN_SECRET) or not IS_PRODUCTION,
         "cache_directory_writable": os.access(CACHE_DIR.parent, os.W_OK),
     }
     ready_status = all(checks.values())
@@ -2764,7 +2766,11 @@ def fyers_status():
         except Exception:
             pass
 
-    return jsonify({"status": status, "refreshed_today": refreshed_today})
+    return jsonify({
+        "status": status,
+        "refreshed_today": refreshed_today,
+        "admin_auth_required": bool(ADMIN_SECRET),
+    })
 
 
 @app.route("/api/refresh-fyers-token", methods=["POST"])
