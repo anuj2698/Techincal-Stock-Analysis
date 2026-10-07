@@ -191,6 +191,7 @@ async function runLive(){
   const btn=document.getElementById('liveBtn'),sp=document.getElementById('liveSpinner'),
     grid=document.getElementById('liveGrid'),empty=document.getElementById('liveEmpty'),
     meta=document.getElementById('liveMeta');
+  if(btn.disabled)return;
   btn.disabled=true;btn.textContent='Scanning...';grid.innerHTML='';empty.style.display='none';sp.classList.add('active');
   try{
     const res=await fetch('/rsi-extremes/today');const d=await res.json();
@@ -381,6 +382,12 @@ function renderResults(data){
     return `<div class="stock-card${hasCommon?' has-common':''}"><div class="card-header"><div><div class="card-symbol"><a href="/?symbol=${encodeURIComponent(sym)}">${sym}</a></div><div class="card-name">${r.name||''}</div></div><div class="card-badges">${badges}</div></div><div class="card-cmp">CMP: <strong>&#8377;${fmt(r.cmp)}</strong></div>${commonSection}${sections}</div>`;
   }).join('');
 }
+
+runLive();
+setInterval(()=>{
+  const now=new Date(),t=now.getHours()*60+now.getMinutes();
+  if(t>=9*60+15&&t<=15*60+30)runLive();
+},120000);
 </script>
 </body>
 </html>

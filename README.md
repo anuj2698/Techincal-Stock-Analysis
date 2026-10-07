@@ -14,6 +14,12 @@ flask --app app run --port 5001
 
 Configure `ADMIN_SECRET` before using operational actions such as result refreshes, broker-token refreshes, prediction updates or stock-universe rotation. Production deliberately fails these actions closed when the secret is absent.
 
+## Scanner data cadence
+
+- S/R Breakout, Chart Patterns, Today's Picks and Top Picks use completed daily candles only. Any candle dated today in IST is excluded, and responses identify the `previous_close` price basis.
+- Intraday Breakout, RSI Momentum and the live section of RSI Extremes use 5-minute market data. The server keeps a live snapshot for at most 60 seconds during market hours; 15-minute and 1-hour RSI views are derived locally from the same feed to reduce broker/API calls.
+- Live scans use Fyers when its access token is valid and fall back to the configured market-data source otherwise. Refresh the Fyers connection when low latency matters.
+
 ## Backtest methodology
 
 Backtests execute only explicit BUY or SELL verdicts. WAIT signals are skipped. If stop and target are both touched in one candle, the stop is assumed to occur first. Open trades are marked to market at the end of the horizon, and a configurable round-trip execution-cost allowance is deducted from every trade.

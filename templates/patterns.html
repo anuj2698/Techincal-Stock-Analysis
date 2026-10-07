@@ -175,7 +175,8 @@ function renderResults(data) {
   const metaBar = document.getElementById('metaBar');
   const emptyState = document.getElementById('emptyState');
 
-  document.getElementById('metaInfo').textContent = `${data.stocks_with_patterns} of ${data.total_scanned} F&O stocks have patterns`;
+  const basis = data.market_data_as_of ? ` · Previous close: ${data.market_data_as_of}` : ' · Previous-session closing data';
+  document.getElementById('metaInfo').textContent = `${data.stocks_with_patterns} of ${data.total_scanned} F&O stocks have patterns${basis}`;
   metaBar.style.display = 'flex';
 
   // Summary chips

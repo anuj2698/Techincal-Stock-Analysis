@@ -145,11 +145,10 @@
 
   <div class="header">
     <h1>Today's <span>Picks</span> <span class="date-badge" id="todayDate"></span></h1>
-    <div class="sub">Stocks within 1% of buy level right now &mdash; ranked by actionability</div>
+    <div class="sub">Stocks within 1% of buy level at the previous session close</div>
   </div>
 
   <div class="tab-bar">
-    <button class="tab-intra" onclick="loadPicks('intraday')">Intraday</button>
     <button class="tab-short active" onclick="loadPicks('short_term')">Short Term (1-2 days)</button>
   </div>
 
@@ -167,8 +166,8 @@
   <div class="error-msg" id="errorMsg"></div>
   <div id="picksList"></div>
   <div class="empty-state" id="emptyState" style="display:none;">
-    <h2>No stocks near buy levels right now</h2>
-    <p>None of the qualifying stocks have their CMP within 1% of a buy level.</p>
+    <h2>No stocks near buy levels at the previous close</h2>
+    <p>None of the qualifying stocks closed within 1% of a buy level.</p>
     <p style="font-size:0.82rem;">Check back later as prices move, or use the <a href="/scanner">full Scanner</a> for broader picks.</p>
   </div>
 
@@ -200,10 +199,9 @@ function safeUrl(value) {
 }
 
 function setTab(tf) {
-  currentTf = tf;
+  currentTf = 'short_term';
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
-  const cls = tf === 'intraday' ? 'tab-intra' : 'tab-short';
-  document.querySelector(`.${cls}`).classList.add('active');
+  document.querySelector('.tab-short').classList.add('active');
 }
 
 function scanNow() {
@@ -285,10 +283,9 @@ function renderPicks(data) {
   const emptyState = document.getElementById('emptyState');
 
   if (data.timestamp) {
-    try {
-      const d = new Date(data.timestamp);
-      document.getElementById('metaTimestamp').textContent = 'Backtest data: ' + d.toLocaleDateString('en-IN', {day:'2-digit', month:'short'});
-    } catch { document.getElementById('metaTimestamp').textContent = ''; }
+    document.getElementById('metaTimestamp').textContent = data.market_data_as_of
+      ? `Previous close: ${data.market_data_as_of}`
+      : 'Previous-session closing data';
     document.getElementById('metaInfo').textContent = `${data.picks.length} actionable from ${data.qualifying_count} qualifying stocks`;
     metaBar.style.display = 'flex';
   }
@@ -429,7 +426,7 @@ function renderBacktest(data) {
   const pnlColor = s.total_pnl_pct >= 0 ? '#3fb950' : '#f85149';
   const wrColor = s.win_rate >= 60 ? '#3fb950' : s.win_rate >= 40 ? '#f0883e' : '#f85149';
 
-  let html = `<h2 style="font-size:1.2rem;margin-bottom:1rem;">Backtest Results <span style="color:#8b949e;font-weight:400;font-size:0.85rem;">(${data.hold_period} hold, ${currentTf === 'intraday' ? 'Intraday' : 'Short Term'})</span></h2>`;
+  let html = `<h2 style="font-size:1.2rem;margin-bottom:1rem;">Backtest Results <span style="color:#8b949e;font-weight:400;font-size:0.85rem;">(${data.hold_period} hold, Short Term)</span></h2>`;
 
   html += `<div class="bt-summary">
     <div class="bt-stat"><div class="val" style="color:#58a6ff;">${s.total_picks}</div><div class="lbl">Total Picks</div></div>

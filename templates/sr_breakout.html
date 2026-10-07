@@ -158,12 +158,9 @@ function renderResults(data) {
   const s = data.summary;
 
   let metaText = `${data.total_with_setups} of ${data.total_scanned} F&O stocks have S/R breakout setups`;
-  if (data.data_as_of) {
-    try {
-      const d = new Date(data.data_as_of);
-      metaText += ` · Data as of ${d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})} ${d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}`;
-    } catch {}
-  }
+  metaText += data.market_data_as_of
+    ? ` · Previous close: ${data.market_data_as_of}`
+    : ' · Previous-session closing data';
   if (data._refreshing) {
     metaText += ' · Refreshing...';
   }

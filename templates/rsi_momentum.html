@@ -388,7 +388,7 @@ function renderCards(results) {
 
 runScan();
 
-// Auto-refresh every 10 minutes during market hours
+// Refresh frequently; the server reuses a snapshot for at most 60 seconds.
 setInterval(() => {
   const now = new Date();
   const h = now.getHours();
@@ -397,7 +397,7 @@ setInterval(() => {
   if (t >= 9*60+15 && t <= 15*60+30) {
     runScan();
   }
-}, 600000);
+}, 120000);
 </script>
 </body>
 </html>

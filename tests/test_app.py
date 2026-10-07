@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime
 
 import app as application
 
@@ -64,6 +65,37 @@ class AppTests(unittest.TestCase):
         response = self.client.get("/scanner/picks?timeframe=positional&capital=10000&risk_pct=25")
         self.assertEqual(response.status_code, 400)
         self.assertIn("between 0.1% and 10%", response.get_json()["error"])
+
+    def test_previous_close_candles_excludes_current_session(self):
+        prior = datetime(2026, 10, 6, 15, 30, tzinfo=application.IST)
+        current = datetime(2026, 10, 7, 10, 0, tzinfo=application.IST)
+        candles = [
+            [int(prior.timestamp()), 100, 105, 99, 104, 1000],
+            [int(current.timestamp()), 104, 107, 103, 106, 500],
+        ]
+
+        result = application.previous_close_candles(candles, now=current)
+
+        self.assertEqual(result, candles[:1])
+
+    def test_intraday_resampling_aligns_to_market_open_and_keeps_days_separate(self):
+        def candle(day, hour, minute, open_, high, low, close, volume):
+            ts = datetime(2026, 10, day, hour, minute, tzinfo=application.IST)
+            return [int(ts.timestamp()), open_, high, low, close, volume]
+
+        candles = [
+            candle(6, 9, 15, 100, 102, 99, 101, 10),
+            candle(6, 9, 20, 101, 104, 100, 103, 20),
+            candle(6, 10, 15, 103, 106, 102, 105, 30),
+            candle(7, 9, 15, 110, 112, 109, 111, 40),
+        ]
+
+        result = application.resample_intraday_minutes(candles, 60)
+
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result[0][1:], [100, 104.0, 99.0, 103, 30.0])
+        self.assertEqual(result[1][4], 105)
+        self.assertEqual(result[2][1], 110)
 
 
 if __name__ == "__main__":

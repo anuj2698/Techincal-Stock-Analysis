@@ -111,11 +111,10 @@
   </div>
   <div class="header">
     <h1>Top Picks <span>Scanner</span></h1>
-    <div class="sub">NSE 500 + BSE stocks with &gt;75% backtest accuracy, ranked by buy conviction</div>
+    <div class="sub">Previous-session closing data · NSE 500 + BSE stocks ranked by buy conviction</div>
   </div>
 
   <div class="tab-bar">
-    <button class="tab-intra" onclick="loadPicks('intraday')">Intraday</button>
     <button class="tab-short" onclick="loadPicks('short_term')">Short Term</button>
     <button class="tab-pos active" onclick="loadPicks('positional')">Positional</button>
   </div>
@@ -202,7 +201,7 @@ function setTab(tf) {
   currentTf = tf;
   currentFilter = 'all';
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
-  const cls = tf === 'intraday' ? 'tab-intra' : tf === 'short_term' ? 'tab-short' : 'tab-pos';
+  const cls = tf === 'short_term' ? 'tab-short' : 'tab-pos';
   document.querySelector(`.${cls}`).classList.add('active');
   document.querySelectorAll('#filterRow .filter-btn').forEach(b => b.classList.remove('active'));
   document.querySelector('#filterRow .filter-btn[data-filter="all"]').classList.add('active');
@@ -266,10 +265,9 @@ function renderPicks(data) {
   const emptyState = document.getElementById('emptyState');
 
   if (data.timestamp) {
-    try {
-      const d = new Date(data.timestamp);
-      document.getElementById('metaTimestamp').textContent = 'Last scanned: ' + d.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}) + ' ' + d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
-    } catch { document.getElementById('metaTimestamp').textContent = 'Last scanned: ' + data.timestamp; }
+    document.getElementById('metaTimestamp').textContent = data.market_data_as_of
+      ? `Previous close: ${data.market_data_as_of}`
+      : 'Previous-session closing data';
     document.getElementById('metaCount').textContent = `${data.picks.length} picks from ${data.qualifying_count} qualifying stocks`;
     metaBar.style.display = 'flex';
   }

@@ -120,7 +120,7 @@ def _get_fyers():
 
 INTERVAL_TO_FYERS = {"1d": "D", "1h": "60", "15m": "15", "5m": "5", "1m": "1"}
 PERIOD_TO_DAYS = {
-    "1mo": 30, "2mo": 60, "60d": 60, "3mo": 90, "6mo": 180,
+    "5d": 5, "1mo": 30, "2mo": 60, "60d": 60, "3mo": 90, "6mo": 180,
     "1y": 365, "2y": 730, "3y": 1095, "5y": 1825,
 }
 
@@ -413,6 +413,48 @@ def market_status(last_candle_date: str) -> dict:
         "note": f"Market open — showing last completed close from {last_candle_date}",
         "price_label": "Last Close",
     }
+
+
+def previous_close_candles(candles: list[list[float]], now: datetime | None = None) -> list[list[float]]:
+    """Return daily candles strictly before today in IST.
+
+    Daily scanners use this helper so an incomplete current-session candle can
+    never affect a signal, even if a data vendor includes one intraday.
+    """
+    reference_date = (now or datetime.now(IST)).date()
+    return [
+        candle for candle in candles
+        if datetime.fromtimestamp(int(candle[0]), tz=IST).date() < reference_date
+    ]
+
+
+def candle_date(candles: list[list[float]]) -> str | None:
+    if not candles:
+        return None
+    return datetime.fromtimestamp(int(candles[-1][0]), tz=IST).strftime("%Y-%m-%d")
+
+
+def resample_intraday_minutes(candles: list[list[float]], minutes: int) -> list[list[float]]:
+    """Resample intraday candles into exchange-time-aligned buckets per day."""
+    buckets: dict[tuple[str, int], list[list[float]]] = {}
+    market_open_minute = MARKET_OPEN[0] * 60 + MARKET_OPEN[1]
+    for candle in candles:
+        dt = datetime.fromtimestamp(int(candle[0]), tz=IST)
+        minute_of_day = dt.hour * 60 + dt.minute
+        bucket = (minute_of_day - market_open_minute) // minutes
+        key = (dt.strftime("%Y-%m-%d"), bucket)
+        buckets.setdefault(key, []).append(candle)
+
+    result = []
+    for chunk in buckets.values():
+        result.append([
+            chunk[0][0], chunk[0][1],
+            max(float(c[2]) for c in chunk),
+            min(float(c[3]) for c in chunk),
+            chunk[-1][4],
+            sum(float(c[5]) if len(c) > 5 else 0 for c in chunk),
+        ])
+    return sorted(result, key=lambda candle: candle[0])
 
 
 INDEX_MAP = {
@@ -781,7 +823,7 @@ def scanner():
 @app.route("/scanner/picks")
 def scanner_picks():
     timeframe = request.args.get("timeframe", "positional").strip()
-    if timeframe not in ("intraday", "short_term", "positional"):
+    if timeframe not in ("short_term", "positional"):
         timeframe = "positional"
     capital, capital_error = _parse_optional_positive_float(request.args.get("capital", "10000"), "Capital")
     risk_pct, risk_error = _parse_optional_positive_float(request.args.get("risk_pct", "2"), "Risk percentage")
@@ -817,12 +859,16 @@ def scanner_picks():
             qualifying.append(entry)
 
     if not qualifying:
-        return jsonify({"picks": [], "timestamp": timestamp, "qualifying_count": 0})
+        return jsonify({
+            "picks": [], "timestamp": timestamp, "qualifying_count": 0,
+            "price_basis": "previous_close", "market_data_as_of": None,
+        })
 
     # Fetch Nifty 50 returns for relative strength
     nifty_rs = 0.0
     try:
         nifty_candles = fetch_candles("^NSEI", period="3mo", interval="1d")
+        nifty_candles = previous_close_candles(nifty_candles)
         if nifty_candles and len(nifty_candles) >= 2:
             nifty_rs = (nifty_candles[-1][4] - nifty_candles[0][4]) / nifty_candles[0][4] * 100
     except Exception:
@@ -843,6 +889,7 @@ def scanner_picks():
         try:
             canonical, yahoo_sym = resolve_yahoo_ticker(sym)
             candles = fetch_candles(yahoo_sym, period=period, interval=interval, canonical=canonical)
+            candles = previous_close_candles(candles)
             if not candles:
                 return None
 
@@ -935,6 +982,7 @@ def scanner_picks():
                 "suggested_qty": suggested_qty,
                 "capital_required": capital_required,
                 "risk_per_trade": round(risk_per_trade, 2),
+                "market_data_as_of": candle_date(candles),
                 "verdict": ap.get("action_summary", {}).get("verdict", "WAIT"),
                 "verdict_confidence": ap.get("action_summary", {}).get("confidence", "—"),
                 "verdict_reasons": ap.get("action_summary", {}).get("reasons", [])[:3],
@@ -955,6 +1003,8 @@ def scanner_picks():
         "qualifying_count": len(qualifying),
         "position_sizing": {"capital": capital, "risk_pct": risk_pct},
         "backtest_version": BACKTEST_VERSION,
+        "price_basis": "previous_close",
+        "market_data_as_of": max((p.get("market_data_as_of") or "" for p in picks), default=None),
     })
 
 
@@ -991,8 +1041,10 @@ def _do_patterns_scan(tf: str):
         try:
             canonical, yahoo_sym = resolve_yahoo_ticker(sym)
             candles = fetch_candles(yahoo_sym, period=period, interval=interval, canonical=canonical)
+            candles = previous_close_candles(candles)
             if not candles or len(candles) < 30:
                 return None
+            market_data_as_of = candle_date(candles)
 
             if tf == "weekly":
                 candles = resample_weekly(candles)
@@ -1104,6 +1156,7 @@ def _do_patterns_scan(tf: str):
                 "confidence": confidence,
                 "reasons": reasons[:4],
                 "nearest_breakout_pct": nearest_breakout_pct,
+                "market_data_as_of": market_data_as_of,
             }
         except Exception:
             return None
@@ -1133,6 +1186,8 @@ def _do_patterns_scan(tf: str):
         "stocks_with_patterns": len(results),
         "pattern_summary": pattern_summary,
         "timeframe": tf,
+        "price_basis": "previous_close",
+        "market_data_as_of": max((r.get("market_data_as_of") or "" for r in results), default=None),
     }, extra=f"_{tf}")
     _bg_scan_running[scan_key] = False
 
@@ -1200,7 +1255,10 @@ def _do_today_picks(timeframe: str):
     cache = json.loads(cache_path.read_text())
     timestamp = cache.get("timestamp", "")
 
-    is_intraday = timeframe == "intraday"
+    # Today's Picks is a previous-close swing shortlist. Live trading signals
+    # belong to the dedicated Intraday/RSI pages.
+    timeframe = "short_term"
+    is_intraday = False
 
     qualifying = []
     for key, entry in cache.get("results", {}).items():
@@ -1217,7 +1275,10 @@ def _do_today_picks(timeframe: str):
                 qualifying.append(entry)
 
     if not qualifying:
-        _save_scan_cache("today_picks", {"picks": [], "timestamp": timestamp, "qualifying_count": 0}, extra=f"_{timeframe}")
+        _save_scan_cache("today_picks", {
+            "picks": [], "timestamp": timestamp, "qualifying_count": 0,
+            "price_basis": "previous_close", "market_data_as_of": None,
+        }, extra=f"_{timeframe}")
         _bg_scan_running[scan_key] = False
         return
 
@@ -1300,6 +1361,7 @@ def _do_today_picks(timeframe: str):
         try:
             canonical, yahoo_sym = resolve_yahoo_ticker(sym)
             candles = fetch_candles(yahoo_sym, period=period, interval=interval, canonical=canonical)
+            candles = previous_close_candles(candles)
             if not candles:
                 return None
 
@@ -1467,6 +1529,7 @@ def _do_today_picks(timeframe: str):
                 "ema_alignment": ema_data.get("alignment", "neutral"),
                 "suggested_qty": suggested_qty,
                 "capital_required": capital_required,
+                "market_data_as_of": candle_date(candles),
                 "actionability": actionability,
                 "status": ap.get("status"),
             }
@@ -1510,24 +1573,22 @@ def _do_today_picks(timeframe: str):
         "timestamp": timestamp,
         "qualifying_count": len(qualifying),
         "max_distance_pct": max_distance_pct,
+        "price_basis": "previous_close",
+        "market_data_as_of": max((p.get("market_data_as_of") or "" for p in picks), default=None),
     }, extra=f"_{timeframe}")
     _bg_scan_running[scan_key] = False
 
 
 @app.route("/today/picks")
 def today_picks():
-    timeframe = request.args.get("timeframe", "short_term").strip()
-    if timeframe not in ("intraday", "short_term"):
-        timeframe = "short_term"
-    return _serve_or_scan("today_picks", _do_today_picks, args=(timeframe,), extra=f"_{timeframe}",
+    timeframe = "short_term"
+    return _serve_or_scan_daily("today_picks", _do_today_picks, args=(timeframe,), extra=f"_{timeframe}",
                           empty_response={"picks": [], "timestamp": "", "qualifying_count": 0})
 
 
 @app.route("/today/backtest")
 def today_backtest():
-    timeframe = request.args.get("timeframe", "short_term").strip()
-    if timeframe not in ("intraday", "short_term"):
-        timeframe = "short_term"
+    timeframe = "short_term"
 
     days_back = 7
     hold_candles = 3 if timeframe == "short_term" else 7
@@ -1840,60 +1901,50 @@ def _serve_cached_or_stale(scan_type: str, target, args=(), extra: str = "", ttl
 def _serve_or_scan(scan_type: str, target, args=(), extra: str = "", empty_response: dict | None = None):
     """Group 1: Live market pages (RSI, Intraday, Momentum).
 
-    Market open → TTL=0, always trigger fresh scan, serve last result while refreshing.
+    Market open → refresh at most once per minute and serve the latest snapshot.
     Market closed → TTL=4h, serve from cache.
     """
-    ttl = 0 if _is_market_open() else 14400
+    ttl = 60 if _is_market_open() else 14400
     return _serve_cached_or_stale(scan_type, target, args, extra, ttl, empty_response)
 
 
 def _serve_or_scan_daily(scan_type: str, target, args=(), extra: str = "", empty_response: dict | None = None):
-    """Group 2: Daily candle pages (Chart Patterns, S/R Breakout).
+    """Serve previous-close scans, refreshing once per calendar day.
 
-    Market open → serve from cache (daily candle incomplete, no point scanning).
-    Market closed → check if cache has today's post-close data, if not trigger fresh scan.
-    Cache valid until next day's market close.
+    Scan functions explicitly discard today's daily candle. A daily refresh is
+    therefore safe during market hours and always represents the prior session.
     """
     now = datetime.now(IST)
     path = _scan_cache_path(scan_type, extra=extra)
-
-    if _is_market_open():
-        # During market hours, always serve from cache — don't refresh
-        if path.exists():
-            try:
-                data = json.loads(path.read_text())
-                data["data_as_of"] = data.pop("_cached_at", None)
-                return jsonify(data)
-            except Exception:
-                pass
-        fallback = empty_response or {"results": []}
-        fallback["_note"] = "Daily scan runs after market close"
-        return jsonify(fallback)
-
-    # Market closed — check if we have a post-close scan for today
     today_str = now.strftime("%Y-%m-%d")
     if path.exists():
         try:
             data = json.loads(path.read_text())
             cached_at = datetime.fromisoformat(data.get("_cached_at", ""))
-            cached_date = cached_at.strftime("%Y-%m-%d")
-            cached_hour = cached_at.hour
-            # Fresh if cached today after 15:30 (post market close)
-            if cached_date == today_str and cached_hour >= 15:
+            if (cached_at.strftime("%Y-%m-%d") == today_str
+                    and data.get("price_basis") == "previous_close"):
                 data["data_as_of"] = data.pop("_cached_at", None)
                 return jsonify(data)
-            # Weekend: fresh if cache is from the most recent Friday post-close
-            if now.weekday() >= 5 and cached_hour >= 15:
-                days_since_friday = (now.weekday() - 4) % 7
-                last_friday = (now - timedelta(days=days_since_friday)).strftime("%Y-%m-%d")
-                if cached_date >= last_friday:
-                    data["data_as_of"] = data.pop("_cached_at", None)
-                    return jsonify(data)
         except Exception:
             pass
 
-    # Need a fresh scan — trigger it
-    return _serve_cached_or_stale(scan_type, target, args, extra, 0, empty_response)
+    # Trigger today's snapshot. Only serve an older cache when it already has
+    # the previous-close contract; legacy caches may include today's candle.
+    scan_key = f"{scan_type}{extra}" if extra else scan_type
+    _start_bg_scan(scan_key, target, args)
+    if path.exists():
+        try:
+            stale = json.loads(path.read_text())
+            if stale.get("price_basis") == "previous_close":
+                stale["data_as_of"] = stale.pop("_cached_at", None)
+                stale["_refreshing"] = True
+                return jsonify(stale)
+        except Exception:
+            pass
+
+    fallback = empty_response or {"scanning": True, "results": []}
+    fallback["scanning"] = True
+    return jsonify(fallback)
 
 
 @app.route("/rsi-extremes")
@@ -1914,12 +1965,17 @@ def _do_rsi_extremes_today():
         try:
             canonical, yahoo_sym = resolve_yahoo_ticker(sym)
 
-            cmp = None
+            candles_5m = fetch_candles(yahoo_sym, period="5d", interval="5m", canonical=canonical)
+            frames = {
+                "5m": candles_5m,
+                "15m": resample_intraday_minutes(candles_5m, 15),
+                "1h": resample_intraday_minutes(candles_5m, 60),
+            }
+            cmp = round(float(candles_5m[-1][4]), 2) if candles_5m else None
             cur_rsi = {}
             ema_ctx = {}
 
-            for interval in ["5m", "15m", "1h"]:
-                candles = fetch_candles(yahoo_sym, period="1mo", interval=interval, canonical=canonical)
+            for interval, candles in frames.items():
                 if not candles or len(candles) < 20:
                     if interval in ("5m", "15m"):
                         return None
@@ -1934,7 +1990,6 @@ def _do_rsi_extremes_today():
                 cur_rsi[interval] = round(rsi_vals[-1], 1)
 
                 if interval == "5m":
-                    cmp = round(float(candles[-1][4]), 2)
                     e9 = ema_series(closes, 9)
                     e20 = ema_series(closes, 20)
                     ema_ctx = {
@@ -1993,6 +2048,8 @@ def _do_rsi_extremes_today():
         "total_scanned": len(stocks),
         "count": len(results),
         "time": datetime.now(IST).strftime("%H:%M:%S"),
+        "price_basis": "live_intraday",
+        "interval": "5m",
     })
     _bg_scan_running["rsi_today"] = False
 
@@ -2984,7 +3041,7 @@ def _do_intraday_levels():
             canonical, yahoo_sym = resolve_yahoo_ticker(sym)
 
             # Fetch 5-min candles for intraday (recent data)
-            candles_5m = fetch_candles(yahoo_sym, period="1mo", interval="5m", canonical=canonical)
+            candles_5m = fetch_candles(yahoo_sym, period="5d", interval="5m", canonical=canonical)
             if not candles_5m or len(candles_5m) < 20:
                 return {"symbol": sym, "error": "No intraday data"}
 
@@ -3261,6 +3318,7 @@ def _do_sr_breakout_scan():
         try:
             canonical, yahoo_sym = resolve_yahoo_ticker(sym)
             candles = fetch_candles(yahoo_sym, period="1y", interval="1d", canonical=canonical)
+            candles = previous_close_candles(candles)
             if not candles or len(candles) < 60:
                 return None
 
@@ -3462,6 +3520,7 @@ def _do_sr_breakout_scan():
                 "top_direction": best["direction"],
                 "score": total_score,
                 "reasons": reasons[:5],
+                "market_data_as_of": candle_date(candles),
             }
         except Exception:
             return None
@@ -3488,6 +3547,8 @@ def _do_sr_breakout_scan():
         "total_scanned": len(stocks),
         "total_with_setups": len(results),
         "summary": summary,
+        "price_basis": "previous_close",
+        "market_data_as_of": max((r.get("market_data_as_of") or "" for r in results), default=None),
     })
     _bg_scan_running["sr_breakout"] = False
 
@@ -3542,7 +3603,7 @@ def _do_rsi_momentum_scan():
         name = stock["name"]
         try:
             canonical, yahoo_sym = resolve_yahoo_ticker(sym)
-            candles_5m = fetch_candles(yahoo_sym, period="1mo", interval="5m", canonical=canonical)
+            candles_5m = fetch_candles(yahoo_sym, period="5d", interval="5m", canonical=canonical)
             if not candles_5m or len(candles_5m) < 50:
                 return None
 
@@ -3554,17 +3615,8 @@ def _do_rsi_momentum_scan():
                 return None
             rsi_5m = round(rsi_5m_vals[-1], 1)
 
-            # Resample to 15min
-            candles_15m = []
-            for i in range(0, len(candles_5m) - 2, 3):
-                chunk = candles_5m[i:i + 3]
-                candles_15m.append([
-                    chunk[0][0], chunk[0][1],
-                    max(float(c[2]) for c in chunk),
-                    min(float(c[3]) for c in chunk),
-                    chunk[-1][4],
-                    sum(float(c[5]) if len(c) > 5 else 0 for c in chunk),
-                ])
+            # Derive aligned higher timeframes locally to avoid two extra API calls.
+            candles_15m = resample_intraday_minutes(candles_5m, 15)
             if len(candles_15m) < 20:
                 return None
 
@@ -3574,17 +3626,8 @@ def _do_rsi_momentum_scan():
                 return None
             rsi_15m = round(rsi_15m_vals[-1], 1)
 
-            # Resample to 1H for display context
-            candles_1h = []
-            for i in range(0, len(candles_5m) - 11, 12):
-                chunk = candles_5m[i:i + 12]
-                candles_1h.append([
-                    chunk[0][0], chunk[0][1],
-                    max(float(c[2]) for c in chunk),
-                    min(float(c[3]) for c in chunk),
-                    chunk[-1][4],
-                    sum(float(c[5]) if len(c) > 5 else 0 for c in chunk),
-                ])
+            # Resample to 1H for display context.
+            candles_1h = resample_intraday_minutes(candles_5m, 60)
             rsi_1h = None
             if len(candles_1h) >= 20:
                 closes_1h = [float(c[4]) for c in candles_1h]
@@ -3823,6 +3866,8 @@ def _do_rsi_momentum_scan():
         "bulls": len(bulls),
         "bears": len(bears),
         "time": now.strftime("%H:%M:%S"),
+        "price_basis": "live_intraday",
+        "interval": "5m",
         "thresholds": {"bull": RSI_BULL_THRESH, "bear": RSI_BEAR_THRESH},
     })
     _bg_scan_running["rsi_momentum"] = False
