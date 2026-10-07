@@ -295,16 +295,28 @@ function pollStatus() {
 }
 
 async function refreshData() {
+  let secret = sessionStorage.getItem('admin_secret');
+  if (!secret) {
+    secret = prompt('Enter admin secret:');
+    if (secret) sessionStorage.setItem('admin_secret', secret);
+  }
+  if (!secret) return;
   const btn = document.getElementById('refreshBtn');
   btn.disabled = true;
   btn.textContent = 'Refreshing...';
   try {
-    await fetch('/results/refresh', {method: 'POST'});
+    const response = await fetch('/results/refresh', {method: 'POST', headers: {'X-Admin-Secret': secret}});
+    if (!response.ok) {
+      if (response.status === 401) sessionStorage.removeItem('admin_secret');
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Refresh was rejected');
+    }
     showLoading({step: 'Starting data refresh...'});
     pollStatus();
   } catch (err) {
     btn.disabled = false;
     btn.textContent = 'Refresh Data';
+    alert(err.message);
   }
 }
 
@@ -317,7 +329,11 @@ function renderDashboard(data) {
   btn.textContent = 'Refresh Data';
 
   if (data.quarter_label) {
-    document.getElementById('dashTitle').innerHTML = data.quarter_label + ' <span>Results Dashboard</span>';
+    const title = document.getElementById('dashTitle');
+    title.replaceChildren(document.createTextNode(data.quarter_label + ' '));
+    const suffix = document.createElement('span');
+    suffix.textContent = 'Results Dashboard';
+    title.appendChild(suffix);
   }
   let updatedText = 'Last updated: ' + formatDateTime(data.generated_at);
   if (data.from_history != null) {

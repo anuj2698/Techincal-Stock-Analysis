@@ -80,6 +80,9 @@
     }
     .entry-input:focus { border-color: #58a6ff; }
     .entry-input::placeholder { color: #484f58; }
+    .recent-row { display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-top:0.65rem;color:#8b949e;font-size:0.78rem; }
+    .recent-symbol { border:1px solid #30363d;background:#161b22;color:#c9d1d9;border-radius:999px;padding:0.25rem 0.55rem;cursor:pointer; }
+    .recent-symbol:hover { border-color:#58a6ff;color:#58a6ff; }
 
     .pnl-badge { display: inline-block; padding: 0.3rem 0.75rem; border-radius: 6px; font-size: 0.9rem; font-weight: 600; }
     .pnl-profit { background: #1a3a2a; color: #3fb950; border: 1px solid #238636; }
@@ -241,6 +244,7 @@
         <input type="number" id="entryPrice" class="entry-input" placeholder="e.g. 1250" step="0.05">
       </div>
     </div>
+    <div class="recent-row" id="recentRow" aria-label="Recently analyzed symbols"></div>
   </div>
 
   <div class="loading" id="loading"><span class="spinner"></span> Fetching data &amp; running analysis...</div>
@@ -258,6 +262,34 @@
     const loading = document.getElementById('loading');
     const errorEl = document.getElementById('error');
     const resultsEl = document.getElementById('results');
+    const recentRow = document.getElementById('recentRow');
+
+    function recentSymbols() {
+      try { return JSON.parse(localStorage.getItem('recent_symbols') || '[]'); }
+      catch { return []; }
+    }
+
+    function renderRecentSymbols() {
+      const symbols = recentSymbols();
+      recentRow.replaceChildren();
+      if (!symbols.length) return;
+      recentRow.appendChild(document.createTextNode('Recent:'));
+      symbols.forEach(symbol => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'recent-symbol';
+        button.textContent = symbol;
+        button.addEventListener('click', () => { input.value = symbol; input.focus(); });
+        recentRow.appendChild(button);
+      });
+    }
+
+    function rememberSymbol(symbol) {
+      const normalized = symbol.toUpperCase();
+      const symbols = [normalized, ...recentSymbols().filter(item => item !== normalized)].slice(0, 8);
+      localStorage.setItem('recent_symbols', JSON.stringify(symbols));
+      renderRecentSymbols();
+    }
     const toggleWrap = document.getElementById('toggleWrap');
     const toggleTrack = document.getElementById('toggleTrack');
     const toggleText = document.getElementById('toggleText');
@@ -325,6 +357,7 @@
         const res = await fetch(url);
         const data = await res.json();
         if (!res.ok) { errorEl.textContent = data.error || 'Something went wrong'; errorEl.classList.add('active'); return; }
+        rememberSymbol(data.symbol || symbol);
         renderResults(data);
       } catch (err) { console.error('Analyze error:', err); errorEl.textContent = 'Network error: ' + err.message; errorEl.classList.add('active'); }
       finally { btnIntra.disabled = false; btnShort.disabled = false; btnPos.disabled = false; loading.classList.remove('active'); }
@@ -334,6 +367,7 @@
     btnShort.addEventListener('click', () => analyze('short_term'));
     btnPos.addEventListener('click', () => analyze('positional'));
     document.getElementById('searchForm').addEventListener('submit', (e) => { e.preventDefault(); analyze('positional'); });
+    renderRecentSymbols();
 
     function fmt(n, d = 2) {
       if (n == null) return '—';
@@ -1057,11 +1091,15 @@
 
       let h = `<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:1rem;margin-bottom:0.75rem;">`;
       h += `<div style="font-size:0.85rem;color:#58a6ff;font-weight:600;margin-bottom:0.6rem;">BACKTEST RESULTS — ${d.symbol} (${d.timeframe === 'short_term' ? 'Short Term' : 'Positional'})</div>`;
+      if (s.sample_confidence === 'insufficient') {
+        h += `<div style="padding:0.55rem 0.7rem;margin-bottom:0.65rem;border:1px solid #d2992260;background:#d2992215;color:#d29922;border-radius:6px;font-size:0.8rem;">Low-confidence sample: ${s.triggered} completed trades; at least ${s.minimum_sample_size} are required for scanner qualification.</div>`;
+      }
 
       h += `<div class="grid-2" style="gap:0.4rem;">
         <div class="kv"><span class="label">Total Predictions</span><span class="value">${s.total_predictions}</span></div>
         <div class="kv"><span class="label">Triggered</span><span class="value">${s.triggered}</span></div>
         <div class="kv"><span class="label">Win Rate</span><span class="value" style="color:${wrColor};font-size:1rem;font-weight:700;">${s.win_rate}%</span></div>
+        <div class="kv"><span class="label">95% Confidence Range</span><span class="value" style="color:#8b949e;">${s.win_rate_ci_95 ? s.win_rate_ci_95[0] + '%–' + s.win_rate_ci_95[1] + '%' : '—'}</span></div>
         <div class="kv"><span class="label">Profit Factor</span><span class="value" style="color:${pfColor};font-weight:600;">${s.profit_factor}</span></div>
         <div class="kv"><span class="label">Wins / Losses</span><span class="value"><span style="color:#3fb950">${s.wins}</span> / <span style="color:#f85149">${s.losses}</span></span></div>
         <div class="kv"><span class="label">Total P&L</span><span class="value" style="color:${s.total_pnl_pct >= 0 ? '#3fb950' : '#f85149'};font-weight:600;">${s.total_pnl_pct >= 0 ? '+' : ''}${s.total_pnl_pct}%</span></div>
@@ -1071,11 +1109,13 @@
         <div class="kv"><span class="label">Avg Days Held</span><span class="value">${s.avg_days_held}d <span style="font-size:0.75rem;color:#8b949e;">(W: ${s.avg_days_win || 0}d / L: ${s.avg_days_loss || 0}d)</span></span></div>
         <div class="kv"><span class="label">Not Triggered</span><span class="value" style="color:#8b949e;">${s.not_triggered}</span></div>
         <div class="kv"><span class="label">Expired</span><span class="value" style="color:#8b949e;">${s.expired}</span></div>
+        <div class="kv"><span class="label">Skipped WAIT Signals</span><span class="value" style="color:#8b949e;">${s.skipped || 0}</span></div>
+        <div class="kv"><span class="label">Execution Costs</span><span class="value" style="color:#8b949e;">${s.execution_cost_pct}% / trade</span></div>
       </div>`;
       h += `</div>`;
 
       // Recent trades
-      const trades = (d.predictions || []).filter(p => p.outcome && p.outcome.result !== 'not_triggered').slice(-10);
+      const trades = (d.predictions || []).filter(p => p.outcome && ['target_hit', 'sl_hit', 'expired'].includes(p.outcome.result)).slice(-10);
       if (trades.length) {
         h += `<div style="font-size:0.82rem;color:#8b949e;margin-bottom:0.3rem;">Recent Trades (last 10)</div>`;
         trades.forEach(t => {

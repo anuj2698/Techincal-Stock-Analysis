@@ -7,3 +7,8 @@ scanner_cache/
 .env
 *.log
 .DS_Store
+.pytest_cache/
+.coverage
+*.lock
+results_cache/
+rsi_signals/

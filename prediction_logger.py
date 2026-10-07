@@ -2,10 +2,11 @@
 """Log predictions from the analysis engine for backtesting and performance tracking."""
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from atomic_json import read_json, update_json_atomic
 
 IST = timezone(timedelta(hours=5, minutes=30))
 PREDICTIONS_DIR = Path(__file__).resolve().parent / "predictions"
@@ -16,17 +17,8 @@ def _symbol_filename(symbol: str) -> str:
 
 
 def _load_file(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    try:
-        return json.loads(path.read_text())
-    except (json.JSONDecodeError, ValueError):
-        return []
-
-
-def _save_file(path: Path, data: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, default=str))
+    data = read_json(path, [])
+    return data if isinstance(data, list) else []
 
 
 def log_prediction(analysis_result: dict, symbol: str, timeframe: str, spot_price: float) -> str | None:
@@ -41,12 +33,6 @@ def log_prediction(analysis_result: dict, symbol: str, timeframe: str, spot_pric
     today_str = now.strftime("%Y-%m-%d")
 
     file_path = PREDICTIONS_DIR / _symbol_filename(symbol)
-    existing = _load_file(file_path)
-
-    for p in existing:
-        if p.get("date") == today_str and p.get("timeframe") == timeframe:
-            return None
-
     chart_pats = [p.get("name", "") for p in analysis_result.get("chart_patterns", [])]
     candle_pats = [p.get("name", "") for p in analysis_result.get("candlestick_patterns", [])]
 
@@ -89,9 +75,20 @@ def log_prediction(analysis_result: dict, symbol: str, timeframe: str, spot_pric
         "outcome": None,
     }
 
-    existing.append(prediction)
-    _save_file(file_path, existing)
-    return prediction["id"]
+    inserted = False
+
+    def append_if_new(existing):
+        nonlocal inserted
+        if not isinstance(existing, list):
+            existing = []
+        if any(p.get("date") == today_str and p.get("timeframe") == timeframe for p in existing):
+            return existing
+        existing.append(prediction)
+        inserted = True
+        return existing
+
+    update_json_atomic(file_path, [], append_if_new)
+    return prediction["id"] if inserted else None
 
 
 def get_predictions(symbol: str, limit: int = 20) -> list[dict]:
@@ -113,10 +110,18 @@ def get_all_predictions(limit: int = 100) -> list[dict]:
 
 def update_outcome(symbol: str, prediction_id: str, outcome: dict) -> bool:
     file_path = PREDICTIONS_DIR / _symbol_filename(symbol)
-    data = _load_file(file_path)
-    for p in data:
-        if p.get("id") == prediction_id:
-            p["outcome"] = outcome
-            _save_file(file_path, data)
-            return True
-    return False
+    updated = False
+
+    def apply_outcome(data):
+        nonlocal updated
+        if not isinstance(data, list):
+            return []
+        for prediction in data:
+            if prediction.get("id") == prediction_id:
+                prediction["outcome"] = outcome
+                updated = True
+                break
+        return data
+
+    update_json_atomic(file_path, [], apply_outcome)
+    return updated

@@ -7,7 +7,10 @@ import statistics
 
 
 def analyze_performance(predictions: list[dict]) -> dict:
-    triggered = [p for p in predictions if p.get("outcome") and p["outcome"]["result"] in ("target_hit", "sl_hit")]
+    triggered = [
+        p for p in predictions
+        if p.get("outcome") and p["outcome"]["result"] in ("target_hit", "sl_hit", "expired")
+    ]
     if not triggered:
         return {"error": "No triggered trades to analyze"}
 
@@ -49,7 +52,7 @@ def analyze_performance(predictions: list[dict]) -> dict:
     current_wins = 0
     current_losses = 0
     for p in triggered:
-        if p["outcome"]["result"] == "target_hit":
+        if p["outcome"]["pnl_pct"] > 0:
             current_wins += 1
             current_losses = 0
             max_consec_wins = max(max_consec_wins, current_wins)
@@ -84,7 +87,12 @@ def analyze_performance(predictions: list[dict]) -> dict:
 
 
 def analyze_attribution(predictions: list[dict]) -> dict:
-    triggered = [p for p in predictions if p.get("outcome") and p["outcome"]["result"] in ("target_hit", "sl_hit") and p.get("signals")]
+    triggered = [
+        p for p in predictions
+        if p.get("outcome")
+        and p["outcome"]["result"] in ("target_hit", "sl_hit", "expired")
+        and p.get("signals")
+    ]
     if not triggered:
         return {"signal_attribution": {}, "contribution_scores": {}}
 
@@ -102,7 +110,7 @@ def analyze_attribution(predictions: list[dict]) -> dict:
         def wr(trades):
             if not trades:
                 return {"count": 0, "win_rate": 0, "wins": 0}
-            wins = sum(1 for t in trades if t["outcome"]["result"] == "target_hit")
+            wins = sum(1 for t in trades if t["outcome"]["pnl_pct"] > 0)
             return {"count": len(trades), "win_rate": round(wins / len(trades) * 100, 1), "wins": wins}
 
         bull_stats = wr(bullish)
@@ -184,7 +192,7 @@ def _indicator_buckets(predictions: list[dict], note_fn, buckets: dict) -> list[
         if not matching:
             results.append({"label": label, "count": 0, "win_rate": 0})
             continue
-        wins = sum(1 for p in matching if p["outcome"]["result"] == "target_hit")
+        wins = sum(1 for p in matching if p["outcome"]["pnl_pct"] > 0)
         results.append({
             "label": label,
             "count": len(matching),

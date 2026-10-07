@@ -300,6 +300,7 @@ function renderCards(results) {
         </div>
         <div style="text-align:right;">
           <div class="stock-cmp">₹<strong>${fmt(r.cmp)}</strong></div>
+          <div style="font-size:0.7rem;color:${r.nearest_breakout_pct <= 1 ? '#3fb950' : r.nearest_breakout_pct <= 3 ? '#f0883e' : '#8b949e'};font-weight:600;">${r.nearest_breakout_pct != null ? r.nearest_breakout_pct.toFixed(1) + '% to breakout' : ''}</div>
           <div style="font-size:0.7rem;color:${confColor};font-weight:600;">${r.confidence || ''} Confidence</div>
           ${r.rsi ? `<div style="font-size:0.7rem;color:#8b949e;">RSI: ${r.rsi}</div>` : ''}
         </div>

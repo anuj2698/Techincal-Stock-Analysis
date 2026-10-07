@@ -121,6 +121,12 @@
 
   .footer-note { text-align: center; color: #8b949e; font-size: 0.75rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #21262d; }
 
+  .scan-bar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .scan-now-btn { padding: 0.5rem 1.2rem; font-size: 0.85rem; font-weight: 600; border: none; border-radius: 7px; cursor: pointer; background: #1f6feb; color: #fff; transition: background 0.15s; }
+  .scan-now-btn:hover { background: #388bfd; }
+  .scan-now-btn:disabled { background: #30363d; color: #8b949e; cursor: not-allowed; }
+  .scan-fetched { font-size: 0.78rem; color: #8b949e; }
+
   @media (max-width: 720px) {
     .tab-bar { flex-direction: column; }
     .pick-levels { grid-template-columns: 1fr 1fr; }
@@ -145,6 +151,11 @@
   <div class="tab-bar">
     <button class="tab-intra" onclick="loadPicks('intraday')">Intraday</button>
     <button class="tab-short active" onclick="loadPicks('short_term')">Short Term (1-2 days)</button>
+  </div>
+
+  <div class="scan-bar">
+    <button class="scan-now-btn" id="scanNowBtn" onclick="scanNow()">Scan Now</button>
+    <span class="scan-fetched" id="scanFetched"></span>
   </div>
 
   <div class="meta-bar" id="metaBar" style="display:none;">
@@ -178,12 +189,26 @@ const cache = {};
 let currentTf = 'short_term';
 
 function fmt(v) { return v != null ? Number(v).toLocaleString('en-IN', {maximumFractionDigits: 2}) : '—'; }
+function esc(v) {
+  return String(v ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+}
+function safeUrl(value) {
+  try {
+    const parsed = new URL(value, window.location.origin);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : '#';
+  } catch { return '#'; }
+}
 
 function setTab(tf) {
   currentTf = tf;
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
   const cls = tf === 'intraday' ? 'tab-intra' : 'tab-short';
   document.querySelector(`.${cls}`).classList.add('active');
+}
+
+function scanNow() {
+  delete cache[currentTf];
+  loadPicks(currentTf, true);
 }
 
 function pollScanStatus(tf) {
@@ -205,22 +230,25 @@ function pollScanStatus(tf) {
   }, 5000);
 }
 
-async function loadPicks(tf) {
+async function loadPicks(tf, force = false) {
   setTab(tf);
   const list = document.getElementById('picksList');
   const spinner = document.getElementById('spinner');
   const errorMsg = document.getElementById('errorMsg');
   const metaBar = document.getElementById('metaBar');
   const emptyState = document.getElementById('emptyState');
+  const scanBtn = document.getElementById('scanNowBtn');
 
   list.innerHTML = '';
   errorMsg.style.display = 'none';
   emptyState.style.display = 'none';
   metaBar.style.display = 'none';
 
-  if (cache[tf]) { renderPicks(cache[tf]); return; }
+  if (!force && cache[tf]) { renderPicks(cache[tf]); return; }
 
   spinner.classList.add('active');
+  scanBtn.disabled = true;
+  scanBtn.textContent = 'Scanning…';
   document.getElementById('spinnerText').textContent = 'Analyzing stocks near buy levels...';
 
   try {
@@ -233,12 +261,21 @@ async function loadPicks(tf) {
     }
     if (data.error) { errorMsg.textContent = data.error; errorMsg.style.display = 'block'; spinner.classList.remove('active'); return; }
     cache[tf] = data;
+    if (data.data_as_of) {
+      try {
+        const d = new Date(data.data_as_of);
+        document.getElementById('scanFetched').textContent = 'Last fetched: ' + d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'}) + ' · ' + d.toLocaleDateString('en-IN', {day:'2-digit', month:'short'});
+      } catch { document.getElementById('scanFetched').textContent = 'Last fetched: ' + data.data_as_of; }
+    }
     renderPicks(data);
     spinner.classList.remove('active');
   } catch (err) {
     errorMsg.textContent = 'Network error: ' + err.message;
     errorMsg.style.display = 'block';
     spinner.classList.remove('active');
+  } finally {
+    scanBtn.disabled = false;
+    scanBtn.textContent = 'Scan Now';
   }
 }
 
@@ -283,28 +320,28 @@ function renderPicks(data) {
       else if (s.includes('EMA') || s.includes('crossover')) cls = 'signal-ema';
       else if (s.includes('Triangle') || s.includes('Flag') || s.includes('Cup') || s.includes('Compression')) cls = 'signal-pattern';
       else cls = 'signal-confirmed';
-      return `<span class="signal-tag ${cls}">${s}</span>`;
+      return `<span class="signal-tag ${cls}">${esc(s)}</span>`;
     }).join('');
 
     const t1 = p.targets && p.targets[0] ? '₹' + fmt(p.targets[0]) : '—';
     const t2 = p.targets && p.targets[1] ? '₹' + fmt(p.targets[1]) : '—';
 
     const reasons = (p.verdict_reasons || []).map(r =>
-      `<div><span class="check">&#10003;</span>${r}</div>`
+      `<div><span class="check">&#10003;</span>${esc(r)}</div>`
     ).join('');
 
     const newsHtml = (p.news && p.news.length)
       ? `<div class="pick-news">
            <div class="news-label">Recent News</div>
-           ${p.news.map(n => `<div class="news-item"><span class="bullet">&#8226;</span><div><a href="${n.url}" target="_blank" rel="noopener">${n.title}</a> <span class="news-source">${n.source}</span></div></div>`).join('')}
+           ${p.news.map(n => `<div class="news-item"><span class="bullet">&#8226;</span><div><a href="${safeUrl(n.url)}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a> <span class="news-source">${esc(n.source)}</span></div></div>`).join('')}
          </div>`
       : '';
 
     return `<div class="pick-card${zoneClass}">
       <div class="pick-top">
         <div>
-          <div class="pick-symbol"><a href="/?symbol=${encodeURIComponent(sym)}">${sym}</a></div>
-          <div class="pick-name">${p.name || ''}</div>
+          <div class="pick-symbol"><a href="/?symbol=${encodeURIComponent(sym)}">${esc(sym)}</a></div>
+          <div class="pick-name">${esc(p.name)}</div>
         </div>
         <div class="pick-action-score">
           <div class="action-score" style="color:${actColor}">${p.actionability}</div>

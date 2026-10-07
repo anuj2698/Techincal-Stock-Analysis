@@ -17,6 +17,8 @@ from urllib.parse import quote
 import requests as _requests
 from nselib import capital_market
 
+from atomic_json import write_json_atomic
+
 warnings.filterwarnings("ignore")
 
 CACHE_DIR = Path(__file__).resolve().parent / "results_cache"
@@ -39,8 +41,7 @@ def _load_history() -> dict:
 
 
 def _save_history(history: dict) -> None:
-    CACHE_DIR.mkdir(exist_ok=True)
-    HISTORY_FILE.write_text(json.dumps(history, indent=2, default=str))
+    write_json_atomic(HISTORY_FILE, history, indent=2)
 
 
 def _is_finalized(stock: dict) -> bool:
@@ -668,7 +669,7 @@ def run_full_fetch() -> dict:
     }
 
     CACHE_DIR.mkdir(exist_ok=True)
-    CACHE_FILE.write_text(json.dumps(output, indent=2, default=str))
+    write_json_atomic(CACHE_FILE, output, indent=2)
 
     _fetch_progress = {"step": "Done", "done": 4, "total": 4, "status": "done"}
     return output

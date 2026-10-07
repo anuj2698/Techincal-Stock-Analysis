@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import json
+import hmac
+import html
 import math
 import os
+import re
+import secrets
 import time
 import traceback
 from datetime import datetime, timedelta, timezone
@@ -16,10 +20,11 @@ from flask import Flask, jsonify, render_template, request
 
 from concurrent.futures import ThreadPoolExecutor
 
+from atomic_json import write_json_atomic
 from analyzer import full_analysis, TIMEFRAME_CONFIG, detect_chart_patterns, detect_ema_crossovers, resample_weekly, rsi_series, ema_series
 from oi_fetcher import fetch_oi
 from prediction_logger import log_prediction, get_predictions, get_all_predictions
-from backtester import run_backtest, backtest_logged_predictions
+from backtester import BACKTEST_VERSION, MIN_SAMPLE_SIZE, run_backtest, backtest_logged_predictions
 from results_fetcher import get_cached_data as get_results_cached, start_background_fetch as start_results_fetch, get_fetch_status as get_results_status, is_cache_fresh as is_results_fresh
 
 load_dotenv()
@@ -68,6 +73,9 @@ def _ensure_scan_cache():
     cache_path = Path(__file__).resolve().parent / "scanner_cache" / "backtest_results.json"
     if cache_path.exists():
         try:
+            cached_data = json.loads(cache_path.read_text())
+            if cached_data.get("backtest_version") != BACKTEST_VERSION:
+                raise ValueError("outdated backtest methodology")
             mtime = datetime.fromtimestamp(cache_path.stat().st_mtime, tz=IST)
             age_hours = (datetime.now(IST) - mtime).total_seconds() / 3600
             if age_hours < 24:
@@ -111,7 +119,10 @@ def _get_fyers():
 
 
 INTERVAL_TO_FYERS = {"1d": "D", "1h": "60", "15m": "15", "5m": "5", "1m": "1"}
-PERIOD_TO_DAYS = {"1mo": 30, "2mo": 60, "60d": 60, "3mo": 90, "6mo": 180, "1y": 365}
+PERIOD_TO_DAYS = {
+    "1mo": 30, "2mo": 60, "60d": 60, "3mo": 90, "6mo": 180,
+    "1y": 365, "2y": 730, "3y": 1095, "5y": 1825,
+}
 
 
 def _fyers_symbol(canonical: str) -> str | None:
@@ -160,15 +171,48 @@ from performance import analyze_performance, analyze_attribution
 app = Flask(__name__)
 
 ADMIN_SECRET = os.environ.get("ADMIN_SECRET")
+IS_PRODUCTION = os.environ.get("APP_ENV", "development").lower() == "production" or bool(os.environ.get("RENDER"))
+
+
+@app.after_request
+def add_security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+    )
+    return response
 
 
 def _check_admin(req):
-    """Check admin secret from header or query param. Returns error response or None if OK."""
+    """Require the admin secret for operational or mutating endpoints."""
     if not ADMIN_SECRET:
-        return None
-    token = req.headers.get("X-Admin-Secret") or req.args.get("admin_secret")
-    if token != ADMIN_SECRET:
+        return jsonify({"error": "Administrative actions are disabled until ADMIN_SECRET is configured"}), 503
+    token = req.headers.get("X-Admin-Secret", "")
+    if not hmac.compare_digest(token, ADMIN_SECRET):
         return jsonify({"error": "Unauthorized"}), 401
+    return None
+
+
+def _parse_optional_positive_float(value: str, field_name: str) -> tuple[float | None, str | None]:
+    if not value:
+        return None, None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None, f"{field_name} must be a number"
+    if not math.isfinite(parsed) or parsed <= 0:
+        return None, f"{field_name} must be greater than zero"
+    return parsed, None
+
+
+def _validate_symbol(symbol: str) -> str | None:
+    if len(symbol) > 40 or not re.fullmatch(r"[A-Za-z0-9:^&.=_\- ]+", symbol):
+        return "Invalid stock symbol"
     return None
 
 
@@ -195,7 +239,7 @@ def get_fno_stocks() -> list[dict]:
     df = capital_market.fno_equity_list()
     stocks = [{"symbol": row["symbol"], "name": row.get("underlying", row["symbol"])} for _, row in df.iterrows()]
     CACHE_DIR.mkdir(exist_ok=True)
-    FNO_CACHE_FILE.write_text(json.dumps({"ts": datetime.now(IST).isoformat(), "stocks": stocks}))
+    write_json_atomic(FNO_CACHE_FILE, {"ts": datetime.now(IST).isoformat(), "stocks": stocks})
     return stocks
 
 
@@ -254,7 +298,7 @@ def save_rsi_signals(results: list[dict]) -> None:
             added = True
 
         if added:
-            path.write_text(json.dumps(existing, indent=2, default=str))
+            write_json_atomic(path, existing, indent=2)
 
     _rebuild_rsi_summary()
 
@@ -321,7 +365,7 @@ def _rebuild_rsi_summary() -> None:
             "last_updated": now_iso,
         }
 
-    RSI_SUMMARY_FILE.write_text(json.dumps(summary, indent=2))
+    write_json_atomic(RSI_SUMMARY_FILE, summary, indent=2)
 
 
 def load_rsi_summary() -> dict:
@@ -431,7 +475,7 @@ def _cache_path(yahoo_sym: str, interval: str = "1d") -> Path:
 def _save_cache(yahoo_sym: str, candles: list[list[float]], interval: str = "1d") -> None:
     CACHE_DIR.mkdir(exist_ok=True)
     path = _cache_path(yahoo_sym, interval)
-    path.write_text(json.dumps({"ts": datetime.now(IST).isoformat(), "candles": candles}))
+    write_json_atomic(path, {"ts": datetime.now(IST).isoformat(), "candles": candles})
 
 
 def _load_cache(yahoo_sym: str, interval: str = "1d") -> list[list[float]] | None:
@@ -498,7 +542,17 @@ def index():
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok"})
+    return jsonify({"status": "ok", "backtest_version": BACKTEST_VERSION})
+
+
+@app.route("/ready")
+def ready():
+    checks = {
+        "admin_secret_configured": bool(ADMIN_SECRET),
+        "cache_directory_writable": os.access(CACHE_DIR.parent, os.W_OK),
+    }
+    ready_status = all(checks.values())
+    return jsonify({"status": "ready" if ready_status else "not_ready", "checks": checks}), 200 if ready_status else 503
 
 
 @app.route("/cache-status")
@@ -610,12 +664,16 @@ def analyze():
     symbol = request.args.get("symbol", "").strip()
     if not symbol:
         return jsonify({"error": "Please enter a stock symbol"}), 400
+    if symbol_error := _validate_symbol(symbol):
+        return jsonify({"error": symbol_error}), 400
 
     timeframe = request.args.get("timeframe", "positional").strip()
     if timeframe not in ("short_term", "positional", "intraday"):
         timeframe = "positional"
     entry_price_str = request.args.get("entry_price", "").strip()
-    entry_price = float(entry_price_str) if entry_price_str else None
+    entry_price, entry_error = _parse_optional_positive_float(entry_price_str, "Entry price")
+    if entry_error:
+        return jsonify({"error": entry_error}), 400
 
     cfg = TIMEFRAME_CONFIG.get(timeframe, TIMEFRAME_CONFIG["positional"])
     interval = cfg.get("candle_interval", "1d")
@@ -650,7 +708,8 @@ def analyze():
         return jsonify(result)
     except Exception as e:
         traceback.print_exc()
-        return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
+        message = "Analysis failed" if IS_PRODUCTION else f"Analysis failed: {str(e)}"
+        return jsonify({"error": message}), 500
 
 
 @app.route("/predictions")
@@ -670,7 +729,7 @@ def backtest():
     timeframe = request.args.get("timeframe", "positional").strip()
     if timeframe not in ("short_term", "positional"):
         timeframe = "positional"
-    period = "1y"
+    period = "3y" if timeframe == "short_term" else "5y"
 
     try:
         canonical, yahoo_sym = resolve_yahoo_ticker(symbol)
@@ -686,11 +745,15 @@ def backtest():
         return jsonify(result)
     except Exception as e:
         traceback.print_exc()
-        return jsonify({"error": f"Backtest failed: {str(e)}"}), 500
+        message = "Backtest failed" if IS_PRODUCTION else f"Backtest failed: {str(e)}"
+        return jsonify({"error": message}), 500
 
 
-@app.route("/backtest/update")
+@app.route("/backtest/update", methods=["POST"])
 def backtest_update():
+    auth_err = _check_admin(request)
+    if auth_err:
+        return auth_err
     symbol = request.args.get("symbol", "").strip()
     if not symbol:
         return jsonify({"error": "Symbol required"}), 400
@@ -718,6 +781,14 @@ def scanner_picks():
     timeframe = request.args.get("timeframe", "positional").strip()
     if timeframe not in ("intraday", "short_term", "positional"):
         timeframe = "positional"
+    capital, capital_error = _parse_optional_positive_float(request.args.get("capital", "10000"), "Capital")
+    risk_pct, risk_error = _parse_optional_positive_float(request.args.get("risk_pct", "2"), "Risk percentage")
+    if capital_error or risk_error:
+        return jsonify({"error": capital_error or risk_error}), 400
+    if capital < 1_000 or capital > 100_000_000:
+        return jsonify({"error": "Capital must be between ₹1,000 and ₹10 crore"}), 400
+    if risk_pct < 0.1 or risk_pct > 10:
+        return jsonify({"error": "Risk percentage must be between 0.1% and 10%"}), 400
 
     cache_path = Path(__file__).resolve().parent / "scanner_cache" / "backtest_results.json"
     has_cache = _ensure_scan_cache()
@@ -734,7 +805,13 @@ def scanner_picks():
         summary = entry.get("summary", {})
         win_rate = summary.get("win_rate", 0)
         profit_factor = summary.get("profit_factor", 0)
-        if win_rate >= 75 and profit_factor >= 1.0:
+        if (
+            win_rate >= 75
+            and profit_factor >= 1.0
+            and summary.get("triggered", 0) >= MIN_SAMPLE_SIZE
+            and summary.get("methodology_version") == BACKTEST_VERSION
+            and (summary.get("win_rate_ci_95") or [0])[0] >= 50
+        ):
             qualifying.append(entry)
 
     if not qualifying:
@@ -758,6 +835,9 @@ def scanner_picks():
         name = entry["name"]
         win_rate = entry["summary"]["win_rate"]
         profit_factor = entry["summary"].get("profit_factor", 0)
+        backtest_trades = entry["summary"].get("triggered", 0)
+        execution_cost_pct = entry["summary"].get("execution_cost_pct", 0)
+        win_rate_ci_95 = entry["summary"].get("win_rate_ci_95", [0, 0])
         try:
             canonical, yahoo_sym = resolve_yahoo_ticker(sym)
             candles = fetch_candles(yahoo_sym, period=period, interval=interval, canonical=canonical)
@@ -817,9 +897,8 @@ def scanner_picks():
             ema_alignment = ema_data.get("alignment", "neutral")
             ema_crosses = [c["type"] for c in ema_data.get("crossovers", []) if c["bias"] == "bullish"]
 
-            # Position sizing (2% risk per trade on 10K capital)
-            capital = 10000.0
-            risk_per_trade = capital * 0.02
+            # Position sizing based on the user's capital and maximum trade risk.
+            risk_per_trade = capital * risk_pct / 100
             buy_sl = buy.get("sl")
             risk_per_share = abs(buy_level - buy_sl) if buy_sl else 0
             suggested_qty = int(risk_per_trade / risk_per_share) if risk_per_share > 0 else 0
@@ -840,6 +919,9 @@ def scanner_picks():
                 "status": ap.get("status"),
                 "volume_environment": ap.get("volume_environment"),
                 "win_rate": win_rate,
+                "backtest_trades": backtest_trades,
+                "execution_cost_pct": execution_cost_pct,
+                "win_rate_ci_95": win_rate_ci_95,
                 "profit_factor": round(profit_factor, 2) if profit_factor else None,
                 "relative_strength": rs,
                 "patterns": pattern_names,
@@ -869,6 +951,8 @@ def scanner_picks():
         "picks": picks,
         "timestamp": timestamp,
         "qualifying_count": len(qualifying),
+        "position_sizing": {"capital": capital, "risk_pct": risk_pct},
+        "backtest_version": BACKTEST_VERSION,
     })
 
 
@@ -995,6 +1079,16 @@ def _do_patterns_scan(tf: str):
 
             patterns.sort(key=lambda p: (p.get("confirmed", False), p.get("trend_aligned", False)), reverse=True)
 
+            breakout_distances = []
+            for p in patterns:
+                bl_up = p.get("breakout_level_up")
+                bl_down = p.get("breakout_level_down")
+                if bl_up and cmp > 0:
+                    breakout_distances.append(round(abs(bl_up - cmp) / cmp * 100, 2))
+                if bl_down and cmp > 0:
+                    breakout_distances.append(round(abs(bl_down - cmp) / cmp * 100, 2))
+            nearest_breakout_pct = min(breakout_distances) if breakout_distances else 99
+
             return {
                 "symbol": canonical,
                 "display_symbol": sym,
@@ -1007,6 +1101,7 @@ def _do_patterns_scan(tf: str):
                 "verdict": verdict,
                 "confidence": confidence,
                 "reasons": reasons[:4],
+                "nearest_breakout_pct": nearest_breakout_pct,
             }
         except Exception:
             return None
@@ -1015,7 +1110,10 @@ def _do_patterns_scan(tf: str):
         results_raw = list(pool.map(_scan_stock, stocks))
 
     results = [r for r in results_raw if r is not None]
-    results.sort(key=lambda r: len(r["patterns"]), reverse=True)
+    results.sort(key=lambda r: (
+        -any(p.get("confirmed") for p in r["patterns"]),
+        r.get("nearest_breakout_pct", 99),
+    ))
 
     pattern_summary = {}
     for r in results:
@@ -1061,12 +1159,17 @@ def results_data():
     status = get_results_status()
     if status["running"]:
         return jsonify({"fetching": True, "progress": status["progress"]})
-    start_results_fetch()
-    return jsonify({"fetching": True, "progress": {"step": "Starting data fetch...", "done": 0, "total": 4}})
+    return jsonify({
+        "error": "No cached results are available. Use Refresh Data to start an authenticated fetch.",
+        "needs_refresh": True,
+    }), 404
 
 
 @app.route("/results/refresh", methods=["POST"])
 def results_refresh():
+    auth_err = _check_admin(request)
+    if auth_err:
+        return auth_err
     started = start_results_fetch()
     if started:
         return jsonify({"status": "started"})
@@ -1105,10 +1208,10 @@ def _do_today_picks(timeframe: str):
         win_rate = summary.get("win_rate", 0)
         profit_factor = summary.get("profit_factor", 0)
         if is_intraday:
-            if win_rate >= 50 and profit_factor >= 1.5:
+            if win_rate >= 50 and profit_factor >= 1.5 and summary.get("triggered", 0) >= MIN_SAMPLE_SIZE:
                 qualifying.append(entry)
         else:
-            if win_rate >= 70 and profit_factor >= 0.8:
+            if win_rate >= 70 and profit_factor >= 0.8 and summary.get("triggered", 0) >= MIN_SAMPLE_SIZE:
                 qualifying.append(entry)
 
     if not qualifying:
@@ -1684,7 +1787,7 @@ def _scan_cache_fresh(scan_type: str, ttl: int, extra: str = "") -> dict | None:
 def _save_scan_cache(scan_type: str, data: dict, extra: str = "") -> None:
     SCAN_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     data["_cached_at"] = datetime.now(IST).isoformat()
-    _scan_cache_path(scan_type, extra).write_text(json.dumps(data))
+    write_json_atomic(_scan_cache_path(scan_type, extra), data)
 
 
 _bg_scan_meta_lock = threading.Lock()
@@ -1711,7 +1814,7 @@ def _serve_cached_or_stale(scan_type: str, target, args=(), extra: str = "", ttl
     """Core serve logic: check cache, trigger scan if needed, serve best available data."""
     cached = _scan_cache_fresh(scan_type, ttl=ttl, extra=extra)
     if cached:
-        cached.pop("_cached_at", None)
+        cached["data_as_of"] = cached.pop("_cached_at", None)
         return jsonify(cached)
 
     scan_key = f"{scan_type}{extra}" if extra else scan_type
@@ -1721,7 +1824,7 @@ def _serve_cached_or_stale(scan_type: str, target, args=(), extra: str = "", ttl
     if path.exists():
         try:
             stale = json.loads(path.read_text())
-            stale.pop("_cached_at", None)
+            stale["data_as_of"] = stale.pop("_cached_at", None)
             stale["_refreshing"] = True
             return jsonify(stale)
         except Exception:
@@ -1757,7 +1860,7 @@ def _serve_or_scan_daily(scan_type: str, target, args=(), extra: str = "", empty
         if path.exists():
             try:
                 data = json.loads(path.read_text())
-                data.pop("_cached_at", None)
+                data["data_as_of"] = data.pop("_cached_at", None)
                 return jsonify(data)
             except Exception:
                 pass
@@ -1775,12 +1878,15 @@ def _serve_or_scan_daily(scan_type: str, target, args=(), extra: str = "", empty
             cached_hour = cached_at.hour
             # Fresh if cached today after 15:30 (post market close)
             if cached_date == today_str and cached_hour >= 15:
-                data.pop("_cached_at", None)
+                data["data_as_of"] = data.pop("_cached_at", None)
                 return jsonify(data)
-            # Also fresh if it's a weekend and cache is from Friday post-close
+            # Weekend: fresh if cache is from the most recent Friday post-close
             if now.weekday() >= 5 and cached_hour >= 15:
-                data.pop("_cached_at", None)
-                return jsonify(data)
+                days_since_friday = (now.weekday() - 4) % 7
+                last_friday = (now - timedelta(days=days_since_friday)).strftime("%Y-%m-%d")
+                if cached_date >= last_friday:
+                    data["data_as_of"] = data.pop("_cached_at", None)
+                    return jsonify(data)
         except Exception:
             pass
 
@@ -1805,6 +1911,7 @@ def _do_rsi_extremes_today():
         name = stock["name"]
         try:
             canonical, yahoo_sym = resolve_yahoo_ticker(sym)
+
             cmp = None
             cur_rsi = {}
             ema_ctx = {}
@@ -2611,11 +2718,11 @@ def pick_intraday_stocks() -> list[dict]:
 
     # Cache for today
     CACHE_DIR.mkdir(exist_ok=True)
-    INTRADAY_PICK_CACHE_FILE.write_text(json.dumps({
+    write_json_atomic(INTRADAY_PICK_CACHE_FILE, {
         "date": datetime.now(IST).strftime("%Y-%m-%d"),
         "picks": final,
         "total_scanned": len(scored),
-    }))
+    })
 
     return final
 
@@ -2657,7 +2764,7 @@ def fyers_status():
         except Exception:
             pass
 
-    return jsonify({"status": status, "name": name, "refreshed_today": refreshed_today})
+    return jsonify({"status": status, "refreshed_today": refreshed_today})
 
 
 @app.route("/api/refresh-fyers-token", methods=["POST"])
@@ -2682,7 +2789,8 @@ def refresh_fyers_token():
         from fyers_auth import get_auth_url, exchange_auth_code
 
         callback_uri = request.host_url.rstrip("/") + "/fyers/callback"
-        auth_code, auth_url = get_auth_url(redirect_uri_override=callback_uri)
+        oauth_state = secrets.token_urlsafe(32)
+        auth_code, auth_url = get_auth_url(redirect_uri_override=callback_uri, state=oauth_state)
 
         if auth_code:
             # Auth code captured directly — no browser redirect needed
@@ -2701,16 +2809,22 @@ def refresh_fyers_token():
                 pass
 
             CACHE_DIR.mkdir(exist_ok=True)
-            FYERS_TOKEN_REFRESH_FILE.write_text(json.dumps({
+            write_json_atomic(FYERS_TOKEN_REFRESH_FILE, {
                 "date": today, "time": datetime.now(IST).strftime("%H:%M:%S"), "name": name,
-            }))
+            })
 
             return jsonify({"success": True, "status": "active", "name": name,
                             "message": f"Token active — {name}"})
 
-        return jsonify({"success": True, "status": "redirect", "auth_url": auth_url})
+        response = jsonify({"success": True, "status": "redirect", "auth_url": auth_url})
+        response.set_cookie(
+            "fyers_oauth_state", oauth_state, max_age=600, httponly=True,
+            secure=IS_PRODUCTION, samesite="Lax",
+        )
+        return response
     except Exception as e:
-        return jsonify({"success": False, "status": "error", "message": str(e)})
+        message = "Token refresh failed" if IS_PRODUCTION else str(e)
+        return jsonify({"success": False, "status": "error", "message": message})
 
 
 @app.route("/fyers/callback")
@@ -2718,6 +2832,10 @@ def fyers_callback():
     """OAuth callback — Fyers redirects here with auth_code after user authorizes."""
     global _fyers_client
     auth_code = request.args.get("auth_code")
+    expected_state = request.cookies.get("fyers_oauth_state")
+    returned_state = request.args.get("state", "")
+    if not expected_state or not hmac.compare_digest(expected_state, returned_state):
+        return "OAuth state validation failed. Please restart the connection flow.", 400
     if not auth_code:
         return """<html><body style="background:#0f1117;color:#f85149;font-family:sans-serif;
             display:flex;justify-content:center;align-items:center;height:100vh;font-size:1.3rem;">
@@ -2744,33 +2862,41 @@ def fyers_callback():
         # Mark as refreshed today
         today = datetime.now(IST).strftime("%Y-%m-%d")
         CACHE_DIR.mkdir(exist_ok=True)
-        FYERS_TOKEN_REFRESH_FILE.write_text(json.dumps({
+        write_json_atomic(FYERS_TOKEN_REFRESH_FILE, {
             "date": today,
             "time": datetime.now(IST).strftime("%H:%M:%S"),
             "name": name,
-        }))
+        })
 
-        return f"""<html><body style="background:#0f1117;color:#3fb950;font-family:sans-serif;
+        safe_name = html.escape(str(name))
+        response = app.make_response(f"""<html><body style="background:#0f1117;color:#3fb950;font-family:sans-serif;
             display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;">
             <div style="font-size:1.5rem;font-weight:700;margin-bottom:1rem;">Fyers Token Generated</div>
-            <div style="font-size:1rem;color:#8b949e;">Authenticated as: {name}</div>
+            <div style="font-size:1rem;color:#8b949e;">Authenticated as: {safe_name}</div>
             <a href="/" style="margin-top:2rem;padding:0.7rem 1.5rem;background:#1f6feb;color:#fff;
                border-radius:8px;text-decoration:none;font-weight:600;">Go to Dashboard</a>
-            </body></html>"""
+            </body></html>""")
+        response.delete_cookie("fyers_oauth_state")
+        return response
     except Exception as e:
+        safe_error = "Token generation failed" if IS_PRODUCTION else html.escape(str(e))
         return f"""<html><body style="background:#0f1117;color:#f85149;font-family:sans-serif;
             display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;">
             <div style="font-size:1.3rem;font-weight:700;">Token generation failed</div>
-            <div style="font-size:0.9rem;color:#8b949e;margin-top:0.5rem;">{e}</div>
+            <div style="font-size:0.9rem;color:#8b949e;margin-top:0.5rem;">{safe_error}</div>
             <a href="/" style="margin-top:2rem;padding:0.7rem 1.5rem;background:#1f6feb;color:#fff;
                border-radius:8px;text-decoration:none;font-weight:600;">Back to Dashboard</a>
             </body></html>""", 500
 
 
-@app.route("/intraday/pick")
+@app.route("/intraday/pick", methods=["GET", "POST"])
 def intraday_pick():
     """Scan all F&O stocks and return today's top intraday candidates."""
-    force = request.args.get("force", "0") == "1"
+    force = request.method == "POST" and request.args.get("force", "0") == "1"
+    if force:
+        auth_err = _check_admin(request)
+        if auth_err:
+            return auth_err
     if force and INTRADAY_PICK_CACHE_FILE.exists():
         INTRADAY_PICK_CACHE_FILE.unlink()
 
@@ -2802,6 +2928,9 @@ def intraday_rotation_status():
 @app.route("/intraday/rotate", methods=["POST"])
 def intraday_force_rotate():
     """Force a core stock rotation now (ignores the monthly interval)."""
+    auth_err = _check_admin(request)
+    if auth_err:
+        return auth_err
     global _core_rotation_running
     if _core_rotation_running:
         return jsonify({"status": "already_running"})
@@ -3053,7 +3182,7 @@ def _do_intraday_levels():
     # Cache EOD results after market close so we don't re-fetch
     if market_status == "closed":
         CACHE_DIR.mkdir(exist_ok=True)
-        INTRADAY_EOD_CACHE_FILE.write_text(json.dumps(response_data))
+        write_json_atomic(INTRADAY_EOD_CACHE_FILE, response_data)
 
     _save_scan_cache("intraday_levels", response_data)
     _bg_scan_running["intraday_levels"] = False
@@ -3077,6 +3206,27 @@ def sr_breakout_page():
     return render_template("sr_breakout.html")
 
 
+def _load_sr_backtest_stats():
+    """Load pre-computed S/R pattern backtest stats if available."""
+    bt_path = os.path.join(os.path.dirname(__file__), "sr_pattern_backtest.json")
+    if not os.path.exists(bt_path):
+        return None, None
+    try:
+        with open(bt_path) as f:
+            data = json.load(f)
+        stock_pattern = data.get("stock_pattern_stats", {})
+        global_pattern = {}
+        for p in data.get("pattern_direction", []):
+            global_pattern[p["pattern"]] = {
+                "trades": p["trades"],
+                "wins": p["wins"],
+                "win_rate": p["win_rate"],
+            }
+        return stock_pattern, global_pattern
+    except Exception:
+        return None, None
+
+
 def _do_sr_breakout_scan():
     """Run S/R breakout scan in background, save to cache."""
     from analyzer import (
@@ -3093,6 +3243,8 @@ def _do_sr_breakout_scan():
     except Exception:
         _bg_scan_running["sr_breakout"] = False
         return
+
+    bt_stock_stats, bt_global_stats = _load_sr_backtest_stats()
 
     CONFLUENCE_THRESHOLD_PCT = 1.5
     TRUSTED_PATTERNS = {"Cup & Handle", "Ascending Triangle", "Descending Triangle"}
@@ -3127,7 +3279,6 @@ def _do_sr_breakout_scan():
                 return None
 
             sr_zones = find_support_resistance(candles, window=5)
-            ema_data = detect_ema_crossovers(closes)
             d_rsi = _rsi(closes)
             atr_val = _atr(candles, 14)
             pivot_data = pivot_points(candles, method="standard", timeframe="positional")
@@ -3145,19 +3296,23 @@ def _do_sr_breakout_scan():
                 for lk in ("r1", "r2", "r3", "s1", "s2", "s3"):
                     val = pivot_data.get(lk)
                     if val:
-                        all_levels.append({"price": val, "source": f"Pivot {lk.upper()}", "strength": 4})
-                all_levels.append({"price": pivot_data["pp"], "source": "Pivot PP", "strength": 5})
+                        all_levels.append({"price": val, "source": f"Pivot {lk.upper()} ₹{val:.2f}", "strength": 4})
+                pp_val = pivot_data["pp"]
+                all_levels.append({"price": pp_val, "source": f"Pivot PP ₹{pp_val:.2f}", "strength": 5})
             if fib_data:
                 for fl in fib_data.get("levels", []):
                     if fl["ratio"] in (0.382, 0.5, 0.618):
-                        all_levels.append({"price": fl["price"], "source": f"Fib {fl['label']}", "strength": 5 if fl["ratio"] == 0.618 else 4})
+                        all_levels.append({"price": fl["price"], "source": f"Fib {fl['label']} ₹{fl['price']:.2f}", "strength": 5 if fl["ratio"] == 0.618 else 4})
 
+            sma20 = _sma(closes, 20)
             sma50 = _sma(closes, 50)
             sma200 = _sma(closes, 200)
+            if sma20:
+                all_levels.append({"price": sma20, "source": f"SMA 20 ₹{sma20:.2f}", "strength": 3})
             if sma50:
-                all_levels.append({"price": sma50, "source": "SMA 50", "strength": 3})
+                all_levels.append({"price": sma50, "source": f"SMA 50 ₹{sma50:.2f}", "strength": 3})
             if sma200:
-                all_levels.append({"price": sma200, "source": "SMA 200", "strength": 4})
+                all_levels.append({"price": sma200, "source": f"SMA 200 ₹{sma200:.2f}", "strength": 4})
 
             matched = []
             for p in patterns:
@@ -3195,10 +3350,9 @@ def _do_sr_breakout_scan():
                     elif confluence_count >= 2:
                         score += 2
 
-                    ema_align = ema_data.get("alignment", "neutral")
-                    if direction == "bullish" and ema_align in ("bullish", "strong_bullish"):
+                    if direction == "bullish" and sma20 and sma50 and cmp > sma20 > sma50:
                         score += 4
-                    elif direction == "bearish" and ema_align in ("bearish", "strong_bearish"):
+                    elif direction == "bearish" and sma20 and sma50 and cmp < sma20 < sma50:
                         score += 4
 
                     if d_rsi:
@@ -3222,6 +3376,15 @@ def _do_sr_breakout_scan():
                     if rr_ratio < 1.0:
                         continue
 
+                    bt_key = f"{p['name']} ({direction.upper()})"
+                    bt_info = None
+                    if bt_stock_stats and canonical in bt_stock_stats and bt_key in bt_stock_stats[canonical]:
+                        bt_info = bt_stock_stats[canonical][bt_key]
+                    elif bt_stock_stats and sym in bt_stock_stats and bt_key in bt_stock_stats[sym]:
+                        bt_info = bt_stock_stats[sym][bt_key]
+                    elif bt_global_stats and bt_key in bt_global_stats:
+                        bt_info = {**bt_global_stats[bt_key], "is_global": True}
+
                     matched.append({
                         "pattern": p["name"],
                         "bias": p.get("bias", "neutral"),
@@ -3239,6 +3402,7 @@ def _do_sr_breakout_scan():
                         "rr_ratio": rr_ratio,
                         "volume_confirmed": p.get("volume_confirmed", False),
                         "components": p.get("components", []),
+                        "backtest": bt_info,
                     })
 
             if not matched:
@@ -3247,9 +3411,21 @@ def _do_sr_breakout_scan():
             matched.sort(key=lambda m: m["confluence_strength"], reverse=True)
 
             best = matched[0]
-            ema_align = ema_data.get("alignment", "neutral")
-            bull_crosses = [c for c in ema_data.get("crossovers", []) if c["bias"] == "bullish"]
-            bear_crosses = [c for c in ema_data.get("crossovers", []) if c["bias"] == "bearish"]
+
+            sma20_val = round(sma20, 2) if sma20 else None
+            sma50_val = round(sma50, 2) if sma50 else None
+            sma200_val = round(sma200, 2) if sma200 else None
+
+            if sma20 and sma50 and sma200 and cmp > sma20 > sma50 > sma200:
+                sma_alignment = "strong_bullish"
+            elif sma20 and cmp > sma20:
+                sma_alignment = "bullish"
+            elif sma20 and sma50 and sma200 and cmp < sma20 < sma50 < sma200:
+                sma_alignment = "strong_bearish"
+            elif sma20 and cmp < sma20:
+                sma_alignment = "bearish"
+            else:
+                sma_alignment = "neutral"
 
             reasons = []
             reasons.append(f"{best['pattern']} at ₹{best['breakout_level']} with {best['confluence_count']}-way confluence")
@@ -3258,14 +3434,10 @@ def _do_sr_breakout_scan():
                 reasons.append("Breakout confirmed — price beyond level")
             else:
                 reasons.append(f"Price {best['distance_pct']}% from breakout level")
-            if ema_align in ("bullish", "strong_bullish"):
-                reasons.append("EMAs aligned bullish")
-            elif ema_align in ("bearish", "strong_bearish"):
-                reasons.append("EMAs aligned bearish")
-            if bull_crosses:
-                reasons.append(bull_crosses[0]["type"])
-            if bear_crosses:
-                reasons.append(bear_crosses[0]["type"])
+            if sma_alignment in ("bullish", "strong_bullish"):
+                reasons.append("SMAs aligned bullish")
+            elif sma_alignment in ("bearish", "strong_bearish"):
+                reasons.append("SMAs aligned bearish")
 
             total_score = sum(m["confluence_strength"] for m in matched)
 
@@ -3275,8 +3447,10 @@ def _do_sr_breakout_scan():
                 "name": name,
                 "cmp": cmp,
                 "rsi": round(d_rsi, 1) if d_rsi else None,
-                "ema_alignment": ema_align,
-                "ema_crossovers": [c["type"] for c in ema_data.get("crossovers", [])],
+                "sma_alignment": sma_alignment,
+                "sma20": sma20_val,
+                "sma50": sma50_val,
+                "sma200": sma200_val,
                 "setups": matched,
                 "top_status": best["status"],
                 "top_direction": best["direction"],
@@ -3428,6 +3602,60 @@ def _do_rsi_momentum_scan():
 
             signal_type = "bullish" if is_bull else "bearish"
 
+            # --- Momentum quality filters ---
+            n = len(closes_5m)
+            opens_5m = [float(c[1]) for c in candles_5m]
+            volumes_5m = [float(c[5]) if len(c) > 5 else 0 for c in candles_5m]
+
+            # RSI velocity (change over last 3 candles)
+            rsi_velocity = abs(rsi_5m_vals[-1] - rsi_5m_vals[-4]) if len(rsi_5m_vals) >= 4 else 0
+
+            # Green/red candle streak (last 3)
+            green_count = sum(1 for j in range(max(0, n-3), n) if closes_5m[j] > opens_5m[j])
+
+            # EMA 9/20 spread
+            ema_spread = abs(e9[-1] - e20[-1]) / e20[-1] * 100 if e9 and e20 and e20[-1] > 0 else 0
+
+            # Volume vs 20-bar avg
+            avg_vol_20 = sum(volumes_5m[max(0, n-20):n]) / min(20, n) if n > 0 else 1
+            vol_ratio = volumes_5m[-1] / avg_vol_20 if avg_vol_20 > 0 else 1
+
+            # Price ROC (last 6 candles = 30 min)
+            price_roc = abs(closes_5m[-1] - closes_5m[-7]) / closes_5m[-7] * 100 if n >= 7 else 0
+
+            # Candles in zone — how long has RSI been in the signal zone?
+            candles_in_zone = 0
+            threshold = RSI_BEAR_THRESH if is_bear else RSI_BULL_THRESH
+            for k in range(len(rsi_5m_vals) - 1, max(len(rsi_5m_vals) - 50, 0), -1):
+                if (is_bear and rsi_5m_vals[k] < threshold) or (is_bull and rsi_5m_vals[k] > threshold):
+                    candles_in_zone += 1
+                else:
+                    break
+
+            if candles_in_zone <= 3:
+                entry_freshness = "fresh"
+            elif candles_in_zone <= 6:
+                entry_freshness = "stale"
+            else:
+                entry_freshness = "late"
+
+            # Momentum quality score
+            momentum_flags = []
+            if rsi_velocity > 15:
+                momentum_flags.append("RSI too fast")
+            if (is_bull and green_count <= 1) or (is_bear and green_count >= 2):
+                momentum_flags.append("Weak candles")
+            if ema_spread > 0.5:
+                momentum_flags.append("EMAs overextended")
+            if vol_ratio > 2.0:
+                momentum_flags.append("Volume too high")
+            if price_roc > 1.0:
+                momentum_flags.append("Price moved too much")
+            if entry_freshness == "late":
+                momentum_flags.append(f"Late entry ({candles_in_zone} candles in zone)")
+
+            momentum_quality = "good" if len(momentum_flags) == 0 else "caution" if len(momentum_flags) == 1 else "weak"
+
             # RSI trend — is it strengthening?
             rsi_5m_prev = round(rsi_5m_vals[-2], 1) if len(rsi_5m_vals) >= 2 else None
             rsi_15m_prev = round(rsi_15m_vals[-2], 1) if len(rsi_15m_vals) >= 2 else None
@@ -3477,14 +3705,15 @@ def _do_rsi_momentum_scan():
                     expected_rr = 4.8
                     expected_pnl = 0.86
 
-            # SL and target levels
+            # SL and target levels (0.5% SL, 0.75% target)
             sl_pct = 0.5
+            tgt_pct = 0.75
             if is_bull:
                 sl_price = round(cmp * (1 - sl_pct / 100), 2)
-                target_price = round(cmp * (1 + expected_pnl / 100), 2)
+                target_price = round(cmp * (1 + tgt_pct / 100), 2)
             else:
                 sl_price = round(cmp * (1 + sl_pct / 100), 2)
-                target_price = round(cmp * (1 - expected_pnl / 100), 2)
+                target_price = round(cmp * (1 - tgt_pct / 100), 2)
 
             # Score: higher RSI alignment = stronger signal
             if is_bull:
@@ -3503,6 +3732,11 @@ def _do_rsi_momentum_scan():
                 score += 10
             elif signal_strength == "very_strong":
                 score += 5
+            # Momentum quality adjustments
+            if momentum_quality == "good":
+                score += 5
+            elif momentum_quality == "weak":
+                score -= 10
 
             hold_note = "Hold 2H from entry" if can_hold_2h else "Hold till close — carry if needed"
 
@@ -3522,6 +3756,7 @@ def _do_rsi_momentum_scan():
                 "expected_rr": expected_rr,
                 "expected_pnl": expected_pnl,
                 "sl_pct": sl_pct,
+                "tgt_pct": tgt_pct,
                 "sl_price": sl_price,
                 "target_price": target_price,
                 "strengthening": strengthening,
@@ -3531,6 +3766,17 @@ def _do_rsi_momentum_scan():
                 "hold_note": hold_note,
                 "emas": ema_ctx,
                 "score": round(score, 1),
+                "momentum": {
+                    "quality": momentum_quality,
+                    "entry_freshness": entry_freshness,
+                    "candles_in_zone": candles_in_zone,
+                    "flags": momentum_flags,
+                    "rsi_velocity": round(rsi_velocity, 1),
+                    "green_candles": green_count,
+                    "ema_spread": round(ema_spread, 2),
+                    "vol_ratio": round(vol_ratio, 2),
+                    "price_roc": round(price_roc, 2),
+                },
             }
         except Exception:
             return None

@@ -78,6 +78,22 @@
   .empty-state { text-align: center; padding: 3rem; color: #8b949e; }
   .empty-state p { font-size: 1.05rem; margin-bottom: 0.5rem; }
 
+  .scan-bar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .risk-control { display:flex;align-items:center;gap:0.35rem;color:#8b949e;font-size:0.8rem; }
+  .risk-control input { width:105px;padding:0.45rem 0.55rem;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#e1e4e8; }
+  .risk-control input:focus { outline:none;border-color:#58a6ff; }
+  .scan-now-btn { padding: 0.5rem 1.2rem; font-size: 0.85rem; font-weight: 600; border: none; border-radius: 7px; cursor: pointer; background: #238636; color: #fff; transition: background 0.15s; }
+  .scan-now-btn:hover { background: #2ea043; }
+  .scan-now-btn:disabled { background: #30363d; color: #8b949e; cursor: not-allowed; }
+  .scan-fetched { font-size: 0.78rem; color: #8b949e; }
+
+  .filter-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .filter-btn { padding: 0.3rem 0.75rem; border-radius: 5px; font-size: 0.78rem; font-weight: 600; border: 1px solid #30363d; background: #161b22; color: #8b949e; cursor: pointer; transition: all 0.15s; }
+  .filter-btn:hover { border-color: #58a6ff; color: #e1e4e8; }
+  .filter-btn.active { background: #58a6ff20; color: #58a6ff; border-color: #58a6ff; }
+  .filter-btn.active.buy { background: #3fb95020; color: #3fb950; border-color: #3fb950; }
+  .filter-btn.active.sell { background: #f8514920; color: #f85149; border-color: #f85149; }
+
   @media (max-width: 720px) {
     .picks-grid { grid-template-columns: 1fr; }
     .tab-bar { flex-direction: column; }
@@ -104,6 +120,19 @@
     <button class="tab-pos active" onclick="loadPicks('positional')">Positional</button>
   </div>
 
+  <div class="scan-bar">
+    <button class="scan-now-btn" id="scanNowBtn" onclick="scanNow()">Scan Now</button>
+    <label class="risk-control">Capital ₹<input id="capitalInput" type="number" min="1000" max="100000000" step="1000" value="10000"></label>
+    <label class="risk-control">Risk %<input id="riskInput" type="number" min="0.1" max="10" step="0.1" value="2"></label>
+    <span class="scan-fetched" id="scanFetched"></span>
+  </div>
+
+  <div class="filter-row" id="filterRow" style="display:none;">
+    <button class="filter-btn active" data-filter="all" onclick="applyFilter('all', this)">All</button>
+    <button class="filter-btn buy" data-filter="BUY" onclick="applyFilter('BUY', this)">BUY</button>
+    <button class="filter-btn sell" data-filter="SELL" onclick="applyFilter('SELL', this)">SELL</button>
+  </div>
+
   <div class="meta-bar" id="metaBar" style="display:none;">
     <span id="metaTimestamp"></span>
     <span id="metaCount"></span>
@@ -119,10 +148,35 @@
 </div>
 
 <script>
-const cache = {};
+let cache = {};
 let currentTf = 'positional';
+let currentFilter = 'all';
+let currentData = null;
+const capitalInput = document.getElementById('capitalInput');
+const riskInput = document.getElementById('riskInput');
+capitalInput.value = localStorage.getItem('scanner_capital') || '10000';
+riskInput.value = localStorage.getItem('scanner_risk_pct') || '2';
 
 function fmt(v) { return v != null ? Number(v).toLocaleString('en-IN', {maximumFractionDigits: 2}) : '—'; }
+function esc(v) {
+  return String(v ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+}
+
+function applyFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('#filterRow .filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (currentData) renderPicks(currentData);
+}
+
+function scanNow() {
+  cache = {};
+  localStorage.setItem('scanner_capital', capitalInput.value);
+  localStorage.setItem('scanner_risk_pct', riskInput.value);
+  loadPicks(currentTf, true);
+}
+
+function sizingKey(tf) { return `${tf}:${capitalInput.value}:${riskInput.value}`; }
 
 function pollScanStatus(tf) {
   const spinnerText = document.getElementById('spinnerText');
@@ -146,30 +200,39 @@ function pollScanStatus(tf) {
 
 function setTab(tf) {
   currentTf = tf;
+  currentFilter = 'all';
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
   const cls = tf === 'intraday' ? 'tab-intra' : tf === 'short_term' ? 'tab-short' : 'tab-pos';
   document.querySelector(`.${cls}`).classList.add('active');
+  document.querySelectorAll('#filterRow .filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('#filterRow .filter-btn[data-filter="all"]').classList.add('active');
+  document.getElementById('filterRow').style.display = 'none';
 }
 
-async function loadPicks(tf) {
+async function loadPicks(tf, force = false) {
   setTab(tf);
   const grid = document.getElementById('picksGrid');
   const spinner = document.getElementById('spinner');
   const errorMsg = document.getElementById('errorMsg');
   const metaBar = document.getElementById('metaBar');
   const emptyState = document.getElementById('emptyState');
+  const scanBtn = document.getElementById('scanNowBtn');
 
   grid.innerHTML = '';
   errorMsg.style.display = 'none';
   emptyState.style.display = 'none';
   metaBar.style.display = 'none';
 
-  if (cache[tf]) { renderPicks(cache[tf]); return; }
+  const cacheKey = sizingKey(tf);
+  if (!force && cache[cacheKey]) { currentData = cache[cacheKey]; renderPicks(cache[cacheKey]); return; }
 
   spinner.classList.add('active');
+  scanBtn.disabled = true;
+  scanBtn.textContent = 'Scanning…';
 
   try {
-    const res = await fetch(`/scanner/picks?timeframe=${tf}`);
+    const params = new URLSearchParams({timeframe: tf, capital: capitalInput.value, risk_pct: riskInput.value});
+    const res = await fetch(`/scanner/picks?${params}`);
     const data = await res.json();
     if (data.scanning) {
       document.getElementById('spinnerText').textContent = 'First-time scan in progress — analyzing stocks across all timeframes. This may take 30-60 minutes...';
@@ -177,13 +240,23 @@ async function loadPicks(tf) {
       return;
     }
     if (data.error) { errorMsg.textContent = data.error; errorMsg.style.display = 'block'; spinner.classList.remove('active'); return; }
-    cache[tf] = data;
+    cache[cacheKey] = data;
+    currentData = data;
+    if (data.data_as_of) {
+      try {
+        const d = new Date(data.data_as_of);
+        document.getElementById('scanFetched').textContent = 'Last fetched: ' + d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'}) + ' · ' + d.toLocaleDateString('en-IN', {day:'2-digit', month:'short'});
+      } catch { document.getElementById('scanFetched').textContent = 'Last fetched: ' + data.data_as_of; }
+    }
     renderPicks(data);
     spinner.classList.remove('active');
   } catch (err) {
     errorMsg.textContent = 'Network error: ' + err.message;
     errorMsg.style.display = 'block';
     spinner.classList.remove('active');
+  } finally {
+    scanBtn.disabled = false;
+    scanBtn.textContent = 'Scan Now';
   }
 }
 
@@ -202,11 +275,25 @@ function renderPicks(data) {
   }
 
   if (!data.picks || data.picks.length === 0) {
+    document.getElementById('filterRow').style.display = 'none';
     emptyState.style.display = 'block';
     return;
   }
 
-  grid.innerHTML = data.picks.map(p => {
+  document.getElementById('filterRow').style.display = 'flex';
+
+  const picks = currentFilter === 'all'
+    ? data.picks
+    : data.picks.filter(p => p.verdict === currentFilter);
+
+  if (!picks.length) {
+    grid.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+  emptyState.style.display = 'none';
+
+  grid.innerHTML = picks.map(p => {
     const cv = p.conviction || {};
     const cvScore = cv.score || 0;
     const cvColor = cvScore >= 70 ? '#3fb950' : cvScore >= 55 ? '#a3d977' : cvScore >= 45 ? '#8b949e' : cvScore >= 30 ? '#f0883e' : '#f85149';
@@ -216,8 +303,8 @@ function renderPicks(data) {
     let tags = '';
     if (p.entry_confirmed) tags += '<span class="pick-tag" style="background:#3fb95020;color:#3fb950;border-color:#3fb95050;font-weight:700;">CONFIRMED</span>';
     if (p.status === 'BUY ZONE') tags += '<span class="pick-tag tag-buy-zone">BUY ZONE</span>';
-    if (p.patterns && p.patterns.length) p.patterns.forEach(pat => { tags += `<span class="pick-tag" style="background:#8b5cf615;color:#a78bfa;border-color:#8b5cf640;">${pat}</span>`; });
-    if (p.ema_crossovers && p.ema_crossovers.length) p.ema_crossovers.forEach(c => { tags += `<span class="pick-tag" style="background:#3fb95015;color:#3fb950;border-color:#3fb95040;">${c}</span>`; });
+    if (p.patterns && p.patterns.length) p.patterns.forEach(pat => { tags += `<span class="pick-tag" style="background:#8b5cf615;color:#a78bfa;border-color:#8b5cf640;">${esc(pat)}</span>`; });
+    if (p.ema_crossovers && p.ema_crossovers.length) p.ema_crossovers.forEach(c => { tags += `<span class="pick-tag" style="background:#3fb95015;color:#3fb950;border-color:#3fb95040;">${esc(c)}</span>`; });
     if (p.confluence_count > 1) tags += `<span class="pick-tag tag-confluence">${p.confluence_count}-way confluence</span>`;
     if (p.volume_environment === 'confirmed') tags += '<span class="pick-tag tag-vol-confirmed">Vol Confirmed</span>';
     else if (p.volume_environment === 'low') tags += '<span class="pick-tag tag-vol-low">Low Vol</span>';
@@ -235,12 +322,12 @@ function renderPicks(data) {
     return `<div class="pick-card" style="border-color:${verdictBorder};">
       <div class="pick-header">
         <div>
-          <div class="pick-symbol"><a href="/?symbol=${encodeURIComponent(sym)}">${sym}</a> <span style="font-size:0.8rem;font-weight:800;color:${verdictColor};margin-left:0.3rem;">${p.verdict || ''}</span></div>
-          <div class="pick-name">${p.name || ''}</div>
+          <div class="pick-symbol"><a href="/?symbol=${encodeURIComponent(sym)}">${esc(sym)}</a> <span style="font-size:0.8rem;font-weight:800;color:${verdictColor};margin-left:0.3rem;">${esc(p.verdict)}</span></div>
+          <div class="pick-name">${esc(p.name)}</div>
         </div>
         <div style="text-align:right;">
           <div class="pick-conviction" style="background:${cvBg};color:${cvColor};border:1px solid ${cvBorder};">
-            ${cvScore} ${cv.label || ''}
+            ${cvScore} ${esc(cv.label)}
           </div>
           <div style="font-size:0.7rem;color:#8b949e;margin-top:0.25rem;">Rank: ${p.rank_score || '—'}</div>
         </div>
@@ -250,9 +337,11 @@ function renderPicks(data) {
         <span>RS: <strong style="color:${rsColor};">${p.relative_strength != null ? (p.relative_strength > 0 ? '+' : '') + p.relative_strength.toFixed(1) + '%' : '—'}</strong></span>
         <span>EMA: <strong style="color:${emaColor};">${(p.ema_alignment || 'neutral').replace('_', ' ')}</strong></span>
         <span>PF: <strong>${p.profit_factor || '—'}</strong></span>
-        <span>Win: <strong>${p.win_rate ? fmt(p.win_rate) + '%' : '—'}</strong></span>
+        <span>Win: <strong>${p.win_rate ? fmt(p.win_rate) + '%' : '—'}</strong> <span style="color:#8b949e;">(n=${p.backtest_trades || 0})</span></span>
+        <span>95% CI: <strong>${p.win_rate_ci_95 ? p.win_rate_ci_95[0] + '–' + p.win_rate_ci_95[1] + '%' : '—'}</strong></span>
+        <span>Costs: <strong>${p.execution_cost_pct != null ? p.execution_cost_pct + '%' : '—'}</strong></span>
       </div>
-      ${p.verdict_reasons && p.verdict_reasons.length ? `<div style="margin-bottom:0.4rem;">${p.verdict_reasons.map(r => `<div style="font-size:0.75rem;color:#c9d1d9;padding:0.1rem 0;"><span style="color:${verdictColor};margin-right:0.3rem;">&#10003;</span>${r}</div>`).join('')}</div>` : ''}
+      ${p.verdict_reasons && p.verdict_reasons.length ? `<div style="margin-bottom:0.4rem;">${p.verdict_reasons.map(r => `<div style="font-size:0.75rem;color:#c9d1d9;padding:0.1rem 0;"><span style="color:${verdictColor};margin-right:0.3rem;">&#10003;</span>${esc(r)}</div>`).join('')}</div>` : ''}
       <div class="pick-levels">
         <span class="lbl">Buy @</span><span class="val green">₹${fmt(p.buy_level)} <span style="font-size:0.75rem;color:#8b949e;">(${p.buy_distance_pct != null ? p.buy_distance_pct.toFixed(1) + '%' : '—'})</span></span>
         <span class="lbl">SL</span><span class="val red">₹${fmt(p.sl)}</span>

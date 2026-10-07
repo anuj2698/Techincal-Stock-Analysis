@@ -111,7 +111,7 @@ def _do_login():
     return bearer, auth_code_from_url
 
 
-def get_auth_url(redirect_uri_override=None):
+def get_auth_url(redirect_uri_override=None, state=None):
     """Do the login and return either (auth_code, None) if captured directly,
     or (None, auth_url) if browser redirect is needed.
     """
@@ -124,7 +124,7 @@ def get_auth_url(redirect_uri_override=None):
     auth_url = (
         f"{TOKEN_URL}/generate-authcode"
         f"?client_id={app_id}&redirect_uri={redirect_uri}"
-        f"&response_type=code&state=None"
+        f"&response_type=code&state={state or 'None'}"
     )
     return None, auth_url
 

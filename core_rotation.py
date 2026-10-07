@@ -15,6 +15,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from atomic_json import write_json_atomic
+
 IST = timezone(timedelta(hours=5, minutes=30))
 CONFIG_PATH = Path(__file__).resolve().parent / "core_stocks_config.json"
 MAX_CORE = 15
@@ -41,7 +43,7 @@ def load_config() -> dict:
 
 
 def save_config(cfg: dict) -> None:
-    CONFIG_PATH.write_text(json.dumps(cfg, indent=2))
+    write_json_atomic(CONFIG_PATH, cfg, indent=2)
 
 
 def needs_rotation() -> bool:

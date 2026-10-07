@@ -421,10 +421,24 @@ function startAutoRefresh() {
 }
 
 async function rescan() {
+  let secret = sessionStorage.getItem('admin_secret');
+  if (!secret) {
+    secret = prompt('Enter admin secret:');
+    if (secret) sessionStorage.setItem('admin_secret', secret);
+  }
+  if (!secret) return;
   const spinner = document.getElementById('spinner');
   spinner.textContent = 'Rescanning all F&O stocks...';
   spinner.classList.add('active');
-  try { await fetch('/intraday/pick?force=1'); await loadData(); }
+  try {
+    const response = await fetch('/intraday/pick?force=1', {method:'POST', headers:{'X-Admin-Secret':secret}});
+    if (!response.ok) {
+      if (response.status === 401) sessionStorage.removeItem('admin_secret');
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Rescan was rejected');
+    }
+    await loadData();
+  }
   catch(e) { alert('Rescan failed: ' + e.message); }
   finally { spinner.textContent = 'Loading PDH/PDL levels...'; spinner.classList.remove('active'); }
 }

@@ -194,9 +194,8 @@ async function runLive(){
   btn.disabled=true;btn.textContent='Scanning...';grid.innerHTML='';empty.style.display='none';sp.classList.add('active');
   try{
     const res=await fetch('/rsi-extremes/today');const d=await res.json();
-    if(d.scanning && (!d.results || d.results.length===0)){
-      sp.textContent='Scanning all F&O stocks... will auto-refresh in 10s';
-      setTimeout(()=>scanToday(),10000);return;
+    if(d.scanning && (!d.results || !d.results.length)){
+      sp.textContent='Scan in progress… refresh in a moment';return;
     }
     sp.classList.remove('active');
     if(d.error){empty.textContent=d.error;empty.style.display='block';return}
@@ -258,10 +257,6 @@ async function runScan(days){
   grid.innerHTML='';err.style.display='none';es.style.display='none';
   mb.style.display='none';fb.style.display='none';sb.style.display='none';sp.classList.add('active');
   try{const res=await fetch(`/rsi-extremes/scan?days=${days}`);const data=await res.json();
-    if(data.scanning && (!data.results || data.results.length===0)){
-      sp.textContent='Scanning all F&O stocks... will auto-refresh in 10s';
-      setTimeout(()=>runScan(days),10000);return;
-    }
     sp.classList.remove('active');
     if(data.error){err.textContent=data.error;err.style.display='block'}
     else{scanData=data;fb.style.display='flex';renderStats(data);renderResults(data);}

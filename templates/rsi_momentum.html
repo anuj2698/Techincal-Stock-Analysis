@@ -175,11 +175,6 @@ async function runScan() {
   try {
     const res = await fetch('/rsi-momentum/scan');
     const data = await res.json();
-    if (data.scanning && (!data.results || data.results.length === 0)) {
-      spinner.textContent = 'Scanning all F&O stocks... will auto-refresh in 10s';
-      setTimeout(() => scanNow(), 10000);
-      return;
-    }
     if (data.error) { errorMsg.textContent = data.error; errorMsg.style.display = 'block'; return; }
     currentData = data;
     scanMeta.textContent = `Scanned ${data.total_scanned} stocks at ${data.time} | ${data.count} signals found`;
@@ -222,13 +217,15 @@ function renderResults(data) {
 
   currentFilter = 'all';
   filterRow.innerHTML = `
-    <span class="filter-btn active" onclick="applyFilter('all',this)">All</span>
-    <span class="filter-btn" onclick="applyFilter('perfect',this)" style="border-color:#3fb95060;color:#3fb950;">Perfect (98-100% WR)</span>
-    <span class="filter-btn" onclick="applyFilter('very_strong',this)" style="border-color:#a78bfa60;color:#a78bfa;">Very Strong (97-98% WR)</span>
-    <span class="filter-btn" onclick="applyFilter('strong',this)" style="border-color:#58a6ff60;color:#58a6ff;">Strong (91-92% WR)</span>
-    <span class="filter-btn" onclick="applyFilter('bullish',this)" style="border-color:#3fb95040;">Bullish</span>
-    <span class="filter-btn" onclick="applyFilter('bearish',this)" style="border-color:#f8514940;">Bearish</span>
-    <span class="filter-btn" onclick="applyFilter('afternoon',this)" style="border-color:#d2992260;color:#d29922;">Afternoon Zone</span>
+    <span class="filter-btn active" data-filter="all" onclick="applyFilter('all',this)">All</span>
+    <span class="filter-btn" data-filter="perfect" onclick="applyFilter('perfect',this)" style="border-color:#3fb95060;color:#3fb950;">Perfect (98-100% WR)</span>
+    <span class="filter-btn" data-filter="very_strong" onclick="applyFilter('very_strong',this)" style="border-color:#a78bfa60;color:#a78bfa;">Very Strong (97-98% WR)</span>
+    <span class="filter-btn" data-filter="strong" onclick="applyFilter('strong',this)" style="border-color:#58a6ff60;color:#58a6ff;">Strong (91-92% WR)</span>
+    <span class="filter-btn" data-filter="bullish" onclick="applyFilter('bullish',this)" style="border-color:#3fb95040;">Bullish</span>
+    <span class="filter-btn" data-filter="bearish" onclick="applyFilter('bearish',this)" style="border-color:#f8514940;">Bearish</span>
+    <span class="filter-btn" data-filter="afternoon" onclick="applyFilter('afternoon',this)" style="border-color:#d2992260;color:#d29922;">Afternoon Zone</span>
+    <span class="filter-btn" data-filter="good_momentum" onclick="applyFilter('good_momentum',this)" style="border-color:#3fb95060;color:#3fb950;">Good Momentum</span>
+    <span class="filter-btn" data-filter="fresh" onclick="applyFilter('fresh',this)" style="border-color:#3fb95060;color:#3fb950;">Fresh Entry</span>
   `;
   filterRow.style.display = 'flex';
 
@@ -253,6 +250,8 @@ function renderCards(results) {
   else if (currentFilter === 'very_strong') filtered = results.filter(r => r.signal_strength === 'very_strong');
   else if (currentFilter === 'strong') filtered = results.filter(r => r.signal_strength === 'strong');
   else if (currentFilter === 'afternoon') filtered = results.filter(r => r.time_zone === 'afternoon' || r.time_zone === 'close');
+  else if (currentFilter === 'good_momentum') filtered = results.filter(r => r.momentum && r.momentum.quality === 'good');
+  else if (currentFilter === 'fresh') filtered = results.filter(r => r.momentum && r.momentum.entry_freshness === 'fresh');
 
   if (!filtered.length) { grid.innerHTML = ''; emptyState.style.display = 'block'; return; }
   emptyState.style.display = 'none';
@@ -294,25 +293,37 @@ function renderCards(results) {
       </div>
     `;
 
+    // Entry freshness badge
+    const m = r.momentum || {};
+    const freshColor = m.entry_freshness === 'fresh' ? '#3fb950' : m.entry_freshness === 'stale' ? '#d29922' : '#f85149';
+    const freshLabel = m.entry_freshness === 'fresh' ? 'FRESH ENTRY' : m.entry_freshness === 'stale' ? 'STALE' : 'LATE ENTRY';
+    const zoneCandles = m.candles_in_zone || 0;
+    const freshBadge = `<span style="font-size:0.72rem;padding:0.12rem 0.45rem;border-radius:4px;background:${freshColor}15;color:${freshColor};border:1px solid ${freshColor}40;font-weight:700;">${freshLabel} (${zoneCandles} candles)</span>`;
+
     // SL / Target / Levels
+    const tgtPct = r.tgt_pct || 0.75;
     const levelsHtml = isBull ? `
       <div class="levels-box">
+        ${freshBadge}
+        <span class="lvl-divider">|</span>
         <span class="lvl-entry" style="color:#3fb950;">Entry ₹${fmt(r.cmp)}</span>
         <span class="lvl-divider">|</span>
-        <span class="lvl-target" style="color:#a3d977;">Target ₹${fmt(r.target_price)} (+${r.expected_pnl}%)</span>
+        <span class="lvl-target" style="color:#a3d977;">Target ₹${fmt(r.target_price)} (+${tgtPct}%)</span>
         <span class="lvl-divider">|</span>
         <span class="lvl-sl">SL ₹${fmt(r.sl_price)} (-${r.sl_pct}%)</span>
         <span class="lvl-divider">|</span>
-        <span class="lvl-meta">WR ${r.expected_wr}% &middot; RR ${r.expected_rr}x &middot; 2H hold</span>
+        <span class="lvl-meta">Exit by 3:15 PM</span>
       </div>` : `
       <div class="levels-box">
+        ${freshBadge}
+        <span class="lvl-divider">|</span>
         <span class="lvl-entry" style="color:#f85149;">Entry ₹${fmt(r.cmp)}</span>
         <span class="lvl-divider">|</span>
-        <span class="lvl-target" style="color:#f0883e;">Target ₹${fmt(r.target_price)} (-${r.expected_pnl}%)</span>
+        <span class="lvl-target" style="color:#f0883e;">Target ₹${fmt(r.target_price)} (-${tgtPct}%)</span>
         <span class="lvl-divider">|</span>
         <span class="lvl-sl">SL ₹${fmt(r.sl_price)} (+${r.sl_pct}%)</span>
         <span class="lvl-divider">|</span>
-        <span class="lvl-meta">WR ${r.expected_wr}% &middot; RR ${r.expected_rr}x &middot; 2H hold</span>
+        <span class="lvl-meta">Exit by 3:15 PM</span>
       </div>`;
 
     // Context tags
@@ -329,6 +340,21 @@ function renderCards(results) {
     if (r.emas) {
       if (r.emas.ema9) tags += `<span class="ctx-tag ctx-ema">EMA9: ₹${fmt(r.emas.ema9)}</span>`;
       if (r.emas.ema20) tags += `<span class="ctx-tag ctx-ema">EMA20: ₹${fmt(r.emas.ema20)}</span>`;
+    }
+
+    // Momentum quality
+    if (r.momentum) {
+      const m = r.momentum;
+      const qColor = m.quality === 'good' ? '#3fb950' : m.quality === 'caution' ? '#d29922' : '#f85149';
+      const qLabel = m.quality === 'good' ? 'Good Momentum' : m.quality === 'caution' ? 'Caution' : 'Weak Momentum';
+      tags += `<span class="ctx-tag" style="background:${qColor}15;color:${qColor};border:1px solid ${qColor}40;">${qLabel}</span>`;
+      tags += `<span class="ctx-tag ctx-ema">Zone: ${m.candles_in_zone || 0} candles</span>`;
+      tags += `<span class="ctx-tag ctx-ema">RSI Vel: ${m.rsi_velocity}</span>`;
+      tags += `<span class="ctx-tag ctx-ema">${m.green_candles}/3 Green</span>`;
+      tags += `<span class="ctx-tag ctx-ema">Vol: ${m.vol_ratio}x</span>`;
+      if (m.flags && m.flags.length > 0) {
+        tags += m.flags.map(f => `<span class="ctx-tag" style="background:#f8514915;color:#f85149;border:1px solid #f8514940;">${f}</span>`).join('');
+      }
     }
 
     // Backtest per-stock note

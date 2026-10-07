@@ -312,6 +312,23 @@ def main():
         avg_pnl = cs["total_pnl"] / cs["trades"] if cs["trades"] else 0
         print(f"{name:<20} {cs['trades']:>7} {cs['wins']:>6} {wr:>6.1f}% {cs['targets']:>7} {cs['total_pnl']:>+10.2f} {avg_pnl:>+10.3f}")
 
+    # Per-stock-per-pattern stats
+    stock_pattern_stats = defaultdict(lambda: defaultdict(lambda: {"trades": 0, "wins": 0, "targets": 0, "sls": 0, "total_pnl": 0.0}))
+
+    for r in all_results:
+        sym = r["symbol"]
+        for t in r["trades"]:
+            key = f"{t['pattern']} ({t['direction'].upper()})"
+            sp = stock_pattern_stats[sym][key]
+            sp["trades"] += 1
+            sp["total_pnl"] += t["pnl_pct"]
+            if t["pnl_pct"] > 0:
+                sp["wins"] += 1
+            if t["outcome"] == "TARGET":
+                sp["targets"] += 1
+            elif t["outcome"] == "SL":
+                sp["sls"] += 1
+
     # Top stocks
     stock_stats = {}
     for r in all_results:
@@ -374,6 +391,20 @@ def main():
             for name, cs in sorted_conf
         ],
         "stock_results": sorted_stocks[:30],
+        "stock_pattern_stats": {
+            sym: {
+                pat: {
+                    "trades": sp["trades"],
+                    "wins": sp["wins"],
+                    "win_rate": round(sp["wins"] / sp["trades"] * 100, 1) if sp["trades"] else 0,
+                    "targets": sp["targets"],
+                    "sls": sp["sls"],
+                    "avg_pnl": round(sp["total_pnl"] / sp["trades"], 2) if sp["trades"] else 0,
+                }
+                for pat, sp in patterns_dict.items()
+            }
+            for sym, patterns_dict in stock_pattern_stats.items()
+        },
     }
 
     out_file = "sr_pattern_backtest.json"

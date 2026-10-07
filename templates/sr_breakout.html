@@ -157,8 +157,17 @@ function renderResults(data) {
   const metaBar = document.getElementById('metaBar');
   const s = data.summary;
 
-  document.getElementById('metaInfo').textContent =
-    `${data.total_with_setups} of ${data.total_scanned} F&O stocks have S/R breakout setups`;
+  let metaText = `${data.total_with_setups} of ${data.total_scanned} F&O stocks have S/R breakout setups`;
+  if (data.data_as_of) {
+    try {
+      const d = new Date(data.data_as_of);
+      metaText += ` · Data as of ${d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})} ${d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}`;
+    } catch {}
+  }
+  if (data._refreshing) {
+    metaText += ' · Refreshing...';
+  }
+  document.getElementById('metaInfo').textContent = metaText;
   metaBar.style.display = 'flex';
 
   summaryBar.innerHTML = `
@@ -177,6 +186,10 @@ function renderResults(data) {
     <span class="filter-btn" onclick="applyFilter('bullish', this)">Bullish</span>
     <span class="filter-btn" onclick="applyFilter('bearish', this)">Bearish</span>
     <span class="filter-btn" onclick="applyFilter('high_confluence', this)" style="border-color:#58a6ff60;color:#58a6ff;">3+ Confluence</span>
+    <span class="filter-btn" onclick="applyFilter('above_sma20', this)" style="border-color:#3fb95060;color:#3fb950;">Price &gt; SMA20</span>
+    <span class="filter-btn" onclick="applyFilter('below_sma20', this)" style="border-color:#f8514960;color:#f85149;">Price &lt; SMA20</span>
+    <span class="filter-btn" onclick="applyFilter('strong_bullish', this)" style="border-color:#3fb95060;color:#3fb950;">Bullish + Above SMA20</span>
+    <span class="filter-btn" onclick="applyFilter('strong_bearish', this)" style="border-color:#f8514960;color:#f85149;">Bearish + Below SMA20</span>
   `;
   filterRow.style.display = 'flex';
 
@@ -205,6 +218,14 @@ function renderCards(results) {
     filtered = results.filter(r => r.top_direction === 'bearish');
   } else if (currentFilter === 'high_confluence') {
     filtered = results.filter(r => r.setups.some(s => s.confluence_count >= 3));
+  } else if (currentFilter === 'above_sma20') {
+    filtered = results.filter(r => r.sma_alignment === 'bullish' || r.sma_alignment === 'strong_bullish');
+  } else if (currentFilter === 'below_sma20') {
+    filtered = results.filter(r => r.sma_alignment === 'bearish' || r.sma_alignment === 'strong_bearish');
+  } else if (currentFilter === 'strong_bullish') {
+    filtered = results.filter(r => r.top_direction === 'bullish' && (r.sma_alignment === 'bullish' || r.sma_alignment === 'strong_bullish'));
+  } else if (currentFilter === 'strong_bearish') {
+    filtered = results.filter(r => r.top_direction === 'bearish' && (r.sma_alignment === 'bearish' || r.sma_alignment === 'strong_bearish'));
   }
 
   if (!filtered.length) { grid.innerHTML = ''; emptyState.style.display = 'block'; return; }
@@ -215,13 +236,24 @@ function renderCards(results) {
     const dirColor = r.top_direction === 'bullish' ? '#3fb950' : '#f85149';
     const statusColor = r.top_status === 'Breakout Confirmed' ? '#3fb950' : '#d29922';
 
-    const emaColor = r.ema_alignment === 'strong_bullish' ? '#3fb950' : r.ema_alignment === 'bullish' ? '#a3d977' : r.ema_alignment === 'bearish' ? '#f0883e' : r.ema_alignment === 'strong_bearish' ? '#f85149' : '#8b949e';
-    let emaTags = `<span class="ema-tag" style="background:${emaColor}15;color:${emaColor};border:1px solid ${emaColor}40;">EMA: ${(r.ema_alignment || 'neutral').replace('_', ' ')}</span>`;
-    if (r.ema_crossovers) r.ema_crossovers.forEach(c => {
-      emaTags += `<span class="ema-tag" style="background:#3fb95015;color:#3fb950;border:1px solid #3fb95040;">${c}</span>`;
-    });
+    const smaAlign = r.sma_alignment || 'neutral';
+    const smaColor = smaAlign === 'strong_bullish' ? '#3fb950' : smaAlign === 'bullish' ? '#a3d977' : smaAlign === 'bearish' ? '#f0883e' : smaAlign === 'strong_bearish' ? '#f85149' : '#8b949e';
+    const smaDesc = smaAlign === 'strong_bullish' ? 'Price > SMA20 > SMA50 > SMA200'
+      : smaAlign === 'bullish' ? 'Price > SMA20'
+      : smaAlign === 'strong_bearish' ? 'Price < SMA20 < SMA50 < SMA200'
+      : smaAlign === 'bearish' ? 'Price < SMA20'
+      : 'SMAs mixed';
+    let smaTags = `<span class="ema-tag" style="background:${smaColor}15;color:${smaColor};border:1px solid ${smaColor}40;">${smaDesc}</span>`;
+    if (r.sma20) smaTags += `<span class="ema-tag" style="background:#21262d;color:#8b949e;border:1px solid #30363d;">SMA20: ₹${fmt(r.sma20)}</span>`;
+    if (r.sma50) smaTags += `<span class="ema-tag" style="background:#21262d;color:#8b949e;border:1px solid #30363d;">SMA50: ₹${fmt(r.sma50)}</span>`;
+    if (r.sma200) smaTags += `<span class="ema-tag" style="background:#21262d;color:#8b949e;border:1px solid #30363d;">SMA200: ₹${fmt(r.sma200)}</span>`;
 
-    const reasonsHtml = (r.reasons || []).map(reason =>
+    const uniqueReasons = (r.reasons || []).filter(reason => {
+      const lower = reason.toLowerCase();
+      if (lower.includes('confluence') || lower.includes('s/r sources') || lower.includes('% from breakout')) return false;
+      return true;
+    });
+    const reasonsHtml = uniqueReasons.map(reason =>
       `<div class="reason-item"><span style="color:${dirColor};margin-right:0.3rem;">&#10003;</span>${reason}</div>`
     ).join('');
 
@@ -252,18 +284,32 @@ function renderCards(results) {
         ? '<span style="font-size:0.65rem;padding:1px 5px;border-radius:3px;background:#3fb95015;color:#3fb950;border:1px solid #3fb95030;margin-left:0.3rem;">VOL &#10003;</span>'
         : '';
 
+      let btBadge = '';
+      if (s.backtest && s.backtest.trades >= 1) {
+        const wr = s.backtest.win_rate;
+        const trades = s.backtest.trades;
+        const isGlobal = s.backtest.is_global;
+        const wrColor = wr >= 60 ? '#3fb950' : wr >= 45 ? '#d29922' : '#f85149';
+        const label = isGlobal ? 'Global' : 'Stock';
+        const avgPnl = s.backtest.avg_pnl != null ? ` · Avg ${s.backtest.avg_pnl > 0 ? '+' : ''}${s.backtest.avg_pnl}%` : '';
+        btBadge = `<div style="display:inline-flex;align-items:center;gap:0.35rem;margin-left:0.3rem;padding:1px 6px;border-radius:4px;background:${wrColor}12;border:1px solid ${wrColor}35;font-size:0.65rem;font-weight:700;color:${wrColor};">
+          <span>${wr}% WR</span><span style="color:#8b949e;font-weight:400;">${trades} trades${avgPnl}</span><span style="color:#8b949e;font-weight:400;font-style:italic;">${label}</span>
+        </div>`;
+      }
+
       return `<div class="setup-item ${setupCls}">
         <div class="setup-top">
-          <div class="setup-pattern">
+          <div class="setup-pattern" style="display:flex;align-items:center;flex-wrap:wrap;">
             <span style="color:${dirClr};margin-right:0.2rem;">${dirIcon}</span>
-            ${s.pattern}${volBadge}
+            ${s.pattern}${volBadge}${btBadge}
           </div>
           <span class="status-badge ${statusCls}">${statusLabel}</span>
         </div>
         <div style="font-size:0.76rem;color:#8b949e;margin-bottom:0.2rem;">
-          Breakout at ₹${fmt(s.breakout_level)} &middot; ${s.distance_pct}% away &middot; ${s.confluence_count}-way confluence (str: ${s.confluence_strength})
+          Breakout at ₹${fmt(s.breakout_level)} &middot; ${s.distance_pct}% away &middot; ${s.confluence_count}-way confluence &middot; <span style="color:${s.confluence_strength >= 25 ? '#3fb950' : s.confluence_strength >= 15 ? '#f0883e' : '#f85149'};font-weight:700;">${s.confluence_strength >= 25 ? 'Strong' : s.confluence_strength >= 15 ? 'Moderate' : 'Weak'}</span>
         </div>
         <div class="confluence-bar">${confTags}</div>
+        ${s.components && s.components.length ? `<div style="margin:0.3rem 0;padding:0.3rem 0.5rem;background:#0d1117;border-radius:4px;font-size:0.74rem;color:#8b949e;">${s.components.map(c => `<div style="padding:1px 0;">&#8250; ${c}</div>`).join('')}</div>` : ''}
         ${levelsHtml}
       </div>`;
     }).join('');
@@ -283,7 +329,7 @@ function renderCards(results) {
         </div>
       </div>
       <div class="reason-list">${reasonsHtml}</div>
-      <div class="ema-info">${emaTags}</div>
+      <div class="ema-info">${smaTags}</div>
       <div style="margin-top:0.6rem;">${setupsHtml}</div>
     </div>`;
   }).join('');

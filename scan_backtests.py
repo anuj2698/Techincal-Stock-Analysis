@@ -15,8 +15,9 @@ from datetime import datetime
 
 from nselib import capital_market
 
+from atomic_json import write_json_atomic
 from app import resolve_yahoo_ticker, fetch_candles
-from backtester import run_backtest
+from backtester import BACKTEST_VERSION, run_backtest
 
 IST = timezone(timedelta(hours=5, minutes=30))
 BASE_DIR = Path(__file__).resolve().parent
@@ -81,7 +82,9 @@ def fetch_all_candles(stocks: list[dict]) -> dict:
         sym = stock["symbol"]
         try:
             canonical, yahoo_sym = resolve_yahoo_ticker(sym)
-            daily = fetch_candles(yahoo_sym, period="1y", interval="1d", canonical=canonical)
+            # Multiple years are needed to produce a meaningful number of
+            # actionable BUY/SELL signals after WAIT setups are excluded.
+            daily = fetch_candles(yahoo_sym, period="5y", interval="1d", canonical=canonical)
             hourly = fetch_candles(yahoo_sym, period="60d", interval="1h", canonical=canonical)
             return sym, daily, hourly
         except Exception:
@@ -144,11 +147,12 @@ def main():
 
     CACHE_DIR.mkdir(exist_ok=True)
     data = {
+        "backtest_version": BACKTEST_VERSION,
         "timestamp": datetime.now(IST).isoformat(),
         "total_stocks": len(stocks),
         "results": results,
     }
-    CACHE_FILE.write_text(json.dumps(data, indent=2, default=str))
+    write_json_atomic(CACHE_FILE, data, indent=2)
 
     tf_counts = {}
     for entry in results.values():
