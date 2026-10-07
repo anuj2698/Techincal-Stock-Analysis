@@ -20,6 +20,12 @@ Configure `ADMIN_SECRET` before using operational actions such as result refresh
 - Intraday Breakout, RSI Momentum and the live section of RSI Extremes use 5-minute market data. The server keeps a live snapshot for at most 60 seconds during market hours; 15-minute and 1-hour RSI views are derived locally from the same feed to reduce broker/API calls.
 - Live scans use Fyers when its access token is valid and fall back to the configured market-data source otherwise. Refresh the Fyers connection when low latency matters.
 
+## Trading Platform V2
+
+Open `/v2` for the evidence-gated workflow. V2 keeps swing and intraday decisions separate, applies configurable account-level limits, and stores a local trade journal in the ignored `.cache` directory.
+
+The V2 PDH/PDL backtester uses 5-minute candles within individual exchange sessions, permits at most one trade per stock per day, blocks entries before 09:30 and after 14:30, forces an exit at 15:20, applies execution costs, and reports chronological 60/20/20 train/validation/test results. A setup remains research-only until its overall sample and unseen test segment qualify.
+
 ## Backtest methodology
 
 Backtests execute only explicit BUY or SELL verdicts. WAIT signals are skipped. If stop and target are both touched in one candle, the stop is assumed to occur first. Open trades are marked to market at the end of the horizon, and a configurable round-trip execution-cost allowance is deducted from every trade.

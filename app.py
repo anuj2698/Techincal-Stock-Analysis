@@ -26,6 +26,7 @@ from oi_fetcher import fetch_oi
 from prediction_logger import log_prediction, get_predictions, get_all_predictions
 from backtester import BACKTEST_VERSION, MIN_SAMPLE_SIZE, run_backtest, backtest_logged_predictions
 from results_fetcher import get_cached_data as get_results_cached, start_background_fetch as start_results_fetch, get_fetch_status as get_results_status, is_cache_fresh as is_results_fresh
+from trading_v2 import account_risk_status
 
 load_dotenv()
 
@@ -644,11 +645,144 @@ def cache_status():
         "server_time": now.strftime("%H:%M:%S"),
         "market_open": _is_market_open(),
         "strategy": {
-            "live_pages": "TTL=0 during market, 4h after close",
-            "daily_pages": "Fetch after close, serve cache during market",
+            "live_pages": "Refresh at most every 60s during market, 4h after close",
+            "daily_pages": "Previous-close snapshot refreshed once per calendar day",
         },
         "caches": caches,
     })
+
+
+# ---------------------------------------------------------------------------
+# Trading Platform V2 — separated workflows and account-level risk controls
+# ---------------------------------------------------------------------------
+V2_JOURNAL_FILE = CACHE_DIR / "trade_journal_v2.json"
+
+
+def _load_v2_journal() -> list[dict]:
+    if not V2_JOURNAL_FILE.exists():
+        return []
+    try:
+        data = json.loads(V2_JOURNAL_FILE.read_text())
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _v2_risk_for_date(trade_date: str, capital: float) -> dict:
+    journal = [row for row in _load_v2_journal() if row.get("date") == trade_date]
+    return account_risk_status(
+        journal,
+        capital=capital,
+        risk_per_trade_pct=float(os.environ.get("V2_RISK_PER_TRADE_PCT", "0.5")),
+        max_daily_loss_pct=float(os.environ.get("V2_MAX_DAILY_LOSS_PCT", "1.0")),
+        max_trades_per_day=int(os.environ.get("V2_MAX_TRADES_PER_DAY", "3")),
+        max_open_positions=int(os.environ.get("V2_MAX_OPEN_POSITIONS", "2")),
+    )
+
+
+@app.route("/v2")
+def trading_v2_page():
+    return render_template("v2.html")
+
+
+@app.route("/v2/api/overview")
+def trading_v2_overview():
+    capital, error = _parse_optional_positive_float(request.args.get("capital", "100000"), "Capital")
+    if error or capital < 1_000 or capital > 100_000_000:
+        return jsonify({"error": error or "Capital must be between ₹1,000 and ₹10 crore"}), 400
+    today = datetime.now(IST).strftime("%Y-%m-%d")
+    return jsonify({
+        "version": 2,
+        "date": today,
+        "risk": _v2_risk_for_date(today, capital),
+        "workflows": {
+            "swing": {
+                "price_basis": "previous_close", "entry_window": "next session",
+                "overnight_allowed": True, "source": "/today/picks",
+            },
+            "intraday": {
+                "price_basis": "live_5m", "entry_cutoff": "14:30",
+                "forced_exit": "15:20", "overnight_allowed": False,
+                "minimum_validated_trades": 30, "source": "/intraday/levels",
+            },
+        },
+        "journal": [row for row in _load_v2_journal() if row.get("date") == today],
+    })
+
+
+@app.route("/v2/api/journal", methods=["GET", "POST"])
+def trading_v2_journal():
+    if request.method == "GET":
+        trade_date = request.args.get("date", datetime.now(IST).strftime("%Y-%m-%d"))
+        return jsonify({"trades": [row for row in _load_v2_journal() if row.get("date") == trade_date]})
+
+    auth_err = _check_admin(request)
+    if auth_err:
+        return auth_err
+    payload = request.get_json(silent=True) or {}
+    symbol = str(payload.get("symbol", "")).strip().upper()
+    mode = str(payload.get("mode", "")).strip().lower()
+    side = str(payload.get("side", "")).strip().lower()
+    status = str(payload.get("status", "")).strip().lower()
+    if not re.fullmatch(r"[A-Z0-9&.\-]{1,20}", symbol):
+        return jsonify({"error": "Invalid symbol"}), 400
+    if mode not in {"intraday", "swing"} or side not in {"long", "short"} or status not in {"open", "closed"}:
+        return jsonify({"error": "Mode, side or status is invalid"}), 400
+
+    numeric = {}
+    for field in ("entry", "stop", "target"):
+        value, value_error = _parse_optional_positive_float(str(payload.get(field, "")), field.title())
+        if value_error or value is None:
+            return jsonify({"error": value_error or f"{field.title()} is required"}), 400
+        numeric[field] = round(value, 2)
+    try:
+        pnl = round(float(payload.get("pnl", 0) or 0), 2)
+        capital = float(payload.get("capital", 100000) or 100000)
+    except (TypeError, ValueError):
+        return jsonify({"error": "PnL and capital must be numbers"}), 400
+    if not math.isfinite(pnl) or not math.isfinite(capital) or capital < 1_000:
+        return jsonify({"error": "PnL or capital is invalid"}), 400
+
+    now = datetime.now(IST)
+    row = {
+        "id": secrets.token_hex(8), "date": now.strftime("%Y-%m-%d"),
+        "created_at": now.isoformat(), "symbol": symbol, "mode": mode,
+        "side": side, "status": status, "pnl": pnl, **numeric,
+        "notes": str(payload.get("notes", "")).strip()[:500],
+    }
+    journal = _load_v2_journal()
+    journal.append(row)
+    write_json_atomic(V2_JOURNAL_FILE, journal, indent=2)
+    return jsonify({"trade": row, "risk": _v2_risk_for_date(row["date"], capital)}), 201
+
+
+@app.route("/v2/api/journal/<trade_id>", methods=["PATCH"])
+def trading_v2_journal_update(trade_id: str):
+    auth_err = _check_admin(request)
+    if auth_err:
+        return auth_err
+    payload = request.get_json(silent=True) or {}
+    try:
+        pnl = round(float(payload.get("pnl")), 2)
+        capital = float(payload.get("capital", 100000) or 100000)
+    except (TypeError, ValueError):
+        return jsonify({"error": "PnL and capital must be numbers"}), 400
+    if not math.isfinite(pnl) or not math.isfinite(capital) or capital < 1_000:
+        return jsonify({"error": "PnL or capital is invalid"}), 400
+
+    journal = _load_v2_journal()
+    trade = next((row for row in journal if row.get("id") == trade_id), None)
+    if trade is None:
+        return jsonify({"error": "Trade not found"}), 404
+    if trade.get("status") != "open":
+        return jsonify({"error": "Only an open trade can be closed"}), 409
+    trade["status"] = "closed"
+    trade["pnl"] = pnl
+    trade["closed_at"] = datetime.now(IST).isoformat()
+    if "notes" in payload:
+        trade["notes"] = str(payload.get("notes", "")).strip()[:500]
+    write_json_atomic(V2_JOURNAL_FILE, journal, indent=2)
+    return jsonify({"trade": trade, "risk": _v2_risk_for_date(trade["date"], capital)})
 
 
 _stock_list_cache: list[dict] | None = None
@@ -840,6 +974,8 @@ def scanner_picks():
         return jsonify({"scanning": True, "progress": _scan_progress, "picks": []})
 
     cache = json.loads(cache_path.read_text())
+    if cache.get("backtest_version") != BACKTEST_VERSION:
+        return jsonify({"scanning": True, "progress": _scan_progress, "picks": []})
     timestamp = cache.get("timestamp", "")
 
     qualifying = []
@@ -855,6 +991,7 @@ def scanner_picks():
             and summary.get("triggered", 0) >= MIN_SAMPLE_SIZE
             and summary.get("methodology_version") == BACKTEST_VERSION
             and (summary.get("win_rate_ci_95") or [0])[0] >= 50
+            and summary.get("out_of_sample", {}).get("eligible", False)
         ):
             qualifying.append(entry)
 
@@ -969,6 +1106,7 @@ def scanner_picks():
                 "volume_environment": ap.get("volume_environment"),
                 "win_rate": win_rate,
                 "backtest_trades": backtest_trades,
+                "out_of_sample": entry["summary"].get("out_of_sample", {}),
                 "execution_cost_pct": execution_cost_pct,
                 "win_rate_ci_95": win_rate_ci_95,
                 "profit_factor": round(profit_factor, 2) if profit_factor else None,
@@ -1253,6 +1391,9 @@ def _do_today_picks(timeframe: str):
         return
 
     cache = json.loads(cache_path.read_text())
+    if cache.get("backtest_version") != BACKTEST_VERSION:
+        _bg_scan_running[scan_key] = False
+        return
     timestamp = cache.get("timestamp", "")
 
     # Today's Picks is a previous-close swing shortlist. Live trading signals
@@ -1271,13 +1412,17 @@ def _do_today_picks(timeframe: str):
             if win_rate >= 50 and profit_factor >= 1.5 and summary.get("triggered", 0) >= MIN_SAMPLE_SIZE:
                 qualifying.append(entry)
         else:
-            if win_rate >= 70 and profit_factor >= 0.8 and summary.get("triggered", 0) >= MIN_SAMPLE_SIZE:
+            if (win_rate >= 70 and profit_factor >= 0.8
+                    and summary.get("triggered", 0) >= MIN_SAMPLE_SIZE
+                    and summary.get("methodology_version") == BACKTEST_VERSION
+                    and summary.get("out_of_sample", {}).get("eligible", False)):
                 qualifying.append(entry)
 
     if not qualifying:
         _save_scan_cache("today_picks", {
             "picks": [], "timestamp": timestamp, "qualifying_count": 0,
             "price_basis": "previous_close", "market_data_as_of": None,
+            "backtest_version": BACKTEST_VERSION,
         }, extra=f"_{timeframe}")
         _bg_scan_running[scan_key] = False
         return
@@ -1358,6 +1503,7 @@ def _do_today_picks(timeframe: str):
         name = entry["name"]
         win_rate = entry["summary"]["win_rate"]
         profit_factor = entry["summary"].get("profit_factor", 0)
+        backtest_trades = entry["summary"].get("triggered", 0)
         try:
             canonical, yahoo_sym = resolve_yahoo_ticker(sym)
             candles = fetch_candles(yahoo_sym, period=period, interval=interval, canonical=canonical)
@@ -1526,6 +1672,8 @@ def _do_today_picks(timeframe: str):
                 "verdict_reasons": ap.get("action_summary", {}).get("reasons", [])[:3],
                 "win_rate": win_rate,
                 "profit_factor": round(profit_factor, 2),
+                "backtest_trades": backtest_trades,
+                "out_of_sample": entry["summary"].get("out_of_sample", {}),
                 "ema_alignment": ema_data.get("alignment", "neutral"),
                 "suggested_qty": suggested_qty,
                 "capital_required": capital_required,
@@ -1575,6 +1723,7 @@ def _do_today_picks(timeframe: str):
         "max_distance_pct": max_distance_pct,
         "price_basis": "previous_close",
         "market_data_as_of": max((p.get("market_data_as_of") or "" for p in picks), default=None),
+        "backtest_version": BACKTEST_VERSION,
     }, extra=f"_{timeframe}")
     _bg_scan_running[scan_key] = False
 
@@ -1921,8 +2070,9 @@ def _serve_or_scan_daily(scan_type: str, target, args=(), extra: str = "", empty
         try:
             data = json.loads(path.read_text())
             cached_at = datetime.fromisoformat(data.get("_cached_at", ""))
+            version_ok = scan_type != "today_picks" or data.get("backtest_version") == BACKTEST_VERSION
             if (cached_at.strftime("%Y-%m-%d") == today_str
-                    and data.get("price_basis") == "previous_close"):
+                    and data.get("price_basis") == "previous_close" and version_ok):
                 data["data_as_of"] = data.pop("_cached_at", None)
                 return jsonify(data)
         except Exception:
@@ -3110,9 +3260,15 @@ def _do_intraday_levels():
                         long_pnl_pct = None
                         short_pnl_pct = None
 
-                        post_15 = [c for c in today_candles
-                                   if (datetime.fromtimestamp(int(c[0]), tz=IST).hour - 9) * 60 +
-                                      (datetime.fromtimestamp(int(c[0]), tz=IST).minute - 15) >= 0]
+                        # V2 execution contract: skip the opening 15 minutes,
+                        # stop accepting entries at 14:30, and exit by 15:20.
+                        session_candles = [
+                            c for c in today_candles
+                            if (9, 30) <= (
+                                datetime.fromtimestamp(int(c[0]), tz=IST).hour,
+                                datetime.fromtimestamp(int(c[0]), tz=IST).minute,
+                            ) <= (15, 20)
+                        ]
 
                         long_triggered = False
                         short_triggered = False
@@ -3120,49 +3276,68 @@ def _do_intraday_levels():
                         short_trigger_time = None
                         long_exit_time = None
                         short_exit_time = None
-                        for c in post_15:
-                            h, l, cl = c[2], c[3], c[4]
+                        long_fill = None
+                        short_fill = None
+                        active_side = None
+                        trade_finished = False
+                        for c in session_candles:
+                            o, h, l, cl = map(float, c[1:5])
                             c_dt = datetime.fromtimestamp(int(c[0]), tz=IST)
                             c_time = c_dt.strftime("%H:%M")
-                            if not long_triggered and h >= long_entry:
-                                long_triggered = True
-                                long_status = "triggered"
-                                long_trigger_time = c_time
-                            if long_triggered and long_status == "triggered":
+                            can_enter = (c_dt.hour, c_dt.minute) <= (14, 30)
+                            if active_side is None and not trade_finished and can_enter:
+                                long_touched = h >= long_entry
+                                short_touched = l <= short_entry
+                                if long_touched != short_touched:
+                                    active_side = "long" if long_touched else "short"
+                                    if active_side == "long":
+                                        long_triggered = True
+                                        long_status = "triggered"
+                                        long_trigger_time = c_time
+                                        long_fill = max(o, long_entry)
+                                        long_target = round(long_fill + (long_fill - long_sl), 2)
+                                    else:
+                                        short_triggered = True
+                                        short_status = "triggered"
+                                        short_trigger_time = c_time
+                                        short_fill = min(o, short_entry)
+                                        short_target = round(short_fill - (short_sl - short_fill), 2)
+
+                            if active_side == "long" and long_status == "triggered":
                                 if l <= long_sl:
                                     long_status = "sl"
-                                    long_pnl_pct = round((long_sl - long_entry) / long_entry * 100, 2)
+                                    long_pnl_pct = round((long_sl - long_fill) / long_fill * 100, 2)
                                     long_exit_time = c_time
+                                    trade_finished = True
                                 elif h >= long_target:
                                     long_status = "target"
-                                    long_pnl_pct = round((long_target - long_entry) / long_entry * 100, 2)
+                                    long_pnl_pct = round((long_target - long_fill) / long_fill * 100, 2)
                                     long_exit_time = c_time
+                                    trade_finished = True
 
-                            if not short_triggered and l <= short_entry:
-                                short_triggered = True
-                                short_status = "triggered"
-                                short_trigger_time = c_time
-                            if short_triggered and short_status == "triggered":
+                            if active_side == "short" and short_status == "triggered":
                                 if h >= short_sl:
                                     short_status = "sl"
-                                    short_pnl_pct = round((short_entry - short_sl) / short_entry * 100, 2)
+                                    short_pnl_pct = round((short_fill - short_sl) / short_fill * 100, 2)
                                     short_exit_time = c_time
+                                    trade_finished = True
                                 elif l <= short_target:
                                     short_status = "target"
-                                    short_pnl_pct = round((short_entry - short_target) / short_entry * 100, 2)
+                                    short_pnl_pct = round((short_fill - short_target) / short_fill * 100, 2)
                                     short_exit_time = c_time
+                                    trade_finished = True
 
-                        eod_closed = market_status == "closed"
+                        eod_closed = market_status == "closed" or (now.hour, now.minute) >= (15, 20)
                         if long_status == "triggered":
-                            long_pnl_pct = round((cmp - long_entry) / long_entry * 100, 2)
+                            long_pnl_pct = round((cmp - long_fill) / long_fill * 100, 2)
                             if eod_closed:
                                 long_status = "eod"
-                                long_exit_time = "15:30"
+                                long_exit_time = "15:20"
                         if short_status == "triggered":
-                            short_pnl_pct = round((short_entry - cmp) / short_entry * 100, 2)
+                            short_pnl_pct = round((short_fill - cmp) / short_fill * 100, 2)
                             if eod_closed:
                                 short_status = "eod"
-                                short_exit_time = "15:30"
+                                short_exit_time = "15:20"
 
                         pdhl_data = {
                             "pdh": pdh, "pdl": pdl, "prev_date": prev_day,
@@ -3175,6 +3350,9 @@ def _do_intraday_levels():
                             "long_pnl_pct": long_pnl_pct, "short_pnl_pct": short_pnl_pct,
                             "long_trigger_time": long_trigger_time, "short_trigger_time": short_trigger_time,
                             "long_exit_time": long_exit_time, "short_exit_time": short_exit_time,
+                            "long_fill": round(long_fill, 2) if long_fill else None,
+                            "short_fill": round(short_fill, 2) if short_fill else None,
+                            "execution_contract": "v2_session",
                         }
 
             result["pdhl"] = pdhl_data
@@ -3718,41 +3896,24 @@ def _do_rsi_momentum_scan():
             signal_time = now.strftime("%H:%M")
             time_zone = _time_zone(market_hour, market_min)
 
-            # Signal strength tier based on RSI brackets
+            # Signal intensity is descriptive only. Performance must come from
+            # the attached strategy backtest, never from hard-coded win rates.
             if is_bull:
                 min_rsi = min(rsi_5m, rsi_15m)
                 if min_rsi >= 75:
                     signal_strength = "perfect"
-                    expected_wr = 100.0
-                    expected_rr = 10.5
-                    expected_pnl = 2.64
                 elif min_rsi >= 70:
                     signal_strength = "very_strong"
-                    expected_wr = 98.0
-                    expected_rr = 8.4
-                    expected_pnl = 1.67
                 else:
                     signal_strength = "strong"
-                    expected_wr = 91.4
-                    expected_rr = 5.5
-                    expected_pnl = 1.09
             else:
                 max_rsi = max(rsi_5m, rsi_15m)
                 if max_rsi <= 25:
                     signal_strength = "perfect"
-                    expected_wr = 98.3
-                    expected_rr = 10.8
-                    expected_pnl = 2.08
                 elif max_rsi <= 30:
                     signal_strength = "very_strong"
-                    expected_wr = 97.2
-                    expected_rr = 7.1
-                    expected_pnl = 1.34
                 else:
                     signal_strength = "strong"
-                    expected_wr = 92.1
-                    expected_rr = 4.8
-                    expected_pnl = 0.86
 
             # SL and target levels (0.5% SL, 0.75% target)
             sl_pct = 0.5
@@ -3787,7 +3948,11 @@ def _do_rsi_momentum_scan():
             elif momentum_quality == "weak":
                 score -= 10
 
-            hold_note = "Hold 2H from entry" if can_hold_2h else "Hold till close — carry if needed"
+            can_enter = market_time_min <= 14 * 60 + 30
+            if not can_enter:
+                momentum_flags.append("Past 14:30 entry cutoff")
+                momentum_quality = "weak"
+            hold_note = "Maximum 2H hold; exit by 15:15" if can_hold_2h else "Exit by 15:15 — never carry"
 
             return {
                 "symbol": canonical,
@@ -3801,9 +3966,7 @@ def _do_rsi_momentum_scan():
                 "rsi_15m_prev": rsi_15m_prev,
                 "signal_type": signal_type,
                 "signal_strength": signal_strength,
-                "expected_wr": expected_wr,
-                "expected_rr": expected_rr,
-                "expected_pnl": expected_pnl,
+                "performance_source": "per_stock_backtest",
                 "sl_pct": sl_pct,
                 "tgt_pct": tgt_pct,
                 "sl_price": sl_price,
@@ -3812,6 +3975,7 @@ def _do_rsi_momentum_scan():
                 "signal_time": signal_time,
                 "time_zone": time_zone,
                 "can_hold_2h": can_hold_2h,
+                "can_enter": can_enter,
                 "hold_note": hold_note,
                 "emas": ema_ctx,
                 "score": round(score, 1),
@@ -3840,7 +4004,9 @@ def _do_rsi_momentum_scan():
     bt_data = {}
     if bt_file.exists():
         try:
-            bt_data = json.loads(bt_file.read_text())
+            raw_bt_data = json.loads(bt_file.read_text())
+            if raw_bt_data.get("methodology_version") == 3:
+                bt_data = raw_bt_data.get("results", {})
         except Exception:
             pass
 
@@ -3854,6 +4020,8 @@ def _do_rsi_momentum_scan():
             "win_rate": bt_dir.get("win_rate", 0),
             "avg_pnl": bt_dir.get("avg_pnl", 0),
             "rr": bt_dir.get("rr", 0),
+            "methodology_version": bt_dir.get("methodology_version"),
+            "out_of_sample": bt_dir.get("out_of_sample", {}),
         } if bt_dir else None
 
     bulls = [r for r in results if r["signal_type"] == "bullish"]

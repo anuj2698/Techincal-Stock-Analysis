@@ -101,7 +101,7 @@
 
   <div class="strategy-box" id="strategyBox">
     <h3 onclick="document.getElementById('stratContent').classList.toggle('collapsed');this.querySelector('.toggle-icon').textContent=document.getElementById('stratContent').classList.contains('collapsed')?'▸':'▾'" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
-      <span>Strategy Rules (Backtested across 210 F&O stocks, 60 days)</span>
+      <span>Strategy Rules (V3 validation required per stock)</span>
       <span class="toggle-icon" style="font-size:1rem;color:#8b949e;">▾</span>
     </h3>
     <div class="strat-grid" id="stratContent">
@@ -115,19 +115,19 @@
       </div>
       <div class="strat-item">
         <div class="strat-label">Hold Period</div>
-        <div class="strat-value purple">2 Hours</div>
+        <div class="strat-value purple">Maximum 2 Hours; exit by 3:15 PM</div>
       </div>
       <div class="strat-item">
-        <div class="strat-label">Best Time</div>
-        <div class="strat-value orange">1 PM &ndash; 3:30 PM (96&ndash;100% WR)</div>
+        <div class="strat-label">Entry Cutoff</div>
+        <div class="strat-value orange">No new trades after 2:30 PM</div>
       </div>
       <div class="strat-item">
         <div class="strat-label">SL / Exit</div>
-        <div class="strat-value red">0.5% SL &middot; Time exit at 2H</div>
+        <div class="strat-value red">0.5% SL &middot; 0.75% target &middot; no overnight carry</div>
       </div>
       <div class="strat-item">
-        <div class="strat-label">Signal Tiers</div>
-        <div class="strat-value purple">Strong 91% &middot; V.Strong 98% &middot; Perfect 100%</div>
+        <div class="strat-label">Evidence</div>
+        <div class="strat-value purple">Only chronological out-of-sample-qualified statistics are shown</div>
       </div>
     </div>
   </div>
@@ -208,9 +208,9 @@ function renderResults(data) {
   summaryBar.innerHTML = `
     <div class="summary-chip"><span class="count" style="color:#3fb950;">${data.bulls}</span>Bullish</div>
     <div class="summary-chip"><span class="count" style="color:#f85149;">${data.bears}</span>Bearish</div>
-    <div class="summary-chip"><span class="count" style="color:#3fb950;">${perfect}</span>Perfect</div>
-    <div class="summary-chip"><span class="count" style="color:#a78bfa;">${veryStrong}</span>Very Strong</div>
-    <div class="summary-chip"><span class="count" style="color:#58a6ff;">${strong}</span>Strong</div>
+    <div class="summary-chip"><span class="count" style="color:#3fb950;">${perfect}</span>Extreme Alignment</div>
+    <div class="summary-chip"><span class="count" style="color:#a78bfa;">${veryStrong}</span>High Alignment</div>
+    <div class="summary-chip"><span class="count" style="color:#58a6ff;">${strong}</span>Aligned</div>
     <div class="summary-chip"><span class="count" style="color:#d29922;">${afternoon}</span>Afternoon</div>
   `;
   summaryBar.style.display = 'flex';
@@ -218,9 +218,9 @@ function renderResults(data) {
   currentFilter = 'all';
   filterRow.innerHTML = `
     <span class="filter-btn active" data-filter="all" onclick="applyFilter('all',this)">All</span>
-    <span class="filter-btn" data-filter="perfect" onclick="applyFilter('perfect',this)" style="border-color:#3fb95060;color:#3fb950;">Perfect (98-100% WR)</span>
-    <span class="filter-btn" data-filter="very_strong" onclick="applyFilter('very_strong',this)" style="border-color:#a78bfa60;color:#a78bfa;">Very Strong (97-98% WR)</span>
-    <span class="filter-btn" data-filter="strong" onclick="applyFilter('strong',this)" style="border-color:#58a6ff60;color:#58a6ff;">Strong (91-92% WR)</span>
+    <span class="filter-btn" data-filter="perfect" onclick="applyFilter('perfect',this)" style="border-color:#3fb95060;color:#3fb950;">Extreme Alignment</span>
+    <span class="filter-btn" data-filter="very_strong" onclick="applyFilter('very_strong',this)" style="border-color:#a78bfa60;color:#a78bfa;">High Alignment</span>
+    <span class="filter-btn" data-filter="strong" onclick="applyFilter('strong',this)" style="border-color:#58a6ff60;color:#58a6ff;">Aligned</span>
     <span class="filter-btn" data-filter="bullish" onclick="applyFilter('bullish',this)" style="border-color:#3fb95040;">Bullish</span>
     <span class="filter-btn" data-filter="bearish" onclick="applyFilter('bearish',this)" style="border-color:#f8514940;">Bearish</span>
     <span class="filter-btn" data-filter="afternoon" onclick="applyFilter('afternoon',this)" style="border-color:#d2992260;color:#d29922;">Afternoon Zone</span>
@@ -281,7 +281,7 @@ function renderCards(results) {
     }
 
     // Strength badge
-    const strengthLabels = {perfect:'Perfect',very_strong:'Very Strong',strong:'Strong'};
+    const strengthLabels = {perfect:'Extreme Alignment',very_strong:'High Alignment',strong:'Aligned'};
     const strengthLabel = strengthLabels[r.signal_strength] || r.signal_strength;
 
     const rsiRow = `
@@ -360,11 +360,13 @@ function renderCards(results) {
     // Backtest per-stock note
     const bt = r.backtest;
     let btNote = '';
-    if (bt && bt.trades > 0) {
+    if (bt && bt.trades > 0 && bt.out_of_sample && bt.out_of_sample.eligible) {
       const wrColor = bt.win_rate >= 95 ? '#3fb950' : bt.win_rate >= 90 ? '#a3d977' : bt.win_rate >= 80 ? '#d29922' : '#f85149';
       btNote = `<span style="color:${wrColor};font-weight:700;">${bt.win_rate}% WR</span> on ${sym} &middot; ${bt.trades} trades &middot; ${bt.avg_pnl > 0 ? '+' : ''}${bt.avg_pnl.toFixed(3)}% avg PnL &middot; ${bt.rr}x R:R`;
+    } else if (bt && bt.trades > 0) {
+      btNote = `Research only · ${bt.trades} trades · chronological out-of-sample test not yet qualified`;
     } else {
-      btNote = 'No backtest data for this stock';
+      btNote = 'Research only · no V3 backtest data for this stock';
     }
 
     return `<div class="stock-card ${cardCls}">

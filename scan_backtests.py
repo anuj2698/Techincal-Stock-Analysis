@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Weekly batch backtest for NSE 500 + BSE stocks across all timeframes.
+"""Weekly batch backtest for NSE 500 + BSE swing timeframes.
+
+Intraday validation is intentionally handled by the session-correct V2
+PDH/PDL engine; it must never reuse this daily-candle batch.
 Run every Sunday: python scan_backtests.py
 """
 
@@ -85,18 +88,17 @@ def fetch_all_candles(stocks: list[dict]) -> dict:
             # Multiple years are needed to produce a meaningful number of
             # actionable BUY/SELL signals after WAIT setups are excluded.
             daily = fetch_candles(yahoo_sym, period="5y", interval="1d", canonical=canonical)
-            hourly = fetch_candles(yahoo_sym, period="60d", interval="1h", canonical=canonical)
-            return sym, daily, hourly
+            return sym, daily
         except Exception:
-            return sym, [], []
+            return sym, []
 
     with ThreadPoolExecutor(max_workers=5) as pool:
         futures = {pool.submit(_fetch, s): s for s in stocks}
         done = 0
         for future in as_completed(futures):
             done += 1
-            sym, daily, hourly = future.result()
-            candles[sym] = {"daily": daily, "hourly": hourly}
+            sym, daily = future.result()
+            candles[sym] = {"daily": daily}
             if done % 20 == 0 or done == len(stocks):
                 print(f"  Fetched {done}/{len(stocks)} stocks")
 
@@ -106,7 +108,7 @@ def fetch_all_candles(stocks: list[dict]) -> dict:
 def run_all_backtests(stocks: list[dict], candles: dict) -> dict:
     print(f"\n[3/3] Running backtests...")
     results = {}
-    total = len(stocks) * 3
+    total = len(stocks) * 2
     count = 0
 
     for stock in stocks:
@@ -114,9 +116,8 @@ def run_all_backtests(stocks: list[dict], candles: dict) -> dict:
         name = stock["name"]
         stock_candles = candles.get(sym, {})
         daily = stock_candles.get("daily", [])
-        hourly = stock_candles.get("hourly", [])
 
-        for tf, cndls in [("intraday", hourly), ("short_term", daily), ("positional", daily)]:
+        for tf, cndls in [("short_term", daily), ("positional", daily)]:
             count += 1
             if not cndls or len(cndls) < 100:
                 continue

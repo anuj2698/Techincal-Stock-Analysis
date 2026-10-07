@@ -6,7 +6,6 @@ Saves per-stock results to rsi_momentum_backtest.json for use in live scanner.
 """
 from __future__ import annotations
 
-import json
 import os
 import sys
 import time
@@ -18,6 +17,7 @@ load_dotenv(dotenv_path='.env')
 
 sys.path.insert(0, '.')
 from analyzer import rsi_series
+from atomic_json import write_json_atomic
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -25,8 +25,35 @@ RSI_BULL = 65
 RSI_BEAR = 35
 FORWARD_2H = 24
 MIN_MOVE = 0.1
+EXECUTION_COST_PCT = 0.15
+METHODOLOGY_VERSION = 3
 
 OUTPUT_FILE = Path("rsi_momentum_backtest.json")
+
+
+def summarize_trades(trades):
+    wins = sum(1 for trade in trades if trade["win"])
+    test = trades[int(len(trades) * 0.8):]
+    test_avg = sum(trade["pnl"] for trade in test) / len(test) if test else 0
+    stats = {
+        "trades": len(trades),
+        "wins": wins,
+        "win_rate": round(wins / len(trades) * 100, 1),
+        "avg_pnl": round(sum(t["pnl"] for t in trades) / len(trades), 3),
+        "avg_mfe": round(sum(t["mfe"] for t in trades) / len(trades), 3),
+        "avg_mae": round(sum(t["mae"] for t in trades) / len(trades), 3),
+        "total_pnl": round(sum(t["pnl"] for t in trades), 2),
+        "methodology_version": METHODOLOGY_VERSION,
+        "out_of_sample": {
+            "split": "chronological_80_20",
+            "trades": len(test),
+            "avg_pnl": round(test_avg, 3),
+            "win_rate": round(sum(1 for t in test if t["win"]) / len(test) * 100, 1) if test else 0,
+            "eligible": len(trades) >= 30 and len(test) >= 8 and test_avg > 0,
+        },
+    }
+    stats["rr"] = round(stats["avg_mfe"] / stats["avg_mae"], 1) if stats["avg_mae"] > 0.001 else 0
+    return stats
 
 
 def fetch_5min_candles(symbol):
@@ -64,26 +91,33 @@ def fetch_5min_candles(symbol):
 
 
 def resample(candles_5m, factor):
+    """Build exchange-open-aligned bars without combining different sessions."""
+    buckets = {}
+    for candle in candles_5m:
+        dt = datetime.fromtimestamp(int(candle[0]), tz=IST)
+        minute = dt.hour * 60 + dt.minute
+        key = (dt.strftime("%Y-%m-%d"), (minute - (9 * 60 + 15)) // (factor * 5))
+        buckets.setdefault(key, []).append(candle)
     out = []
-    for i in range(0, len(candles_5m) - factor + 1, factor):
-        chunk = candles_5m[i:i + factor]
+    for chunk in buckets.values():
         out.append([chunk[0][0], chunk[0][1], max(c[2] for c in chunk),
-                     min(c[3] for c in chunk), chunk[-1][4],
-                     sum(c[5] for c in chunk)])
-    return out
+                    min(c[3] for c in chunk), chunk[-1][4], sum(c[5] for c in chunk)])
+    return sorted(out, key=lambda row: row[0])
 
 
 def map_htf_rsi(candles_5m, candles_htf, rsi_htf):
-    ts_map = {}
-    for i, c in enumerate(candles_htf):
-        if i < len(rsi_htf) and rsi_htf[i] is not None:
-            ts_map[c[0]] = rsi_htf[i]
+    offset = len(candles_htf) - len(rsi_htf)
+    ts_map = {
+        int(candles_htf[i + offset][0]) + 15 * 60: value
+        for i, value in enumerate(rsi_htf)
+    }
     keys = sorted(ts_map.keys())
     result = [None] * len(candles_5m)
     for i, c5 in enumerate(candles_5m):
         best = None
         for k in keys:
-            if k <= c5[0]:
+            # A 15-minute RSI becomes available only after that bar closes.
+            if k <= c5[0] + 5 * 60:
                 best = k
             else:
                 break
@@ -106,9 +140,8 @@ def backtest_stock(sym):
         return None
 
     n = len(candles_5m)
-    rsi_5m = rsi_series([c[4] for c in candles_5m], 14)
-    while len(rsi_5m) < n:
-        rsi_5m.append(None)
+    rsi_5m_raw = rsi_series([c[4] for c in candles_5m], 14)
+    rsi_5m = [None] * (n - len(rsi_5m_raw)) + rsi_5m_raw
 
     candles_15m = resample(candles_5m, 3)
     rsi_15m_raw = rsi_series([c[4] for c in candles_15m], 14)
@@ -117,8 +150,13 @@ def backtest_stock(sym):
     bull_trades = []
     bear_trades = []
 
-    for idx in range(50, n - FORWARD_2H):
+    traded_days = set()
+    for idx in range(50, n - 1):
         if not is_market_hours(candles_5m[idx][0]):
+            continue
+        signal_dt = datetime.fromtimestamp(candles_5m[idx][0], tz=IST)
+        day_key = signal_dt.strftime("%Y-%m-%d")
+        if day_key in traded_days or (signal_dt.hour, signal_dt.minute) > (14, 30):
             continue
 
         r5 = rsi_5m[idx]
@@ -136,51 +174,61 @@ def backtest_stock(sym):
         is_bear = r5 < RSI_BEAR and r15 < RSI_BEAR
         was_bear = r5p is not None and r15p is not None and r5p < RSI_BEAR and r15p < RSI_BEAR
 
-        entry = candles_5m[idx][4]
-        fwd_end = min(idx + FORWARD_2H, n - 1)
-        exit_price = candles_5m[fwd_end][4]
-        max_high = max(c[2] for c in candles_5m[idx + 1:fwd_end + 1])
-        min_low = min(c[3] for c in candles_5m[idx + 1:fwd_end + 1])
+        direction = "bull" if is_bull and not was_bull else "bear" if is_bear and not was_bear else None
+        if not direction:
+            continue
+        entry = float(candles_5m[idx][4])
+        stop = entry * (0.995 if direction == "bull" else 1.005)
+        target = entry * (1.0075 if direction == "bull" else 0.9925)
+        future = []
+        for candle in candles_5m[idx + 1:idx + 1 + FORWARD_2H]:
+            dt = datetime.fromtimestamp(candle[0], tz=IST)
+            if dt.strftime("%Y-%m-%d") != day_key or (dt.hour, dt.minute) > (15, 15):
+                break
+            future.append(candle)
+        if not future:
+            continue
 
-        if is_bull and not was_bull:
-            pnl = (exit_price - entry) / entry * 100
-            mfe = (max_high - entry) / entry * 100
-            mae = (entry - min_low) / entry * 100
-            bull_trades.append({"pnl": pnl, "mfe": mfe, "mae": mae, "win": pnl > MIN_MOVE})
+        exit_price = float(future[-1][4])
+        result = "eod"
+        for candle in future:
+            high, low = float(candle[2]), float(candle[3])
+            if direction == "bull":
+                if low <= stop:
+                    exit_price, result = stop, "stop"
+                    break
+                if high >= target:
+                    exit_price, result = target, "target"
+                    break
+            else:
+                if high >= stop:
+                    exit_price, result = stop, "stop"
+                    break
+                if low <= target:
+                    exit_price, result = target, "target"
+                    break
 
-        if is_bear and not was_bear:
-            pnl = (entry - exit_price) / entry * 100
-            mfe = (entry - min_low) / entry * 100
-            mae = (max_high - entry) / entry * 100
-            bear_trades.append({"pnl": pnl, "mfe": mfe, "mae": mae, "win": pnl > MIN_MOVE})
+        max_high = max(float(c[2]) for c in future)
+        min_low = min(float(c[3]) for c in future)
+        gross = ((exit_price - entry) / entry * 100 if direction == "bull"
+                 else (entry - exit_price) / entry * 100)
+        pnl = gross - EXECUTION_COST_PCT
+        mfe = ((max_high - entry) / entry * 100 if direction == "bull"
+               else (entry - min_low) / entry * 100)
+        mae = ((entry - min_low) / entry * 100 if direction == "bull"
+               else (max_high - entry) / entry * 100)
+        trade = {"date": day_key, "pnl": pnl, "mfe": mfe, "mae": mae,
+                 "win": pnl > 0, "result": result}
+        (bull_trades if direction == "bull" else bear_trades).append(trade)
+        traded_days.add(day_key)
 
     result = {"symbol": sym}
 
     if bull_trades:
-        wins = sum(1 for t in bull_trades if t["win"])
-        result["bull"] = {
-            "trades": len(bull_trades),
-            "wins": wins,
-            "win_rate": round(wins / len(bull_trades) * 100, 1),
-            "avg_pnl": round(sum(t["pnl"] for t in bull_trades) / len(bull_trades), 3),
-            "avg_mfe": round(sum(t["mfe"] for t in bull_trades) / len(bull_trades), 3),
-            "avg_mae": round(sum(t["mae"] for t in bull_trades) / len(bull_trades), 3),
-            "total_pnl": round(sum(t["pnl"] for t in bull_trades), 2),
-        }
-        result["bull"]["rr"] = round(result["bull"]["avg_mfe"] / result["bull"]["avg_mae"], 1) if result["bull"]["avg_mae"] > 0.001 else 0
+        result["bull"] = summarize_trades(bull_trades)
 
     if bear_trades:
-        wins = sum(1 for t in bear_trades if t["win"])
-        result["bear"] = {
-            "trades": len(bear_trades),
-            "wins": wins,
-            "win_rate": round(wins / len(bear_trades) * 100, 1),
-            "avg_pnl": round(sum(t["pnl"] for t in bear_trades) / len(bear_trades), 3),
-            "avg_mfe": round(sum(t["mfe"] for t in bear_trades) / len(bear_trades), 3),
-            "avg_mae": round(sum(t["mae"] for t in bear_trades) / len(bear_trades), 3),
-            "total_pnl": round(sum(t["pnl"] for t in bear_trades), 2),
-        }
-        result["bear"]["rr"] = round(result["bear"]["avg_mfe"] / result["bear"]["avg_mae"], 1) if result["bear"]["avg_mae"] > 0.001 else 0
+        result["bear"] = summarize_trades(bear_trades)
 
     if not bull_trades and not bear_trades:
         return None
@@ -221,7 +269,12 @@ def main():
             all_results[sym] = r
 
     # Save to JSON
-    OUTPUT_FILE.write_text(json.dumps(all_results, indent=2))
+    write_json_atomic(OUTPUT_FILE, {
+        "methodology_version": METHODOLOGY_VERSION,
+        "execution_cost_pct": EXECUTION_COST_PCT,
+        "generated_at": datetime.now(IST).isoformat(),
+        "results": all_results,
+    }, indent=2)
     print(f"\nSaved {len(all_results)} stock results to {OUTPUT_FILE}")
 
     # Print summary table

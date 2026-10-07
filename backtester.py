@@ -12,7 +12,7 @@ from prediction_logger import get_predictions, update_outcome
 IST = timezone(timedelta(hours=5, minutes=30))
 HORIZON = {"intraday": 40, "short_term": 10, "positional": 40}
 WARMUP = 65
-BACKTEST_VERSION = 2
+BACKTEST_VERSION = 3
 EXECUTION_COST_PCT = float(os.environ.get("BACKTEST_EXECUTION_COST_PCT", "0.15"))
 MIN_SAMPLE_SIZE = int(os.environ.get("BACKTEST_MIN_SAMPLE_SIZE", "12"))
 
@@ -144,7 +144,8 @@ def run_backtest(symbol: str, candles: list[list[float]], timeframe: str = "posi
         return {"version": BACKTEST_VERSION, "error": "Insufficient data", "predictions": [], "summary": {}}
 
     predictions: list[dict] = []
-    step = 5
+    # Do not open overlapping test positions for the same stock.
+    step = max(5, horizon)
 
     for i in range(WARMUP, total - horizon, step):
         past = candles[:i + 1]
@@ -174,6 +175,25 @@ def run_backtest(symbol: str, candles: list[list[float]], timeframe: str = "posi
         })
 
     summary = _compute_summary(predictions)
+    train_end = int(len(predictions) * 0.60)
+    validation_end = int(len(predictions) * 0.80)
+    segments = {
+        "train": predictions[:train_end],
+        "validation": predictions[train_end:validation_end],
+        "test": predictions[validation_end:],
+    }
+    segment_summaries = {name: _compute_summary(rows) for name, rows in segments.items()}
+    test_summary = segment_summaries["test"]
+    summary["out_of_sample"] = {
+        "split": "chronological_60_20_20",
+        "segments": segment_summaries,
+        "eligible": (
+            summary["triggered"] >= MIN_SAMPLE_SIZE
+            and test_summary["triggered"] >= 8
+            and test_summary["expectancy_pct"] > 0
+            and test_summary["profit_factor"] > 1
+        ),
+    }
     return {"version": BACKTEST_VERSION, "predictions": predictions, "summary": summary}
 
 
@@ -206,6 +226,14 @@ def _compute_summary(predictions: list[dict]) -> dict:
 
     expectancy = (win_rate / 100 * avg_win) + ((1 - win_rate / 100) * avg_loss) if total_triggered > 0 else 0
 
+    equity = 0.0
+    peak = 0.0
+    max_drawdown = 0.0
+    for prediction in triggered:
+        equity += prediction["outcome"]["pnl_pct"]
+        peak = max(peak, equity)
+        max_drawdown = max(max_drawdown, peak - equity)
+
     confidence = "sufficient" if total_triggered >= MIN_SAMPLE_SIZE else "insufficient"
     ci_low, ci_high = _wilson_interval(win_count, total_triggered)
     return {
@@ -227,6 +255,7 @@ def _compute_summary(predictions: list[dict]) -> dict:
         "total_pnl_pct": round(total_pnl, 2),
         "profit_factor": round(profit_factor, 2),
         "expectancy_pct": round(expectancy, 2),
+        "max_drawdown_pct": round(max_drawdown, 2),
         "avg_days_held": round(avg_days, 1),
         "avg_days_win": round(avg_days_win, 1),
         "avg_days_loss": round(avg_days_loss, 1),

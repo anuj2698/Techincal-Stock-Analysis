@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import json
 import time
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from atomic_json import write_json_atomic
+from trading_v2 import backtest_pdhl_intraday
 
 IST = timezone(timedelta(hours=5, minutes=30))
 CONFIG_PATH = Path(__file__).resolve().parent / "core_stocks_config.json"
@@ -24,6 +24,8 @@ LOOKBACK_DAYS = 180
 PROMOTE_MONTHS_REQUIRED = 2
 DEMOTE_WR_THRESHOLD = 50.0
 DEMOTE_PNL_THRESHOLD = 0.0
+MIN_VALIDATED_TRADES = 30
+MIN_EXPECTANCY_PCT = 0.0
 
 PDHL_BUFFER_PCT = 0.1
 PDHL_SL_RATIO = 0.3
@@ -114,107 +116,22 @@ def _backtest_pdhl_stock(sym: str, fetch_candles, resolve_yahoo_ticker) -> dict 
         if not candles_5m or len(candles_5m) < 100:
             return None
 
-        day_groups = defaultdict(list)
-        for c in candles_5m:
-            dt = datetime.fromtimestamp(int(c[0]), tz=IST)
-            if dt.weekday() < 5:
-                day_groups[dt.strftime("%Y-%m-%d")].append(c)
-
-        days_sorted = sorted(day_groups.keys())
-        if len(days_sorted) < 3:
+        result = backtest_pdhl_intraday(candles_5m)
+        summary = result["summary"]
+        if not summary.get("triggered"):
             return None
-
-        all_trades = []
-        for i in range(1, len(days_sorted)):
-            prev_day = days_sorted[i - 1]
-            today = days_sorted[i]
-
-            prev_candles = day_groups[prev_day]
-            today_candles = day_groups[today]
-            if len(prev_candles) < 5 or len(today_candles) < 10:
-                continue
-
-            pdh = max(float(c[2]) for c in prev_candles)
-            pdl = min(float(c[3]) for c in prev_candles)
-            pd_range = pdh - pdl
-            if pd_range <= 0:
-                continue
-
-            buffer = pdh * PDHL_BUFFER_PCT / 100
-            long_entry = pdh + buffer
-            short_entry = pdl - buffer
-            long_sl = pdh - pd_range * PDHL_SL_RATIO
-            short_sl = pdl + pd_range * PDHL_SL_RATIO
-            long_risk = long_entry - long_sl
-            short_risk = short_sl - short_entry
-            long_target = long_entry + long_risk
-            short_target = short_entry - short_risk
-
-            post_15 = []
-            for c in today_candles:
-                dt = datetime.fromtimestamp(int(c[0]), tz=IST)
-                mins_from_open = (dt.hour - 9) * 60 + (dt.minute - 15)
-                if mins_from_open >= 15:
-                    post_15.append(c)
-
-            if not post_15:
-                continue
-
-            for direction, entry, sl, target in [
-                ("LONG", long_entry, long_sl, long_target),
-                ("SHORT", short_entry, short_sl, short_target),
-            ]:
-                triggered = False
-                result = None
-                pnl_pct = None
-
-                for c in post_15:
-                    h, l, cl = float(c[2]), float(c[3]), float(c[4])
-                    dt = datetime.fromtimestamp(int(c[0]), tz=IST)
-                    is_eod = dt.hour >= 15 and dt.minute >= 15
-
-                    if not triggered:
-                        if direction == "LONG" and h >= entry:
-                            triggered = True
-                        elif direction == "SHORT" and l <= entry:
-                            triggered = True
-
-                    if triggered and result is None:
-                        if direction == "LONG":
-                            if l <= sl:
-                                result = "sl"
-                                pnl_pct = round((sl - entry) / entry * 100, 2)
-                            elif h >= target:
-                                result = "target"
-                                pnl_pct = round((target - entry) / entry * 100, 2)
-                            elif is_eod:
-                                result = "eod"
-                                pnl_pct = round((cl - entry) / entry * 100, 2)
-                        else:
-                            if h >= sl:
-                                result = "sl"
-                                pnl_pct = round((entry - sl) / entry * 100, 2)
-                            elif l <= target:
-                                result = "target"
-                                pnl_pct = round((entry - target) / entry * 100, 2)
-                            elif is_eod:
-                                result = "eod"
-                                pnl_pct = round((entry - cl) / entry * 100, 2)
-
-                    if result:
-                        break
-
-                if triggered and result:
-                    all_trades.append({"direction": direction, "result": result, "pnl_pct": pnl_pct})
-
-        if not all_trades:
-            return None
-
-        winners = [t for t in all_trades if t["pnl_pct"] and t["pnl_pct"] > 0]
-        total_pnl = sum(t["pnl_pct"] for t in all_trades if t["pnl_pct"])
-        wr = round(len(winners) / len(all_trades) * 100, 1) if all_trades else 0
-
-        return {"wr": wr, "pnl": round(total_pnl, 2), "trades": len(all_trades)}
+        return {
+            "wr": summary["win_rate"],
+            "pnl": summary["total_pnl_pct"],
+            "trades": summary["triggered"],
+            "expectancy": summary["expectancy_pct"],
+            "profit_factor": summary["profit_factor"],
+            "max_drawdown": summary["max_drawdown_pct"],
+            "win_rate_ci_95": summary["win_rate_ci_95"],
+            "methodology_version": summary["methodology_version"],
+            "out_of_sample_eligible": summary["out_of_sample"]["eligible"],
+            "out_of_sample": summary["out_of_sample"]["segments"]["test"],
+        }
 
     except Exception:
         return None
@@ -308,6 +225,14 @@ def run_rotation(fetch_candles, resolve_yahoo_ticker, get_fno_stocks, progress_c
         # Check backtest deterioration
         bt = bt_results.get(sym)
         if bt is not None:
+            if bt.get("methodology_version") != 3:
+                reasons.append("Backtest methodology is not V3")
+            if bt.get("trades", 0) < MIN_VALIDATED_TRADES:
+                reasons.append(f"Only {bt.get('trades', 0)} trades (minimum {MIN_VALIDATED_TRADES})")
+            if bt.get("expectancy", 0) <= MIN_EXPECTANCY_PCT:
+                reasons.append(f"Expectancy={bt.get('expectancy', 0)}% (not positive)")
+            if not bt.get("out_of_sample_eligible", False):
+                reasons.append("Chronological out-of-sample test did not qualify")
             if bt["wr"] < DEMOTE_WR_THRESHOLD:
                 reasons.append(f"WR={bt['wr']}% (below {DEMOTE_WR_THRESHOLD}%)")
             if bt["pnl"] < DEMOTE_PNL_THRESHOLD:
@@ -340,7 +265,11 @@ def run_rotation(fetch_candles, resolve_yahoo_ticker, get_fno_stocks, progress_c
         if sym in current_core:
             continue
         bt = bt_results.get(sym)
-        if bt is None or bt["wr"] < DEMOTE_WR_THRESHOLD or bt["pnl"] < DEMOTE_PNL_THRESHOLD:
+        if (bt is None or bt.get("methodology_version") != 3
+                or bt.get("trades", 0) < MIN_VALIDATED_TRADES
+                or bt.get("expectancy", 0) <= MIN_EXPECTANCY_PCT
+                or not bt.get("out_of_sample_eligible", False)
+                or bt["wr"] < DEMOTE_WR_THRESHOLD or bt["pnl"] < DEMOTE_PNL_THRESHOLD):
             continue
         months_seen = promotion_history.get(sym, [])
         recent_months = [m for m in months_seen if m >= (now - timedelta(days=90)).strftime("%Y-%m")]
@@ -353,7 +282,7 @@ def run_rotation(fetch_candles, resolve_yahoo_ticker, get_fno_stocks, progress_c
     for sym in current_core:
         bt = bt_results.get(sym)
         if bt:
-            new_backtest_stats[sym] = {"wr": bt["wr"], "pnl": bt["pnl"]}
+            new_backtest_stats[sym] = bt
         else:
             old_bt = cfg.get("backtest_stats", {}).get(sym)
             if old_bt:

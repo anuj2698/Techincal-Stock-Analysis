@@ -1,5 +1,7 @@
 import unittest
 from datetime import datetime
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import app as application
 
@@ -96,6 +98,39 @@ class AppTests(unittest.TestCase):
         self.assertEqual(result[0][1:], [100, 104.0, 99.0, 103, 30.0])
         self.assertEqual(result[1][4], 105)
         self.assertEqual(result[2][1], 110)
+
+    def test_v2_page_and_overview_are_available(self):
+        self.assertEqual(self.client.get("/v2").status_code, 200)
+        response = self.client.get("/v2/api/overview?capital=100000")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data["version"], 2)
+        self.assertFalse(data["workflows"]["intraday"]["overnight_allowed"])
+        self.assertEqual(data["workflows"]["intraday"]["forced_exit"], "15:20")
+
+    def test_v2_journal_updates_account_risk(self):
+        with TemporaryDirectory() as tmp:
+            original_file = application.V2_JOURNAL_FILE
+            application.V2_JOURNAL_FILE = Path(tmp) / "journal.json"
+            application.ADMIN_SECRET = None
+            application.IS_PRODUCTION = False
+            try:
+                response = self.client.post("/v2/api/journal", json={
+                    "symbol": "HAL", "mode": "intraday", "side": "long", "status": "open",
+                    "entry": 100, "stop": 99, "target": 102, "pnl": 0, "capital": 100000,
+                })
+                self.assertEqual(response.status_code, 201)
+                data = response.get_json()
+                self.assertEqual(data["risk"]["open_positions"], 1)
+
+                closed = self.client.patch(
+                    f"/v2/api/journal/{data['trade']['id']}",
+                    json={"pnl": -500, "capital": 100000},
+                )
+                self.assertEqual(closed.status_code, 200)
+                self.assertEqual(closed.get_json()["risk"]["realized_pnl"], -500)
+            finally:
+                application.V2_JOURNAL_FILE = original_file
 
 
 if __name__ == "__main__":
