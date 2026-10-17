@@ -203,6 +203,12 @@
     .guidance-list li::before { content: ''; position: absolute; left: 0; top: 0.55rem; width: 6px; height: 6px; border-radius: 50%; }
     .gl-green li::before { background: #3fb950; } .gl-red li::before { background: #f85149; }
     .gl-yellow li::before { background: #d29922; } .gl-blue li::before { background: #58a6ff; }
+    .affiliate-footer { max-width: 760px; margin: 3rem auto 0; padding: 1.25rem 1rem 2rem; border-top: 1px solid #21262d; text-align: center; }
+    .affiliate-footer h3 { font-size: 0.85rem; font-weight: 600; color: #8b949e; margin-bottom: 0.75rem; }
+    .affiliate-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+    .affiliate-links a { padding: 0.4rem 0.8rem; font-size: 0.82rem; color: #58a6ff; background: #161b22; border: 1px solid #30363d; border-radius: 6px; text-decoration: none; }
+    .affiliate-links a:hover { border-color: #58a6ff; }
+    .affiliate-disclosure { margin-top: 0.75rem; font-size: 0.72rem; color: #484f58; }
   </style>
 </head>
 <body>
@@ -251,6 +257,18 @@
   <div class="loading" id="loading"><span class="spinner"></span> Fetching data &amp; running analysis...</div>
   <div class="error" id="error"></div>
   <div class="results" id="results"></div>
+
+  <footer class="affiliate-footer">
+    <h3>Recommended Reads &amp; Gear</h3>
+    <div class="affiliate-links">
+      <!-- Replace YOUR-TAG-21 with your Amazon Associates tracking ID and edit the links/products -->
+      <a href="https://www.amazon.in/dp/9390166268?tag=YOUR-TAG-21" target="_blank" rel="sponsored nofollow noopener">The Psychology of Money</a>
+      <a href="https://www.amazon.in/dp/0143445200?tag=YOUR-TAG-21" target="_blank" rel="sponsored nofollow noopener">Technical Analysis Books</a>
+      <a href="https://link.amazon/B096Sjt9L" target="_blank" rel="sponsored nofollow noopener">Featured Pick on Amazon</a>
+      <a href="https://www.amazon.in/s?k=trading+monitor&tag=YOUR-TAG-21" target="_blank" rel="sponsored nofollow noopener">Trading Monitors</a>
+    </div>
+    <p class="affiliate-disclosure">As an Amazon Associate I earn from qualifying purchases.</p>
+  </footer>
 
   <script>
     const input = document.getElementById('symbolInput');
