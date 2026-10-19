@@ -22,6 +22,16 @@ class AppTests(unittest.TestCase):
         self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
         self.assertEqual(response.headers["X-Frame-Options"], "DENY")
 
+    def test_wedding_page_is_available_at_html_and_short_routes(self):
+        for path in ("/wedding.html", "/wedding"):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b"Anuj &amp; Drashti", response.data)
+            csp = response.headers["Content-Security-Policy"]
+            self.assertIn("https://fonts.googleapis.com", csp)
+            self.assertIn("https://picsum.photos", csp)
+            self.assertIn("frame-src https://www.google.com", csp)
+
     def test_readiness_fails_when_admin_secret_is_missing(self):
         application.ADMIN_SECRET = None
         application.IS_PRODUCTION = True

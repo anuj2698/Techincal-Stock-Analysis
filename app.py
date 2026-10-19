@@ -16,7 +16,7 @@ from pathlib import Path
 
 import yfinance as yf
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, make_response, render_template, request
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -583,6 +583,23 @@ def fetch_candles(yahoo_sym: str, period: str = "1y", interval: str = "1d", cano
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/wedding")
+@app.route("/wedding.html")
+def wedding():
+    response = make_response(render_template("wedding.html"))
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: https://picsum.photos https://fastly.picsum.photos; "
+        "connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com "
+        "https://picsum.photos https://fastly.picsum.photos; "
+        "frame-src https://www.google.com; frame-ancestors 'none'; "
+        "base-uri 'self'; form-action 'self'"
+    )
+    return response
 
 
 @app.route("/health")
