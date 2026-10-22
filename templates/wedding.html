@@ -449,18 +449,18 @@
       }
       .hero h1 .name {
         display: block;
-        line-height: .72;
+        line-height: .88;
       }
       .hero h1 .parentage {
         display: block;
-        margin: clamp(8px, 1vw, 14px) 0 0;
+        margin: clamp(14px, 1.5vw, 22px) 0 0;
         color: rgba(255,248,237,.78);
         font-family: var(--sans);
-        font-size: clamp(.62rem, 1.1vw, .82rem);
+        font-size: clamp(.74rem, 1.2vw, .95rem);
         font-style: normal;
-        font-weight: 500;
+        font-weight: 600;
         line-height: 1.5;
-        letter-spacing: .15em;
+        letter-spacing: .12em;
         text-transform: uppercase;
       }
       .hero h1 .amp {
@@ -555,7 +555,8 @@
       .personality-card img { width: 100%; height: 100%; object-fit: cover; object-position: center; transform: scale(1.01); transition: transform 1.2s cubic-bezier(.2,.75,.2,1); }
       .personality-card:hover img { transform: scale(1.055); }
       .welcome-copy p:not(.section-tag) { max-width: 570px; margin: 28px 0 0; font-size: clamp(1rem, 1.5vw, 1.15rem); line-height: 1.9; }
-      .signature { color: var(--wine); font-family: var(--serif); font-size: 1.7rem !important; }
+      .signature { color: var(--wine); font-family: var(--serif); font-size: 1.7rem !important; line-height: 1.25 !important; }
+      .signature span { display: block; margin-top: .08em; }
 
       .blessing {
         position: relative;
@@ -596,7 +597,7 @@
         left: 0;
         z-index: 1;
         width: 100%;
-        height: 112%;
+        height: 136%;
         object-fit: contain;
         object-position: center top;
         pointer-events: none;
@@ -900,7 +901,7 @@
         }
         .blessing-panel { min-height: 0; padding: 78px 20px 38px; }
         .blessing-panel + .blessing-panel { padding-top: 52px; }
-        .blessing-image { height: 118%; object-position: center 20%; }
+        .blessing-image { height: 136%; object-position: center top; }
         .blessing-ganesha { order: 1; }
         .blessing-mahavir { order: 2; }
         .blessing-devanagari { font-size: clamp(1.35rem, 5.8vw, 2rem); }
@@ -920,11 +921,11 @@
         .hero-content { width: 100%; padding: 94px 18px 80px; }
         .eyebrow { max-width: 310px; margin: 0 auto 30px; font-size: .62rem; line-height: 1.7; letter-spacing: .24em; }
         .hero h1 { font-size: clamp(4.1rem, 18vw, 6.7rem); line-height: .86; }
-        .hero h1 .name { line-height: .78; }
+        .hero h1 .name { line-height: .9; }
         .hero h1 .parentage {
           max-width: 92vw;
-          margin-top: 10px;
-          font-size: clamp(.58rem, 2.7vw, .72rem);
+          margin-top: 14px;
+          font-size: clamp(.72rem, 2.5vw, .88rem);
           line-height: 1.55;
           letter-spacing: .1em;
           text-wrap: balance;
@@ -982,7 +983,7 @@
         .blessing { height: max(100svh, 640px); }
         .blessing-panel { padding: 70px 16px 34px; }
         .blessing-panel + .blessing-panel { padding-top: 46px; }
-        .blessing-image { height: 114%; }
+        .blessing-image { height: 136%; }
         .hero-flower { width: 190px; opacity: .2; }
         .hero h1 { font-size: clamp(3.7rem, 19vw, 5.2rem); }
         .hero-date {
@@ -1052,7 +1053,7 @@
 
       @media (max-width: 380px) {
         .hero h1 { font-size: 3.55rem; }
-        .hero h1 .parentage { font-size: .55rem; }
+        .hero h1 .parentage { font-size: .68rem; }
         .display { font-size: 2.55rem; }
         .blessing-center { min-width: 72vw; }
       }
@@ -1193,8 +1194,8 @@
           <div class="welcome-copy reveal">
             <p class="section-tag">Chapter one · Where it all began</p>
             <h2 class="display">We found home in each other.</h2>
-            <p>From an unexpected hello to a thousand shared adventures, our story has led us here. With full hearts, we invite you to celebrate as we begin our forever—surrounded by the people who mean the most to us.</p>
-            <p class="signature">With love, Anuj &amp; Drashti</p>
+            <p>From an unexpected hello to a thousand shared adventures, our story has led us here. With full hearts, we invite you to celebrate as we begin our forever, surrounded by the people who mean the most to us.</p>
+            <p class="signature">With love,<span>Anuj &amp; Drashti</span></p>
           </div>
         </div>
       </section>
