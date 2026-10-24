@@ -290,7 +290,7 @@
       .invitation-gate.opening .envelope-liner { opacity: 1; transition-delay: .28s; }
       .invitation-gate.opening .envelope-flap { transform: rotateX(-180deg); z-index: 1; transition-delay: .18s; }
       .invitation-gate.opening .envelope-letter { opacity: 1; transform: translateY(-58%); box-shadow: 0 18px 32px rgba(53,38,33,.15); transition-delay: .62s; }
-      .invitation-gate.opening .gate-hint { opacity: 0; }
+      .invitation-gate.opening .gate-hint { visibility: hidden; opacity: 0; animation: none; }
 
       a { color: inherit; }
       button, input, select, textarea { font: inherit; }
@@ -678,6 +678,7 @@
         margin: auto;
       }
       .gallery-set { display: contents; }
+      .gallery-swipe-cue { display: none; }
       .gallery-photo {
         position: relative;
         grid-column: span 3;
@@ -818,56 +819,6 @@
       .count-item strong { display: block; color: var(--wine); font-family: var(--serif); font-size: clamp(2.6rem, 6vw, 5rem); font-weight: 400; }
       .count-item span { font-size: .62rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; }
 
-      .rsvp {
-        position: relative;
-        color: #fff8ee;
-        background: var(--wine);
-        overflow: hidden;
-      }
-      .rsvp::before {
-        content: "&";
-        position: absolute;
-        right: -2vw;
-        top: -14vw;
-        color: rgba(255,255,255,.04);
-        font-family: var(--serif);
-        font-size: 40vw;
-        line-height: 1;
-      }
-      .rsvp-inner { position: relative; max-width: 1050px; margin: auto; text-align: center; }
-      .rsvp .section-tag { color: var(--saffron); }
-      .rsvp-intro { max-width: 550px; margin: 22px auto 46px; line-height: 1.8; }
-      .rsvp-form { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; text-align: left; }
-      .field { display: grid; gap: 10px; }
-      .field.full { grid-column: 1 / -1; }
-      .field label { font-size: .62rem; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
-      .field input, .field select, .field textarea {
-        width: 100%;
-        border: 0;
-        border-bottom: 1px solid rgba(255,255,255,.45);
-        border-radius: 0;
-        padding: 13px 0;
-        color: white;
-        background: transparent;
-        outline: none;
-      }
-      .field select option { color: var(--ink); }
-      .field textarea { min-height: 75px; resize: vertical; }
-      .field input::placeholder, .field textarea::placeholder { color: rgba(255,255,255,.55); }
-      .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--saffron); }
-      .rsvp-form .button { grid-column: 1 / -1; justify-self: center; margin-top: 24px; border-color: #fff8ee; color: #fff8ee; }
-      .rsvp-form .button:hover { color: var(--wine); background: #fff8ee; }
-      .form-note { grid-column: 1 / -1; margin: 0; text-align: center; font-size: .72rem; opacity: .65; }
-      .success {
-        display: none;
-        max-width: 600px;
-        margin: 30px auto 0;
-        padding: 28px;
-        border: 1px solid rgba(255,255,255,.45);
-        background: rgba(255,255,255,.08);
-      }
-      .success.show { display: block; animation: rise .5s ease both; }
-
       footer {
         padding: 60px 22px;
         text-align: center;
@@ -891,12 +842,12 @@
       @keyframes pulse { 0%,100% { transform: scaleY(.5); transform-origin: top; opacity:.4; } 50% { transform: scaleY(1); opacity:1; } }
       @keyframes rise { from { opacity:0; transform:translateY(12px); } }
       @keyframes hintPulse { 0%,100% { opacity:.55; } 50% { opacity:1; } }
+      @keyframes swipeHint { 0%,100% { transform: translateX(-2px); } 50% { transform: translateX(4px); } }
 
       @media (max-width: 800px) {
-        .nav-links a:not(.nav-rsvp) { display: none; }
+        .nav-links { display: none; }
         .nav { padding: 15px 20px; }
         .nav.scrolled { padding-block: 10px; }
-        .nav-rsvp { display: inline-flex; min-height: 38px; align-items: center; padding: 0 15px; border: 1px solid currentColor; }
         .hero-flower { width: 270px; }
         .blessing {
           grid-template-columns: 1fr;
@@ -984,7 +935,6 @@
         .nav.scrolled { padding-block: 9px; }
         .monogram { font-size: 1.22rem; }
         .nav-links a { font-size: .62rem; letter-spacing: .13em; }
-        .nav-rsvp { min-height: 36px; padding-inline: 13px; }
         .blessing { height: max(100svh, 640px); }
         .blessing-panel { padding: 70px 16px 34px; }
         .blessing-panel + .blessing-panel { padding-top: 46px; }
@@ -1005,6 +955,29 @@
         .journey { padding-inline: 0; }
         .journey-head { margin-bottom: 34px; padding-inline: 18px; }
         .journey-head > p:last-child { line-height: 1.7; }
+        .gallery-swipe-cue {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin: 0 18px 12px;
+          color: var(--wine);
+          font-size: .58rem;
+          font-weight: 600;
+          letter-spacing: .18em;
+          text-transform: uppercase;
+        }
+        .gallery-swipe-label { display: inline-flex; align-items: center; gap: 9px; }
+        .gallery-swipe-arrow { font-size: 1rem; letter-spacing: 0; animation: swipeHint 1.7s ease-in-out infinite; }
+        .gallery-dots { display: flex; align-items: center; gap: 6px; }
+        .gallery-dot {
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: rgba(125,38,56,.25);
+          transition: width .25s ease, border-radius .25s ease, background .25s ease;
+        }
+        .gallery-dot.is-active { width: 18px; border-radius: 999px; background: var(--wine); }
         .journey-gallery {
           display: flex;
           gap: 12px;
@@ -1061,13 +1034,6 @@
         .venue-copy .button { width: 100%; }
         .detail-card h3 { margin: 18px 0 10px; font-size: 1.8rem; }
         .detail-card p { line-height: 1.7; }
-        .rsvp-form { grid-template-columns: 1fr; }
-        .field.full, .rsvp-form .button, .form-note { grid-column: 1; }
-        .rsvp-intro { margin: 20px auto 34px; line-height: 1.7; }
-        .rsvp-form { gap: 20px; }
-        .field input, .field select, .field textarea { min-height: 48px; font-size: 16px; }
-        .field textarea { min-height: 96px; }
-        .rsvp-form .button { width: 100%; margin-top: 12px; }
         .countdown { grid-template-columns: 1fr 1fr; gap: 0; margin-top: 48px; }
         .count-item { padding: 20px 8px; }
         .count-item:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
@@ -1095,7 +1061,6 @@
       @media (hover: none) {
         .event-row:hover { padding-inline: 0; background: transparent; }
         .button:hover { color: inherit; background: transparent; transform: none; }
-        .rsvp-form .button:hover { color: #fff8ee; background: transparent; }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -1136,7 +1101,6 @@
         <a href="#story">Our story</a>
         <a href="#events">Reception</a>
         <a href="#venue">Venue</a>
-        <a class="nav-rsvp" href="#rsvp">RSVP</a>
       </div>
     </nav>
 
@@ -1235,6 +1199,10 @@
           </div>
           <p>A collection of shared laughs, winding roads, and little moments from the story that brought us to forever.</p>
         </div>
+        <div class="gallery-swipe-cue" aria-hidden="true">
+          <span class="gallery-swipe-label">Swipe to explore <span class="gallery-swipe-arrow">↔</span></span>
+          <span class="gallery-dots"><span class="gallery-dot is-active"></span><span class="gallery-dot"></span><span class="gallery-dot"></span><span class="gallery-dot"></span><span class="gallery-dot"></span></span>
+        </div>
         <div class="journey-gallery" aria-label="Our memories photo gallery">
           <div class="gallery-set" role="group" aria-label="Memories 1 to 5">
             <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.12.08.jpeg" alt="Anuj and Drashti — Leh Trip" loading="lazy" decoding="async" /><figcaption>Leh Trip</figcaption></figure>
@@ -1322,23 +1290,6 @@
         </div>
       </section>
 
-      <section class="section rsvp" id="rsvp">
-        <div class="rsvp-inner reveal">
-          <p class="section-tag">Kindly reply</p>
-          <h2 class="display">Will you join us?</h2>
-          <p class="rsvp-intro">Please respond by 15 December 2026. We hope you can share this beautiful evening with us.</p>
-          <form class="rsvp-form" id="rsvp-form">
-            <div class="field"><label for="name">Your name</label><input id="name" name="name" required placeholder="Full name" /></div>
-            <div class="field"><label for="email">Email address</label><input id="email" name="email" type="email" required placeholder="you@example.com" /></div>
-            <div class="field"><label for="attendance">Attendance</label><select id="attendance" name="attendance" required><option value="">Please choose</option><option>Joyfully attending</option><option>Regretfully unable to attend</option></select></div>
-            <div class="field"><label for="guests">Number of guests</label><select id="guests" name="guests"><option>1 guest</option><option>2 guests</option><option>3 guests</option><option>4 guests</option></select></div>
-            <div class="field full"><label for="message">A note for us</label><textarea id="message" name="message" placeholder="Dietary preferences, song requests, or a little love note…"></textarea></div>
-            <button class="button" type="submit">Send my RSVP <span>→</span></button>
-            <p class="form-note">Demo invitation — your response stays in this browser.</p>
-          </form>
-          <div class="success" id="success" role="status" aria-live="polite"><strong>Thank you — your reply is noted.</strong><br />We’re so grateful to celebrate with you.</div>
-        </div>
-      </section>
     </main>
 
     <footer><p>Awaiting your joyous presence</p><div class="footer-names">Anuj &amp; Drashti</div><p>18 · 12 · 2026 — Mumbai</p></footer>
@@ -1374,17 +1325,21 @@
         openButton.disabled = true;
         gate.classList.add('opening');
 
+        const cardPopDuration = reducedMotion ? 60 : 1500;
+        const cardHoldDuration = 5000;
+        const gateFadeDuration = reducedMotion ? 60 : 860;
+
         window.setTimeout(() => {
           document.body.classList.add('invite-open');
           gate.classList.add('departing');
-        }, reducedMotion ? 60 : 1420);
+        }, cardPopDuration + cardHoldDuration);
 
         window.setTimeout(() => {
           gate.classList.add('is-dismissed');
           gate.setAttribute('aria-hidden', 'true');
           document.body.classList.remove('is-sealed');
           document.getElementById('blessing-title').focus({ preventScroll: true });
-        }, reducedMotion ? 120 : 2280);
+        }, cardPopDuration + cardHoldDuration + gateFadeDuration);
       };
 
       openButton.addEventListener('click', openInvitation);
@@ -1398,6 +1353,21 @@
         entries.forEach((entry) => { if (entry.isIntersecting) entry.target.classList.add('visible'); });
       }, { threshold: 0.13 });
       document.querySelectorAll('.reveal').forEach((element) => observer.observe(element));
+
+      const gallery = document.querySelector('.journey-gallery');
+      const galleryDots = Array.from(document.querySelectorAll('.gallery-dot'));
+      let galleryFrame = 0;
+      const updateGalleryProgress = () => {
+        const maxScroll = Math.max(1, gallery.scrollWidth - gallery.clientWidth);
+        const activeIndex = Math.min(galleryDots.length - 1, Math.round((gallery.scrollLeft / maxScroll) * (galleryDots.length - 1)));
+        galleryDots.forEach((dot, index) => dot.classList.toggle('is-active', index === activeIndex));
+        galleryFrame = 0;
+      };
+      gallery.addEventListener('scroll', () => {
+        if (!galleryFrame) galleryFrame = window.requestAnimationFrame(updateGalleryProgress);
+      }, { passive: true });
+      window.addEventListener('resize', updateGalleryProgress, { passive: true });
+      updateGalleryProgress();
 
       const wedding = new Date('2026-12-18T18:00:00+05:30').getTime();
       const tick = () => {
@@ -1413,11 +1383,6 @@
       tick();
       setInterval(tick, 1000);
 
-      document.getElementById('rsvp-form').addEventListener('submit', (event) => {
-        event.preventDefault();
-        event.currentTarget.style.display = 'none';
-        document.getElementById('success').classList.add('show');
-      });
     </script>
   </body>
 </html>
