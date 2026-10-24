@@ -301,9 +301,9 @@
         left: 0;
         width: 100%;
         z-index: 50;
-        display: flex;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
         align-items: center;
-        justify-content: space-between;
         padding: 18px clamp(22px, 5vw, 72px);
         color: #fffaf1;
         transition: background 0.35s, padding 0.35s, box-shadow 0.35s, opacity .8s ease, transform .8s ease;
@@ -327,7 +327,7 @@
         text-decoration: none;
       }
 
-      .nav-links { display: flex; gap: 28px; align-items: center; }
+      .nav-links { display: flex; justify-self: center; gap: 28px; align-items: center; }
       .nav-links a {
         font-size: 0.72rem;
         font-weight: 500;
@@ -336,6 +336,24 @@
         text-decoration: none;
       }
       .nav-links a:hover { color: var(--saffron); }
+      .design-switcher { display: flex; justify-self: end; align-items: center; gap: 6px; }
+      .design-switcher a {
+        width: 27px;
+        height: 27px;
+        display: grid;
+        place-items: center;
+        border: 1px solid currentColor;
+        border-radius: 50%;
+        color: inherit;
+        font-size: .57rem;
+        font-weight: 600;
+        line-height: 1;
+        text-decoration: none;
+        opacity: .62;
+        transition: color .25s ease, background .25s ease, opacity .25s ease, transform .25s ease;
+      }
+      .design-switcher a:hover { color: var(--wine); background: var(--paper); opacity: 1; transform: translateY(-2px); }
+      .design-switcher a[aria-current="page"] { color: var(--wine); background: var(--paper); opacity: 1; }
 
       .hero {
         --spot-x: 50%;
@@ -829,6 +847,122 @@
       footer p { margin: 14px 0 0; font-size: .66rem; letter-spacing: .18em; text-transform: uppercase; opacity: .7; }
       footer > p:first-child { margin: 0 0 18px; color: var(--saffron); opacity: 1; }
 
+      body.theme-design-1 {
+        --paper: #f8f4e7;
+        --ink: #334d38;
+        --wine: #bd2742;
+        --wine-dark: #496f50;
+        --saffron: #c49a22;
+        --line: rgba(51,77,56,.18);
+        --design-art: url("/static/wedding/designs/design-1.jpeg");
+        --theme-edge: #82b46f;
+        --theme-surface: #fbf7e9;
+        --theme-soft: #e6efd9;
+        --theme-hero-ink: #653c38;
+        --theme-hero-muted: rgba(77,62,49,.78);
+        --theme-veil: rgba(255,250,232,.2);
+        --theme-radius: 22px;
+      }
+      body.theme-design-2 {
+        --paper: #fff4df;
+        --ink: #593d31;
+        --wine: #c84d70;
+        --wine-dark: #a75d2a;
+        --saffron: #e89a35;
+        --line: rgba(190,111,42,.2);
+        --design-art: url("/static/wedding/designs/design-2.jpeg");
+        --theme-edge: #f4d6aa;
+        --theme-surface: #fff7e8;
+        --theme-soft: #fbe5d9;
+        --theme-hero-ink: #7c4b2a;
+        --theme-hero-muted: rgba(102,68,43,.78);
+        --theme-veil: rgba(255,248,229,.16);
+        --theme-radius: 30px 30px 12px 12px;
+      }
+      body.theme-design-3 {
+        --paper: #f3e6c7;
+        --ink: #2e3f2d;
+        --wine: #a93d22;
+        --wine-dark: #283d2c;
+        --saffron: #db7f20;
+        --line: rgba(46,63,45,.2);
+        --design-art: url("/static/wedding/designs/design-3.jpeg");
+        --theme-edge: #40583c;
+        --theme-surface: #f4e8ca;
+        --theme-soft: #d7d8ad;
+        --theme-hero-ink: #4b3523;
+        --theme-hero-muted: rgba(69,52,36,.78);
+        --theme-veil: rgba(246,229,194,.14);
+        --theme-radius: 4px;
+      }
+      body.theme-design-4 {
+        --paper: #eee8dc;
+        --ink: #3e2b1f;
+        --wine: #7b5527;
+        --wine-dark: #321e0b;
+        --saffron: #b9955e;
+        --line: rgba(62,43,31,.2);
+        --design-art: url("/static/wedding/designs/design-4.jpeg");
+        --theme-edge: #ddd7ca;
+        --theme-surface: #f1ece2;
+        --theme-soft: #d8c9b3;
+        --theme-hero-ink: #fffaf0;
+        --theme-hero-muted: rgba(255,250,240,.78);
+        --theme-veil: rgba(39,22,8,.12);
+        --theme-radius: 46% 46% 10px 10px / 14% 14% 10px 10px;
+      }
+      body.theme-design-5 {
+        --paper: #e9c9b4;
+        --ink: #49372e;
+        --wine: #8d4850;
+        --wine-dark: #61343a;
+        --saffron: #a57d49;
+        --line: rgba(73,55,46,.2);
+        --design-art: url("/static/wedding/designs/design-5.jpeg");
+        --theme-edge: #d9af98;
+        --theme-surface: #edcfbc;
+        --theme-soft: #e2baa7;
+        --theme-hero-ink: #593831;
+        --theme-hero-muted: rgba(80,52,45,.78);
+        --theme-veil: rgba(239,204,182,.14);
+        --theme-radius: 2px;
+      }
+      body[class*="theme-design-"] { background: var(--theme-edge); }
+      body[class*="theme-design-"] .invitation-gate,
+      body[class*="theme-design-"] .hero {
+        color: var(--theme-hero-ink);
+        background-color: var(--theme-edge);
+        background-image: linear-gradient(var(--theme-veil), var(--theme-veil)), var(--design-art);
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: auto 114%;
+      }
+      body[class*="theme-design-"] .invitation-gate::before,
+      body[class*="theme-design-"] .invitation-gate::after,
+      body[class*="theme-design-"] .hero::before,
+      body[class*="theme-design-"] .hero::after { opacity: .28; }
+      body[class*="theme-design-"] .hero-live-bg { opacity: .22; }
+      body[class*="theme-design-"] .hero h1 .parentage { color: var(--theme-hero-muted); }
+      body[class*="theme-design-"] .hero-date::before,
+      body[class*="theme-design-"] .hero-date::after { background: currentColor; opacity: .45; }
+      body[class*="theme-design-"] .section { background: var(--theme-surface); }
+      body[class*="theme-design-"] .journey,
+      body[class*="theme-design-"] .events { background: var(--theme-soft); }
+      body[class*="theme-design-"] .quote-band,
+      body[class*="theme-design-"] footer { background: var(--wine-dark); }
+      body[class*="theme-design-"] .personality-card,
+      body[class*="theme-design-"] .detail-card,
+      body[class*="theme-design-"] .gallery-photo { border-radius: var(--theme-radius); }
+      body[class*="theme-design-"] .detail-card { border: 1px solid var(--line); background: rgba(255,255,255,.22); }
+      body[class*="theme-design-"] .gallery-photo { border-color: rgba(255,250,239,.88); }
+      body[class*="theme-design-"] .nav.scrolled { background: color-mix(in srgb, var(--theme-surface) 90%, transparent); }
+      body.theme-design-3 .personality-card,
+      body.theme-design-3 .gallery-photo { box-shadow: 0 18px 42px rgba(41,60,39,.22); }
+      body.theme-design-4 .hero .eyebrow,
+      body.theme-design-4 .hero h1 .amp { color: #d9bc85; }
+      body.theme-design-5 .personality-card,
+      body.theme-design-5 .detail-card { border-color: rgba(113,65,64,.34); }
+
       .reveal { opacity: 0; transform: translateY(26px); transition: opacity .8s ease, transform .8s ease; }
       .reveal.visible { opacity: 1; transform: none; }
 
@@ -848,6 +982,8 @@
         .nav-links { display: none; }
         .nav { padding: 15px 20px; }
         .nav.scrolled { padding-block: 10px; }
+        .design-switcher { gap: 4px; }
+        .design-switcher a { width: 25px; height: 25px; font-size: .54rem; }
         .hero-flower { width: 270px; }
         .blessing {
           grid-template-columns: 1fr;
@@ -1045,6 +1181,8 @@
       }
 
       @media (max-width: 380px) {
+        .design-switcher { gap: 3px; }
+        .design-switcher a { width: 23px; height: 23px; font-size: .5rem; }
         .hero h1 { font-size: 3.55rem; }
         .hero h1 .parentage { font-size: .68rem; }
         .display { font-size: 2.55rem; }
@@ -1070,7 +1208,7 @@
       }
     </style>
   </head>
-  <body class="is-sealed">
+  <body class="is-sealed{% if design %} theme-design-{{ design }}{% endif %}" data-design="{{ design or 0 }}">
     <div class="invitation-gate" id="invitation-gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
       <div class="gate-inner">
         <p class="gate-kicker">A little something for you</p>
@@ -1101,6 +1239,14 @@
         <a href="#story">Our story</a>
         <a href="#events">Reception</a>
         <a href="#venue">Venue</a>
+      </div>
+      <div class="design-switcher" aria-label="Wedding invitation designs">
+        <a href="/wedding.html" data-design-link="0" title="Original design">O</a>
+        <a href="/wedding-design-1.html" data-design-link="1" title="Lotus Sage design">1</a>
+        <a href="/wedding-design-2.html" data-design-link="2" title="Saffron Arch design">2</a>
+        <a href="/wedding-design-3.html" data-design-link="3" title="Botanical Lace design">3</a>
+        <a href="/wedding-design-4.html" data-design-link="4" title="Cocoa Ivory design">4</a>
+        <a href="/wedding-design-5.html" data-design-link="5" title="Vintage Rose design">5</a>
       </div>
     </nav>
 
@@ -1299,6 +1445,12 @@
       const openButton = document.getElementById('open-invitation');
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const hero = document.querySelector('.hero');
+      const activeDesign = Number(document.body.dataset.design || 0);
+      const designNames = ['Original', 'Lotus Sage', 'Saffron Arch', 'Botanical Lace', 'Cocoa Ivory', 'Vintage Rose'];
+      document.querySelectorAll('[data-design-link]').forEach((link) => {
+        if (Number(link.dataset.designLink) === activeDesign) link.setAttribute('aria-current', 'page');
+      });
+      if (activeDesign > 0) document.title = `${designNames[activeDesign]} · Anuj & Drashti`;
 
       if (hero && !reducedMotion) {
         let heroFrame = 0;

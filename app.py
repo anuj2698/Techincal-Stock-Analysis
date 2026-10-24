@@ -12,7 +12,7 @@ from pathlib import Path
 
 import yfinance as yf
 from dotenv import load_dotenv
-from flask import Flask, jsonify, make_response, render_template, request
+from flask import Flask, abort, jsonify, make_response, render_template, request
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -496,10 +496,8 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/wedding")
-@app.route("/wedding.html")
-def wedding():
-    response = make_response(render_template("wedding.html"))
+def _wedding_response(design: int | None = None):
+    response = make_response(render_template("wedding.html", design=design))
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
@@ -511,6 +509,20 @@ def wedding():
         "base-uri 'self'; form-action 'self'"
     )
     return response
+
+
+@app.route("/wedding")
+@app.route("/wedding.html")
+def wedding():
+    return _wedding_response()
+
+
+@app.route("/wedding-design-<int:design>")
+@app.route("/wedding-design-<int:design>.html")
+def wedding_design(design: int):
+    if design not in range(1, 6):
+        abort(404)
+    return _wedding_response(design)
 
 
 @app.route("/health")
