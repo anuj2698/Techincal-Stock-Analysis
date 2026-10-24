@@ -12,7 +12,7 @@ from pathlib import Path
 
 import yfinance as yf
 from dotenv import load_dotenv
-from flask import Flask, abort, jsonify, make_response, render_template, request
+from flask import Flask, jsonify, make_response, render_template, request
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -517,12 +517,10 @@ def wedding():
     return _wedding_response()
 
 
-@app.route("/wedding-design-<int:design>")
-@app.route("/wedding-design-<int:design>.html")
-def wedding_design(design: int):
-    if design not in range(1, 6):
-        abort(404)
-    return _wedding_response(design)
+@app.route("/wedding-design-4")
+@app.route("/wedding-design-4.html")
+def wedding_design_four():
+    return _wedding_response(4)
 
 
 @app.route("/health")
