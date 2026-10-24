@@ -677,6 +677,7 @@
         max-width: 1150px;
         margin: auto;
       }
+      .gallery-set { display: contents; }
       .gallery-photo {
         position: relative;
         grid-column: span 3;
@@ -693,6 +694,9 @@
       .gallery-photo:nth-child(3),
       .gallery-photo:nth-child(7) { grid-column: span 4; grid-row: span 4; }
       .gallery-photo:nth-child(8) { grid-column: span 6; grid-row: span 3; }
+      .gallery-photo.is-portrait { grid-column: span 3; grid-row: span 4; }
+      .gallery-photo.is-landscape { grid-column: span 6; grid-row: span 3; }
+      .gallery-photo.is-square { grid-column: span 4; grid-row: span 4; }
       .gallery-photo img {
         width: 100%;
         height: 100%;
@@ -1014,18 +1018,40 @@
           -webkit-overflow-scrolling: touch;
         }
         .journey-gallery::-webkit-scrollbar { display: none; }
-        .gallery-photo,
-        .gallery-photo:nth-child(1),
-        .gallery-photo:nth-child(3),
-        .gallery-photo:nth-child(5),
-        .gallery-photo:nth-child(7),
-        .gallery-photo:nth-child(8) {
-          flex: 0 0 min(78vw, 320px);
-          width: min(78vw, 320px);
-          height: min(106vw, 430px);
-          min-height: 360px;
-          border-width: 5px;
-          scroll-snap-align: center;
+        .gallery-set {
+          display: grid;
+          flex: 0 0 min(88vw, 420px);
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          grid-template-rows: clamp(165px, 46vw, 195px) clamp(125px, 35vw, 150px);
+          gap: 8px;
+          scroll-snap-align: start;
+          scroll-snap-stop: always;
+        }
+        .gallery-set .gallery-photo,
+        .gallery-set .gallery-photo:nth-child(1),
+        .gallery-set .gallery-photo:nth-child(3),
+        .gallery-set .gallery-photo:nth-child(5),
+        .gallery-set .gallery-photo:nth-child(7),
+        .gallery-set .gallery-photo:nth-child(8) {
+          width: auto;
+          height: auto;
+          min-height: 0;
+          border-width: 4px;
+        }
+        .gallery-set .gallery-photo:nth-child(-n+3) {
+          grid-column: span 2;
+          grid-row: 1;
+        }
+        .gallery-set .gallery-photo:nth-child(n+4) {
+          grid-column: span 3;
+          grid-row: 2;
+        }
+        .gallery-set .gallery-photo figcaption {
+          right: 5px;
+          bottom: 5px;
+          padding: 4px 5px;
+          font-size: .39rem;
+          letter-spacing: .1em;
         }
         .quote-band { padding: 68px 18px; }
         .quote-band blockquote { font-size: clamp(2rem, 10.5vw, 3rem); }
@@ -1208,17 +1234,42 @@
           </div>
           <p>A collection of shared laughs, winding roads, and little moments from the story that brought us to forever.</p>
         </div>
-        <div class="journey-gallery" aria-label="Photo gallery with placeholder memories">
-          <figure class="gallery-photo reveal"><img src="https://picsum.photos/seed/anuj-drashti-01/900/1100" alt="Placeholder for a favourite memory" loading="lazy" /><figcaption>Memory 01</figcaption></figure>
-          <figure class="gallery-photo reveal"><img src="https://picsum.photos/seed/anuj-drashti-02/900/1100" alt="Placeholder for a favourite memory" loading="lazy" /><figcaption>Memory 02</figcaption></figure>
-          <figure class="gallery-photo reveal"><img src="https://picsum.photos/seed/anuj-drashti-03/900/1100" alt="Placeholder for a favourite memory" loading="lazy" /><figcaption>Memory 03</figcaption></figure>
-          <figure class="gallery-photo reveal"><img src="https://picsum.photos/seed/anuj-drashti-04/900/1100" alt="Placeholder for a favourite memory" loading="lazy" /><figcaption>Memory 04</figcaption></figure>
-          <figure class="gallery-photo reveal"><img src="https://picsum.photos/seed/anuj-drashti-05/900/1100" alt="Placeholder for a favourite memory" loading="lazy" /><figcaption>Memory 05</figcaption></figure>
-          <figure class="gallery-photo reveal"><img src="https://picsum.photos/seed/anuj-drashti-06/900/1100" alt="Placeholder for a favourite memory" loading="lazy" /><figcaption>Memory 06</figcaption></figure>
-          <figure class="gallery-photo reveal"><img src="https://picsum.photos/seed/anuj-drashti-07/900/1100" alt="Placeholder for a favourite memory" loading="lazy" /><figcaption>Memory 07</figcaption></figure>
-          <figure class="gallery-photo reveal"><img src="https://picsum.photos/seed/anuj-drashti-08/900/1100" alt="Placeholder for a favourite memory" loading="lazy" /><figcaption>Memory 08</figcaption></figure>
-          <figure class="gallery-photo reveal"><img src="https://picsum.photos/seed/anuj-drashti-09/900/1100" alt="Placeholder for a favourite memory" loading="lazy" /><figcaption>Memory 09</figcaption></figure>
-          <figure class="gallery-photo reveal"><img src="https://picsum.photos/seed/anuj-drashti-10/900/1100" alt="Placeholder for a favourite memory" loading="lazy" /><figcaption>Memory 10</figcaption></figure>
+        <div class="journey-gallery" aria-label="Our memories photo gallery">
+          <div class="gallery-set" role="group" aria-label="Memories 1 to 5">
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.12.08.jpeg" alt="Anuj and Drashti memory 01" loading="lazy" decoding="async" /><figcaption>Memory 01</figcaption></figure>
+            <figure class="gallery-photo is-square reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.13.08.jpeg" alt="Anuj and Drashti memory 02" loading="lazy" decoding="async" /><figcaption>Memory 02</figcaption></figure>
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.15.35.jpeg" alt="Anuj and Drashti memory 03" loading="lazy" decoding="async" /><figcaption>Memory 03</figcaption></figure>
+            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.16.44.jpeg" alt="Anuj and Drashti memory 04" loading="lazy" decoding="async" /><figcaption>Memory 04</figcaption></figure>
+            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.17.24.jpeg" alt="Anuj and Drashti memory 05" loading="lazy" decoding="async" /><figcaption>Memory 05</figcaption></figure>
+          </div>
+          <div class="gallery-set" role="group" aria-label="Memories 6 to 10">
+            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.20.10.jpeg" alt="Anuj and Drashti memory 06" loading="lazy" decoding="async" /><figcaption>Memory 06</figcaption></figure>
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.26.34.jpeg" alt="Anuj and Drashti memory 07" loading="lazy" decoding="async" /><figcaption>Memory 07</figcaption></figure>
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.27.30.jpeg" alt="Anuj and Drashti memory 08" loading="lazy" decoding="async" /><figcaption>Memory 08</figcaption></figure>
+            <figure class="gallery-photo is-square reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.28.22.jpeg" alt="Anuj and Drashti memory 09" loading="lazy" decoding="async" /><figcaption>Memory 09</figcaption></figure>
+            <figure class="gallery-photo is-square reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.29.38.jpeg" alt="Anuj and Drashti memory 10" loading="lazy" decoding="async" /><figcaption>Memory 10</figcaption></figure>
+          </div>
+          <div class="gallery-set" role="group" aria-label="Memories 11 to 15">
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.42.16.jpeg" alt="Anuj and Drashti memory 11" loading="lazy" decoding="async" /><figcaption>Memory 11</figcaption></figure>
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.55.25.jpeg" alt="Anuj and Drashti memory 12" loading="lazy" decoding="async" /><figcaption>Memory 12</figcaption></figure>
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.55.47.jpeg" alt="Anuj and Drashti memory 13" loading="lazy" decoding="async" /><figcaption>Memory 13</figcaption></figure>
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.57.39.jpeg" alt="Anuj and Drashti memory 14" loading="lazy" decoding="async" /><figcaption>Memory 14</figcaption></figure>
+            <figure class="gallery-photo is-square reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.58.33.jpeg" alt="Anuj and Drashti memory 15" loading="lazy" decoding="async" /><figcaption>Memory 15</figcaption></figure>
+          </div>
+          <div class="gallery-set" role="group" aria-label="Memories 16 to 20">
+            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 01.03.57.jpeg" alt="Anuj and Drashti memory 16" loading="lazy" decoding="async" /><figcaption>Memory 16</figcaption></figure>
+            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 01.04.44.jpeg" alt="Anuj and Drashti memory 17" loading="lazy" decoding="async" /><figcaption>Memory 17</figcaption></figure>
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 10.11.02.jpeg" alt="Anuj and Drashti memory 18" loading="lazy" decoding="async" /><figcaption>Memory 18</figcaption></figure>
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 10.11.03 (1).jpeg" alt="Anuj and Drashti memory 19" loading="lazy" decoding="async" /><figcaption>Memory 19</figcaption></figure>
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 10.11.03 (2).jpeg" alt="Anuj and Drashti memory 20" loading="lazy" decoding="async" /><figcaption>Memory 20</figcaption></figure>
+          </div>
+          <div class="gallery-set" role="group" aria-label="Memories 21 to 25">
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 10.11.03 (3).jpeg" alt="Anuj and Drashti memory 21" loading="lazy" decoding="async" /><figcaption>Memory 21</figcaption></figure>
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 10.11.03.jpeg" alt="Anuj and Drashti memory 22" loading="lazy" decoding="async" /><figcaption>Memory 22</figcaption></figure>
+            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 10.11.04.jpeg" alt="Anuj and Drashti memory 23" loading="lazy" decoding="async" /><figcaption>Memory 23</figcaption></figure>
+            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 10.11.05 (1).jpeg" alt="Anuj and Drashti memory 24" loading="lazy" decoding="async" /><figcaption>Memory 24</figcaption></figure>
+            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 10.11.05.jpeg" alt="Anuj and Drashti memory 25" loading="lazy" decoding="async" /><figcaption>Memory 25</figcaption></figure>
+          </div>
         </div>
       </section>
 
