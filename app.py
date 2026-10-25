@@ -496,8 +496,20 @@ def index():
     return render_template("index.html")
 
 
-def _wedding_response(design: int | None = None):
-    response = make_response(render_template("wedding.html", design=design))
+def _wedding_response(design: int | None = None, ganesha: str = "minimal"):
+    ganesha_image = (
+        "wedding/blessing-ganesha-dagdusheth-v2.png"
+        if ganesha == "dagdusheth"
+        else "wedding/blessing-ganesha-minimal.png"
+    )
+    response = make_response(
+        render_template(
+            "wedding.html",
+            design=design,
+            ganesha=ganesha,
+            ganesha_image=ganesha_image,
+        )
+    )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
@@ -514,13 +526,25 @@ def _wedding_response(design: int | None = None):
 @app.route("/wedding")
 @app.route("/wedding.html")
 def wedding():
-    return _wedding_response()
+    return _wedding_response(4)
 
 
 @app.route("/wedding-design-4")
 @app.route("/wedding-design-4.html")
 def wedding_design_four():
     return _wedding_response(4)
+
+
+@app.route("/wedding-dagdusheth")
+@app.route("/wedding-dagdusheth.html")
+def wedding_dagdusheth():
+    return _wedding_response(ganesha="dagdusheth")
+
+
+@app.route("/wedding-design-4-dagdusheth")
+@app.route("/wedding-design-4-dagdusheth.html")
+def wedding_design_four_dagdusheth():
+    return _wedding_response(4, "dagdusheth")
 
 
 @app.route("/health")

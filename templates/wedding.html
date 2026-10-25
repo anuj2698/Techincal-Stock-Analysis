@@ -42,6 +42,18 @@
 
       body.is-sealed { overflow: hidden; }
 
+      .simple-amp {
+        display: inline-block;
+        margin-inline: .05em;
+        font-family: Baskerville, "Palatino Linotype", Georgia, serif;
+        font-size: .72em;
+        font-style: italic;
+        font-weight: 400;
+        line-height: 1;
+        letter-spacing: 0;
+        vertical-align: .06em;
+      }
+
       body::before {
         content: "";
         position: fixed;
@@ -104,7 +116,7 @@
       .gate-kicker {
         margin: 0 0 9px;
         color: var(--wine);
-        font-size: .64rem;
+        font-size: .78rem;
         font-weight: 600;
         letter-spacing: .32em;
         text-transform: uppercase;
@@ -113,7 +125,7 @@
       .gate-title {
         margin: 0 0 clamp(38px, 6vh, 64px);
         font-family: var(--serif);
-        font-size: clamp(2.25rem, 5vw, 4rem);
+        font-size: clamp(2.6rem, 5.4vw, 4.4rem);
         font-weight: 400;
         line-height: 1.05;
       }
@@ -189,9 +201,9 @@
       }
 
       .letter-copy { display: grid; gap: 8px; }
-      .letter-copy small { color: var(--wine); font-size: .53rem; font-weight: 600; letter-spacing: .28em; text-transform: uppercase; }
-      .letter-copy strong { font-family: var(--serif); font-size: clamp(1.7rem, 5vw, 2.8rem); font-weight: 400; }
-      .letter-copy em { color: var(--saffron); font-family: var(--serif); font-size: 1.35rem; font-style: normal; }
+      .letter-copy small { color: var(--wine); font-size: .64rem; font-weight: 600; letter-spacing: .25em; text-transform: uppercase; }
+      .letter-copy strong { color: var(--ink); font-family: var(--serif); font-size: clamp(2rem, 5.4vw, 3.15rem); font-weight: 400; }
+      .letter-copy em { color: var(--saffron); font-family: var(--serif); font-size: 1.55rem; font-style: normal; }
 
       .envelope-pocket {
         position: absolute;
@@ -250,7 +262,7 @@
         border-radius: 48% 52% 45% 55% / 54% 45% 55% 46%;
         color: #f1d39a;
         font-family: var(--serif);
-        font-size: clamp(1.05rem, 3vw, 1.35rem);
+        font-size: clamp(1.2rem, 3.2vw, 1.5rem);
         letter-spacing: .03em;
         white-space: nowrap;
         background:
@@ -269,6 +281,117 @@
         border-radius: 50%;
       }
 
+      .seal-copy { position: relative; z-index: 1; white-space: nowrap; }
+
+      .card-loader {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        color: var(--saffron);
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .invitation-gate.opening .card-loader {
+        animation: loaderReveal .25s ease 1.5s both;
+      }
+
+      .loader-option { position: absolute; display: none; }
+
+      .invitation-gate[data-loader="thread"] .loader-thread {
+        left: 50%;
+        top: 78%;
+        display: block;
+        width: 58%;
+        height: 1px;
+        background: rgba(217,155,69,.25);
+        transform: translateX(-50%);
+      }
+
+      .loader-thread::after {
+        content: "";
+        position: absolute;
+        inset: -1px 0;
+        background: linear-gradient(90deg, transparent, var(--saffron) 13% 87%, transparent);
+        box-shadow: 0 0 8px rgba(217,155,69,.48);
+        transform: scaleX(0);
+        transform-origin: center;
+      }
+
+      .invitation-gate.opening[data-loader="thread"] .loader-thread::after {
+        animation: loaderThread 3s cubic-bezier(.3,.05,.2,1) 1.5s both;
+      }
+
+      .invitation-gate[data-loader="border"] .loader-border {
+        inset: 4%;
+        display: block;
+        width: 92%;
+        height: 92%;
+        overflow: visible;
+      }
+
+      .loader-border rect {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1;
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+        vector-effect: non-scaling-stroke;
+      }
+
+      .invitation-gate.opening[data-loader="border"] .loader-border rect {
+        animation: loaderBorder 3s ease-in-out 1.5s both;
+      }
+
+      .invitation-gate[data-loader="motifs"] .loader-motifs {
+        left: 50%;
+        bottom: 13%;
+        display: flex;
+        gap: 12px;
+        transform: translateX(-50%);
+      }
+
+      .loader-motifs i {
+        display: grid;
+        width: 17px;
+        height: 17px;
+        place-items: center;
+        font-size: 1rem;
+        font-style: normal;
+        opacity: .18;
+        transform: scale(.7) rotate(45deg);
+      }
+
+      .invitation-gate.opening[data-loader="motifs"] .loader-motifs i:nth-child(1) { animation: loaderMotif .65s ease 1.5s both; }
+      .invitation-gate.opening[data-loader="motifs"] .loader-motifs i:nth-child(2) { animation: loaderMotif .65s ease 2.5s both; }
+      .invitation-gate.opening[data-loader="motifs"] .loader-motifs i:nth-child(3) { animation: loaderMotif .65s ease 3.5s both; }
+
+      .invitation-gate[data-loader="seal"] .loader-seal {
+        left: 50%;
+        bottom: 10%;
+        display: grid;
+        width: 38px;
+        aspect-ratio: 1;
+        place-items: center;
+        transform: translateX(-50%);
+      }
+
+      .loader-seal svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+      .loader-seal circle { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+      .loader-seal i { color: var(--wine); font-family: Arial, Helvetica, sans-serif; font-size: .72rem; font-style: normal; }
+
+      .invitation-gate.opening[data-loader="seal"] .loader-seal circle {
+        animation: loaderBorder 3s linear 1.5s both;
+      }
+
+      @keyframes loaderReveal { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes loaderThread { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+      @keyframes loaderBorder { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+      @keyframes loaderMotif {
+        from { opacity: .18; transform: scale(.7) rotate(45deg); }
+        to { opacity: 1; transform: scale(1) rotate(0); text-shadow: 0 0 9px rgba(217,155,69,.6); }
+      }
+
       .gate-hint {
         display: flex;
         align-items: center;
@@ -276,7 +399,7 @@
         gap: 12px;
         margin: clamp(30px, 5vh, 52px) 0 0;
         color: var(--wine);
-        font-size: .64rem;
+        font-size: .72rem;
         font-weight: 600;
         letter-spacing: .22em;
         text-transform: uppercase;
@@ -483,12 +606,16 @@
       }
       .hero h1 .amp {
         position: relative;
-        z-index: -1;
+        z-index: 0;
         margin: .08em 0 .03em;
         color: var(--saffron);
-        font-size: 0.72em;
+        font-family: Baskerville, "Palatino Linotype", Georgia, serif;
+        font-size: .42em;
         font-style: italic;
-        line-height: .72;
+        font-weight: 400;
+        line-height: .9;
+        letter-spacing: 0;
+        text-transform: none;
       }
       .hero-date {
         display: flex;
@@ -548,19 +675,13 @@
         aspect-ratio: 4 / 5;
         max-height: 720px;
         overflow: hidden;
-        border: 1px solid rgba(125,38,56,.22);
+        border: 0;
         border-radius: 46% 46% 18px 18px / 18% 18% 18px 18px;
         background: #43251d;
         box-shadow: 0 28px 65px rgba(76,44,32,.18);
       }
       .personality-card::before {
-        content: "";
-        position: absolute;
-        inset: 12px;
-        z-index: 2;
-        border: 1px solid rgba(255,236,200,.38);
-        border-radius: inherit;
-        pointer-events: none;
+        content: none;
       }
       .personality-card::after {
         content: "";
@@ -574,7 +695,7 @@
       .personality-card:hover img { transform: scale(1.055); }
       .welcome-copy p:not(.section-tag) { max-width: 570px; margin: 28px 0 0; font-size: clamp(1rem, 1.5vw, 1.15rem); line-height: 1.9; }
       .signature { color: var(--wine); font-family: var(--serif); font-size: 1.7rem !important; line-height: 1.25 !important; }
-      .signature span { display: block; margin-top: .08em; }
+      .signature > span { display: block; margin-top: .08em; }
 
       .blessing {
         position: relative;
@@ -594,10 +715,12 @@
         padding: clamp(105px, 14vh, 150px) clamp(24px, 4vw, 68px) 155px;
         overflow: hidden;
         isolation: isolate;
+        background: #ead9c1;
+        box-shadow: none;
         transform: scale(1.01);
         transition: transform 1.6s cubic-bezier(.2,.75,.2,1);
       }
-      .blessing-ganesha { --blessing-image: url("{{ url_for('static', filename='wedding/blessing-ganesha-minimal.png') }}"); }
+      .blessing-ganesha { --blessing-image: url("{{ url_for('static', filename=ganesha_image) }}"); }
       .blessing-mahavir { --blessing-image: url("{{ url_for('static', filename='wedding/blessing-mahavir-ornate.png') }}"); }
       .blessing-panel::before {
         content: "";
@@ -615,18 +738,20 @@
         left: 0;
         z-index: 1;
         width: 100%;
-        height: 136%;
-        object-fit: contain;
+        height: 100%;
+        object-fit: cover;
         object-position: center top;
         pointer-events: none;
       }
-      .blessing-mahavir .blessing-image { top: 14%; height: 112%; }
+      .blessing-ganesha .blessing-image { top: 0; height: 100%; }
+      .blessing-mahavir .blessing-image { top: 0; height: 100%; }
       .blessing-panel::after {
         content: "";
         position: absolute;
         inset: 0;
         z-index: 2;
         background: linear-gradient(180deg, rgba(255,248,235,.24) 0%, rgba(255,248,235,.08) 32%, transparent 58%, rgba(88,51,26,.08) 100%);
+        box-shadow: none;
         pointer-events: none;
       }
       .blessing-panel-content {
@@ -648,7 +773,15 @@
         line-height: 1.28;
         text-wrap: balance;
       }
-      .blessing-translit { margin: 14px 0 0; color: #8c6536; font-size: .63rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; }
+      .blessing-translit { margin: 14px 0 0; color: #8c6536; font-size: .8rem; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; }
+      .blessing-translit::after {
+        content: "◇";
+        display: block;
+        margin: 15px auto 0;
+        color: #a6753b;
+        font-size: .72rem;
+        letter-spacing: 0;
+      }
       .blessing-center {
         position: absolute;
         z-index: 5;
@@ -718,14 +851,18 @@
       .gallery-photo.is-landscape { grid-column: span 6; grid-row: span 3; }
       .gallery-photo.is-square { grid-column: span 4; grid-row: span 4; }
       .gallery-photo img {
+        display: block;
         width: 100%;
         height: 100%;
+        min-width: 100%;
+        min-height: 100%;
         object-fit: cover;
         object-position: var(--focus-x, 50%) var(--focus-y, 50%);
         filter: saturate(.82) sepia(.08);
+        transform: scale(var(--photo-scale, 1));
         transition: transform .8s cubic-bezier(.2,.75,.2,1), filter .5s ease;
       }
-      .gallery-photo:hover img { transform: scale(1.055); filter: saturate(1) sepia(0); }
+      .gallery-photo:hover img { transform: scale(var(--photo-hover-scale, 1.055)); filter: saturate(1) sepia(0); }
       .gallery-photo figcaption {
         position: absolute;
         right: 12px;
@@ -818,8 +955,8 @@
 
       .details { max-width: 1160px; margin: auto; }
       .details-head { max-width: 750px; margin-bottom: 65px; }
-      .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); }
-      .detail-card { padding: 38px 38px 10px 0; border-right: 1px solid var(--line); }
+      .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-block: 1px solid var(--line); }
+      .detail-card { padding: 38px 38px; padding-left: 0; border-right: 1px solid var(--line); }
       .detail-card + .detail-card { padding-left: 38px; }
       .detail-card:last-child { border-right: 0; }
       .detail-card .num { color: var(--saffron); font-family: var(--serif); font-size: 2rem; }
@@ -847,6 +984,7 @@
       footer .footer-names { font-family: var(--serif); font-size: 2.25rem; }
       footer p { margin: 14px 0 0; font-size: .66rem; letter-spacing: .18em; text-transform: uppercase; opacity: .7; }
       footer > p:first-child { margin: 0 0 18px; color: var(--saffron); opacity: 1; }
+      footer .footer-family { margin-top: 3px; font-family: var(--serif); font-size: 1.15rem; letter-spacing: .08em; text-transform: none; opacity: .9; }
 
       body.theme-design-4 {
         --paper: #eee8dc;
@@ -888,13 +1026,12 @@
       body[class*="theme-design-"] .quote-band,
       body[class*="theme-design-"] footer { background: var(--wine-dark); }
       body[class*="theme-design-"] .personality-card,
-      body[class*="theme-design-"] .detail-card,
       body[class*="theme-design-"] .gallery-photo { border-radius: var(--theme-radius); }
-      body[class*="theme-design-"] .detail-card { border: 1px solid var(--line); background: rgba(255,255,255,.22); }
       body[class*="theme-design-"] .gallery-photo { border-color: rgba(255,250,239,.88); }
       body[class*="theme-design-"] .nav.scrolled { background: color-mix(in srgb, var(--theme-surface) 90%, transparent); }
       body.theme-design-4 .hero .eyebrow,
       body.theme-design-4 .hero h1 .amp { color: #d9bc85; }
+      body.theme-design-4 .letter-copy strong { color: #3e2b1f; text-shadow: none; }
 
       .reveal { opacity: 0; transform: translateY(26px); transition: opacity .8s ease, transform .8s ease; }
       .reveal.visible { opacity: 1; transform: none; }
@@ -920,17 +1057,19 @@
         .hero-flower { width: 270px; }
         .blessing {
           grid-template-columns: 1fr;
-          grid-template-rows: repeat(2, minmax(0, 1fr));
-          height: max(100svh, 680px);
+          grid-template-rows: none;
+          height: auto;
           min-height: 0;
         }
-        .blessing-panel { min-height: 0; padding: 78px 20px 38px; }
+        .blessing-panel { min-height: max(100svh, 680px); padding: 94px 20px 48px; }
         .blessing-panel + .blessing-panel { padding-top: 52px; }
-        .blessing-image { height: 136%; object-position: center top; }
+        .blessing-image { top: 0; height: 100%; object-fit: cover; object-position: center top; }
+        .blessing-ganesha .blessing-image { top: 0; height: 100%; }
+        .blessing-mahavir .blessing-image { top: 0; height: 100%; }
         .blessing-ganesha { order: 1; }
         .blessing-mahavir { order: 2; }
         .blessing-devanagari { font-size: clamp(1.35rem, 5.8vw, 2rem); }
-        .blessing-translit { margin-top: 8px; font-size: .53rem; letter-spacing: .16em; }
+        .blessing-translit { margin-top: 8px; font-size: .68rem; letter-spacing: .14em; }
         .blessing-center {
           top: 50%;
           bottom: auto;
@@ -955,7 +1094,7 @@
           letter-spacing: .1em;
           text-wrap: balance;
         }
-        .hero h1 .amp { margin: .16em 0 .12em; font-size: .58em; }
+        .hero h1 .amp { margin: .12em 0 .09em; font-size: .42em; }
         .hero-date { margin-top: 34px; }
         .scroll-cue { bottom: 14px; }
         .section { padding: 82px 20px; }
@@ -989,25 +1128,25 @@
           padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
         }
         .gate-inner { width: min(100%, 390px); }
-        .gate-kicker { font-size: .56rem; letter-spacing: .25em; }
-        .gate-title { margin-bottom: 34px; font-size: clamp(2.3rem, 12vw, 3.1rem); }
+        .gate-kicker { font-size: .66rem; letter-spacing: .23em; }
+        .gate-title { margin-bottom: 34px; font-size: clamp(2.6rem, 13vw, 3.4rem); }
         .mail-scene { width: min(88vw, 350px); }
         .envelope-letter { padding: 14px; }
         .letter-copy { gap: 5px; }
-        .letter-copy small { font-size: .45rem; letter-spacing: .18em; }
-        .letter-copy strong { font-size: clamp(1.45rem, 8vw, 2rem); }
-        .letter-copy em { font-size: 1rem; }
-        .wax-seal { width: clamp(80px, 24%, 92px); font-size: 1rem; }
-        .gate-hint { margin-top: 34px; gap: 9px; font-size: .56rem; letter-spacing: .17em; }
+        .letter-copy small { font-size: .54rem; letter-spacing: .16em; }
+        .letter-copy strong { font-size: clamp(1.7rem, 8.8vw, 2.3rem); }
+        .letter-copy em { font-size: 1.12rem; }
+        .wax-seal { width: clamp(80px, 24%, 92px); font-size: 1.08rem; }
+        .gate-hint { margin-top: 34px; gap: 9px; font-size: .62rem; letter-spacing: .16em; }
         .gate-hint::before, .gate-hint::after { width: 20px; }
         .nav { padding: max(12px, env(safe-area-inset-top)) 16px 12px; }
         .nav.scrolled { padding-block: 9px; }
         .monogram { font-size: 1.22rem; }
         .nav-links a { font-size: .62rem; letter-spacing: .13em; }
-        .blessing { height: max(100svh, 640px); }
-        .blessing-panel { padding: 70px 16px 34px; }
+        .blessing { height: auto; }
+        .blessing-panel { min-height: max(100svh, 640px); padding: 86px 16px 40px; }
         .blessing-panel + .blessing-panel { padding-top: 46px; }
-        .blessing-image { height: 136%; }
+        .blessing-image { height: 100%; }
         .hero-flower { width: 190px; opacity: .2; }
         .hero h1 { font-size: clamp(3.7rem, 19vw, 5.2rem); }
         .hero-date {
@@ -1089,6 +1228,18 @@
           grid-column: span 3;
           grid-row: 2;
         }
+        .gallery-set.gallery-set-four {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-rows: repeat(2, clamp(165px, 43vw, 190px));
+        }
+        .gallery-set.gallery-set-four .gallery-photo {
+          grid-column: span 1;
+          grid-row: auto;
+        }
+        .gallery-photo.photo-tight-crop {
+          --photo-scale: 2.1;
+          --photo-hover-scale: 2.18;
+        }
         .gallery-set .gallery-photo figcaption {
           right: 5px;
           bottom: 5px;
@@ -1123,10 +1274,11 @@
       }
 
       @media (max-width: 560px) and (max-height: 700px) {
-        .gate-title { margin-bottom: 22px; font-size: 2.2rem; }
+        .gate-title { margin-bottom: 22px; font-size: 2.45rem; }
         .mail-scene { width: min(74vw, 300px); }
         .gate-hint { margin-top: 24px; }
-        .blessing { height: 700px; }
+        .blessing { height: auto; }
+        .blessing-panel { min-height: 700px; }
       }
 
       @media (hover: none) {
@@ -1141,7 +1293,7 @@
       }
     </style>
   </head>
-  <body class="is-sealed{% if design %} theme-design-{{ design }}{% endif %}" data-design="{{ design or 0 }}">
+  <body class="is-sealed{% if design %} theme-design-{{ design }}{% endif %}" data-design="{{ design or 0 }}" data-ganesha="{{ ganesha }}">
     <div class="invitation-gate" id="invitation-gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
       <div class="gate-inner">
         <p class="gate-kicker">A little something for you</p>
@@ -1153,13 +1305,16 @@
             <span class="envelope-letter" aria-hidden="true">
               <span class="letter-copy">
                 <small>Together with our families</small>
-                <strong>Anuj &amp; Drashti</strong>
+                <strong>Anuj <span class="simple-amp">&amp;</span> Drashti</strong>
                 <em>18 · 12 · 2026</em>
+              </span>
+              <span class="card-loader">
+                <span class="loader-option loader-thread"></span>
               </span>
             </span>
             <span class="envelope-pocket" aria-hidden="true"></span>
             <span class="envelope-flap" aria-hidden="true"></span>
-            <span class="wax-seal" aria-hidden="true">A &amp; D</span>
+            <span class="wax-seal" aria-hidden="true"><span class="seal-copy">A <span class="simple-amp">&amp;</span> D</span></span>
           </button>
         </div>
         <p class="gate-hint" id="gate-hint">Tap the seal to open</p>
@@ -1167,21 +1322,22 @@
     </div>
 
     <nav class="nav" aria-label="Primary navigation">
-      <a class="monogram" href="#home" aria-label="Anuj and Drashti, home">A &amp; D</a>
+      <a class="monogram" href="#home" aria-label="Anuj and Drashti, home">A <span class="simple-amp">&amp;</span> D</a>
       <div class="nav-links">
         <a href="#story">Our story</a>
         <a href="#events">Reception</a>
         <a href="#venue">Venue</a>
       </div>
       <div class="design-switcher" aria-label="Wedding invitation designs">
-        <a href="/wedding.html" data-design-link="0" title="Original design">O</a>
-        <a href="/wedding-design-4.html" data-design-link="4" title="Cocoa Ivory design">4</a>
+        <a href="/wedding.html" data-variant-link="4-minimal" title="Design 4 with Minimal Ganpati" aria-label="Design 4 with Minimal Ganpati">4M</a>
+        <a href="/wedding-dagdusheth.html" data-variant-link="0-dagdusheth" title="Original design with Dagdusheth Ganpati" aria-label="Original design with Dagdusheth Ganpati">0D</a>
+        <a href="/wedding-design-4-dagdusheth.html" data-variant-link="4-dagdusheth" title="Design 4 with Dagdusheth Ganpati" aria-label="Design 4 with Dagdusheth Ganpati">4D</a>
       </div>
     </nav>
 
     <section class="blessing" id="home" aria-label="Divine blessings">
       <article class="blessing-panel blessing-ganesha" aria-label="Lord Ganesha blessing">
-        <img class="blessing-image" src="{{ url_for('static', filename='wedding/blessing-ganesha-minimal.png') }}" alt="" aria-hidden="true" />
+        <img class="blessing-image" src="{{ url_for('static', filename=ganesha_image) }}" alt="" aria-hidden="true" />
         <div class="blessing-panel-content">
           <h2 class="blessing-devanagari">॥ श्री गणेशाय नमः ॥</h2>
           <p class="blessing-translit">Shri Ganeshay Namah</p>
@@ -1258,10 +1414,10 @@
             <p class="section-tag">Chapter one · Where it all began</p>
             <h2 class="display">We found home in each other.</h2>
             <p>From an unexpected hello to a thousand shared adventures, our story has led us here. With full hearts, we invite you to celebrate as we begin our forever, surrounded by the people who mean the most to us.</p>
-            <p class="signature">With love,<span>Anuj &amp; Drashti</span></p>
+            <p class="signature">With love,<span>Anuj <span class="simple-amp">&amp;</span> Drashti</span></p>
           </div>
           <div class="personality-card reveal">
-            <img src="{{ url_for('static', filename='wedding/chapter-one-personalities-v2.png') }}" alt="An organized still life combining travel, motorcycle rides, coding, photography, art, flowers, shells, and gelato" />
+            <img src="{{ url_for('static', filename='wedding/chapter-one-personalities-v4.png') }}" alt="A realistic keepsake flat lay combining travel, motorcycle rides, coding, photography, art, flowers, shells, and gelato" />
           </div>
         </div>
       </section>
@@ -1280,39 +1436,35 @@
         </div>
         <div class="journey-gallery" aria-label="Our memories photo gallery">
           <div class="gallery-set" role="group" aria-label="Memories 1 to 5">
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.12.08.jpeg" alt="Anuj and Drashti — Leh Trip" loading="lazy" decoding="async" /><figcaption>Leh Trip</figcaption></figure>
-            <figure class="gallery-photo is-square reveal"><img src="/static/wedding/memories/Leh Trip 3.jpeg" alt="Anuj and Drashti — Leh Trip" loading="lazy" decoding="async" /><figcaption>Leh Trip</figcaption></figure>
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.15.35.jpeg" alt="Anuj and Drashti — Beach Days" loading="lazy" decoding="async" /><figcaption>Beach Days</figcaption></figure>
-            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/WhatsApp Image 2026-10-23 at 00.16.44.jpeg" alt="Anuj and Drashti — Beach Days" loading="lazy" decoding="async" /><figcaption>Beach Days</figcaption></figure>
-            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/Bike Ride 1.jpeg" alt="Anuj and Drashti — Bike Ride" loading="lazy" decoding="async" /><figcaption>Bike Ride</figcaption></figure>
-          </div>
-          <div class="gallery-set" role="group" aria-label="Memories 6 to 10">
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Manali Trip 4.jpeg" alt="Anuj and Drashti — Manali Trip" loading="lazy" decoding="async" /><figcaption>Manali Trip</figcaption></figure>
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Manali Trip 1.jpeg" alt="Anuj and Drashti — Manali Trip" loading="lazy" decoding="async" /><figcaption>Manali Trip</figcaption></figure>
-            <figure class="gallery-photo is-square reveal"><img src="/static/wedding/memories/School Days - 1.jpeg" alt="Anuj and Drashti — School Days" loading="lazy" decoding="async" /><figcaption>School Days</figcaption></figure>
-            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/Bike Ride 2.jpeg" alt="Anuj and Drashti — Bike Ride" loading="lazy" decoding="async" /><figcaption>Bike Ride</figcaption></figure>
+          <figure class="gallery-photo is-square reveal"><img src="/static/wedding/memories/School Days - 1.jpeg" alt="Anuj and Drashti — School Days" loading="lazy" decoding="async" /><figcaption>School Days</figcaption></figure>
+          <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Navratri Days - 1.jpeg" alt="Anuj and Drashti — Navratri" loading="lazy" decoding="async" /><figcaption>Navratri</figcaption></figure>
+          <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Navratri Days - 2.jpeg" alt="Anuj and Drashti — Navratri" loading="lazy" decoding="async" /><figcaption>Navratri</figcaption></figure>
+          <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/Beach Days.jpeg" alt="Anuj and Drashti — Beach Days" loading="lazy" decoding="async" /><figcaption>Beach Days</figcaption></figure>
             <figure class="gallery-photo is-square reveal"><img src="/static/wedding/memories/College Days - 1.jpeg" alt="Anuj and Drashti — College Days" loading="lazy" decoding="async" /><figcaption>College Days</figcaption></figure>
           </div>
-          <div class="gallery-set" role="group" aria-label="Memories 11 to 15">
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Navratri Days - 1.jpeg" alt="Anuj and Drashti — Navratri Days" loading="lazy" decoding="async" /><figcaption>Navratri Days</figcaption></figure>
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Leh Trip 2.jpeg" alt="Anuj and Drashti — Leh Trip" loading="lazy" decoding="async" /><figcaption>Leh Trip</figcaption></figure>
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Leh Trip 1.jpeg" alt="Anuj and Drashti — Leh Trip" loading="lazy" decoding="async" /><figcaption>Leh Trip</figcaption></figure>
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Manali Trip 3.jpeg" alt="Anuj and Drashti — Manali Trip" loading="lazy" decoding="async" /><figcaption>Manali Trip</figcaption></figure>
-            <figure class="gallery-photo is-square reveal"><img src="/static/wedding/memories/Kedarnath.jpeg" alt="Anuj and Drashti — Kedarnath" loading="lazy" decoding="async" /><figcaption>Kedarnath</figcaption></figure>
+          <div class="gallery-set gallery-set-four" role="group" aria-label="Memories 6 to 9">
+          <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Snacking.jpeg" alt="Anuj and Drashti — Snacking" loading="lazy" decoding="async" /><figcaption>Snacking</figcaption></figure>
+          <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Snacking 2.jpeg" alt="Anuj and Drashti — Snacking" loading="lazy" decoding="async" /><figcaption>Snacking</figcaption></figure>
+          <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Manali Trip 1.jpeg" alt="Anuj and Drashti — Manali Trip" loading="lazy" decoding="async" /><figcaption>Manali Trip</figcaption></figure>
+          <figure class="gallery-photo is-portrait reveal" style="--focus-y: 14%;"><img src="/static/wedding/memories/Manali Trip 2.jpeg" alt="Anuj and Drashti — Manali Trip" loading="lazy" decoding="async" /><figcaption>Manali Trip</figcaption></figure>
           </div>
-          <div class="gallery-set" role="group" aria-label="Memories 16 to 20">
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Snacking 2.jpeg" alt="Anuj and Drashti — Snacking" loading="lazy" decoding="async" /><figcaption>Snacking</figcaption></figure>
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Long Distance 1.jpeg" alt="Anuj and Drashti — Long Distance" loading="lazy" decoding="async" /><figcaption>Long Distance</figcaption></figure>
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Snacking.jpeg" alt="Anuj and Drashti — Snacking" loading="lazy" decoding="async" /><figcaption>Snacking</figcaption></figure>
-            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/Safari Time 2.jpeg" alt="Anuj and Drashti — Safari Time" loading="lazy" decoding="async" /><figcaption>Safari Time</figcaption></figure>
-            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/Safari Time 1.jpeg" alt="Anuj and Drashti — Safari Time" loading="lazy" decoding="async" /><figcaption>Safari Time</figcaption></figure>
+          <div class="gallery-set gallery-set-four" role="group" aria-label="Memories 10 to 13">
+          <figure class="gallery-photo is-portrait reveal" style="--focus-y: 14%;"><img src="/static/wedding/memories/Manali Trip 3.jpeg" alt="Anuj and Drashti — Manali Trip" loading="lazy" decoding="async" /><figcaption>Manali Trip</figcaption></figure>
+          <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Manali Trip 4.jpeg" alt="Anuj and Drashti — Manali Trip" loading="lazy" decoding="async" /><figcaption>Manali Trip</figcaption></figure>
+          <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/Match Day.jpeg" alt="Anuj and Drashti — Match Day" loading="lazy" decoding="async" /><figcaption>Match Day</figcaption></figure>
+          <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Long Distance 1.jpeg" alt="Anuj and Drashti — Long Distance" loading="lazy" decoding="async" /><figcaption>Long Distance</figcaption></figure>
           </div>
-          <div class="gallery-set" role="group" aria-label="Memories 21 to 25">
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Navratri Days - 2.jpeg" alt="Anuj and Drashti — Navratri Days" loading="lazy" decoding="async" /><figcaption>Navratri Days</figcaption></figure>
-            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/Match Day.jpeg" alt="Anuj and Drashti — Match Day" loading="lazy" decoding="async" /><figcaption>Match Day</figcaption></figure>
-            <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Manali Trip 2.jpeg" alt="Anuj and Drashti — Manali Trip" loading="lazy" decoding="async" /><figcaption>Manali Trip</figcaption></figure>
-            <figure class="gallery-photo is-portrait reveal" style="--focus-y: 40%;"><img src="/static/wedding/memories/Long Distance 2.jpeg" alt="Anuj and Drashti — Long Distance" loading="lazy" decoding="async" /><figcaption>Long Distance</figcaption></figure>
-            <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/Beach Days.jpeg" alt="Anuj and Drashti — Beach Days" loading="lazy" decoding="async" /><figcaption>Beach Days</figcaption></figure>
+          <div class="gallery-set gallery-set-four" role="group" aria-label="Memories 14 to 17">
+          <figure class="gallery-photo is-portrait photo-tight-crop reveal" style="--focus-y: 36%;"><img src="/static/wedding/memories/Long Distance 2.jpeg" alt="Anuj and Drashti — Long Distance" loading="lazy" decoding="async" /><figcaption>Long Distance</figcaption></figure>
+          <figure class="gallery-photo is-square reveal"><img src="/static/wedding/memories/Kedarnath.jpeg" alt="Anuj and Drashti — Kedarnath" loading="lazy" decoding="async" /><figcaption>Kedarnath</figcaption></figure>
+          <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/Bike Ride 1.jpeg" alt="Anuj and Drashti — Bike Ride" loading="lazy" decoding="async" /><figcaption>Bike Ride</figcaption></figure>
+          <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/Bike Ride 2.jpeg" alt="Anuj and Drashti — Bike Ride" loading="lazy" decoding="async" /><figcaption>Bike Ride</figcaption></figure>
+          </div>
+          <div class="gallery-set gallery-set-four" role="group" aria-label="Memories 18 to 21">
+          <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Leh Trip 1.jpeg" alt="Anuj and Drashti — Leh Trip" loading="lazy" decoding="async" /><figcaption>Leh Trip</figcaption></figure>
+          <figure class="gallery-photo is-portrait reveal"><img src="/static/wedding/memories/Leh Trip 2.jpeg" alt="Anuj and Drashti — Leh Trip" loading="lazy" decoding="async" /><figcaption>Leh Trip</figcaption></figure>
+          <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/Safari Time 1.jpeg" alt="Anuj and Drashti — Safari Time" loading="lazy" decoding="async" /><figcaption>Safari Time</figcaption></figure>
+          <figure class="gallery-photo is-landscape reveal"><img src="/static/wedding/memories/Safari Time 2.jpeg" alt="Anuj and Drashti — Safari Time" loading="lazy" decoding="async" /><figcaption>Safari Time</figcaption></figure>
           </div>
         </div>
       </section>
@@ -1367,7 +1519,7 @@
 
     </main>
 
-    <footer><p>Awaiting your joyous presence</p><div class="footer-names">Anuj &amp; Drashti</div><p>18 · 12 · 2026 — Mumbai</p></footer>
+    <footer><p>Awaiting your joyous presence</p><div class="footer-names">Dedhia <span class="simple-amp">&amp;</span> Gala</div><p class="footer-family">Family</p><p>18 · 12 · 2026 — Mumbai</p></footer>
 
     <script>
       const gate = document.getElementById('invitation-gate');
@@ -1375,10 +1527,15 @@
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const hero = document.querySelector('.hero');
       const activeDesign = Number(document.body.dataset.design || 0);
-      document.querySelectorAll('[data-design-link]').forEach((link) => {
-        if (Number(link.dataset.designLink) === activeDesign) link.setAttribute('aria-current', 'page');
+      const activeGanesha = document.body.dataset.ganesha || 'minimal';
+      const activeVariant = `${activeDesign}-${activeGanesha}`;
+      gate.dataset.loader = 'thread';
+      document.querySelectorAll('[data-variant-link]').forEach((link) => {
+        if (link.dataset.variantLink === activeVariant) link.setAttribute('aria-current', 'page');
       });
-      if (activeDesign === 4) document.title = 'Cocoa Ivory · Anuj & Drashti';
+      const designTitle = activeDesign === 4 ? 'Cocoa Ivory' : 'Original';
+      const ganeshaTitle = activeGanesha === 'dagdusheth' ? 'Dagdusheth Ganpati' : 'Minimal Ganpati';
+      document.title = `${designTitle} · ${ganeshaTitle} · Anuj & Drashti`;
 
       if (hero && !reducedMotion) {
         let heroFrame = 0;
@@ -1406,7 +1563,7 @@
         gate.classList.add('opening');
 
         const cardPopDuration = reducedMotion ? 60 : 1500;
-        const cardHoldDuration = 5000;
+        const cardHoldDuration = 3000;
         const gateFadeDuration = reducedMotion ? 60 : 860;
 
         window.setTimeout(() => {
