@@ -598,7 +598,7 @@
         transition: transform 1.6s cubic-bezier(.2,.75,.2,1);
       }
       .blessing-ganesha { --blessing-image: url("{{ url_for('static', filename='wedding/blessing-ganesha-minimal.png') }}"); }
-      .blessing-mahavir { --blessing-image: url("{{ url_for('static', filename='wedding/blessing-mahavir-minimal.png') }}"); }
+      .blessing-mahavir { --blessing-image: url("{{ url_for('static', filename='wedding/blessing-mahavir-ornate.png') }}"); }
       .blessing-panel::before {
         content: "";
         position: absolute;
@@ -620,6 +620,7 @@
         object-position: center top;
         pointer-events: none;
       }
+      .blessing-mahavir .blessing-image { top: 14%; height: 112%; }
       .blessing-panel::after {
         content: "";
         position: absolute;
@@ -1187,7 +1188,7 @@
         </div>
       </article>
       <article class="blessing-panel blessing-mahavir" aria-label="Bhagwan Mahavir Swami blessing">
-        <img class="blessing-image" src="{{ url_for('static', filename='wedding/blessing-mahavir-minimal.png') }}" alt="" aria-hidden="true" />
+        <img class="blessing-image" src="{{ url_for('static', filename='wedding/blessing-mahavir-ornate.png') }}" alt="" aria-hidden="true" />
         <div class="blessing-panel-content">
           <h2 class="blessing-devanagari">॥ श्री महावीर स्वामी नमः ॥</h2>
           <p class="blessing-translit">Shri Mahavir Swami Namah</p>
